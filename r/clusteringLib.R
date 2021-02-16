@@ -1507,19 +1507,30 @@ testFunctionOnClustering_givenFunction = function(testGraph, clusteringFuncList)
 #'                             the list of cliques represented as the vertex indices in the clique
 #'                             if it is integer vector, the whole vector is seen as one clique
 #' 
+#' @param forceSparse boolean. Determine if sparse matrix should be used in computation
+#'                    if FALSE, will fall back to default setting (igraph_opt("sparsematrices"))
+#'                    default: FALSE
+#' 
 #' @return numeric vector representing the mean disparity for each clique
 #' 
 #' @references M. A. Balci, O. Akguller, S. C. Guzel. 
 #'             Hierarchies in communities of UK stock market from the perspective of Brexit
 #'             doi: 10.1080/02664763.2020.1796942
 #' 
-mean_clique_disparity = function(distG, listOfCliqueVertices){
-    adjMatrix = as_adjacency_matrix(distG, attr = 'weight', sparse = FALSE)
+mean_clique_disparity = function(distG, listOfCliqueVertices, forceSparse = FALSE){
+    adjMatrix = as_adjacency_matrix(distG, 
+                                    attr = 'weight', 
+                                    sparse = forceSparse || igraph_opt("sparsematrices"))
     if (is.atomic(listOfCliqueVertices)){
         listOfCliqueVertices = list(listOfCliqueVertices)
     }
     yi = lapply(listOfCliqueVertices, 
-                function(cliq)rowSums(adjMatrix[cliq, cliq]^2) / rowSums(adjMatrix[cliq, cliq])^2)
+                function(cliq){
+                    cliqDistMatrix = adjMatrix[cliq, cliq]
+                    cliqDistMatrix[cliqDistMatrix == 0] = Inf # in case not clique
+                    diag(cliqDistMatrix) = 0
+                    return(Matrix::rowSums(cliqDistMatrix^2) / Matrix::rowSums(cliqDistMatrix)^2)
+                })
     return(sapply(yi, mean))
 }
 
@@ -1527,6 +1538,7 @@ mean_clique_disparity = function(distG, listOfCliqueVertices){
 #' @description compute the 4-clique intra-connectedness of clusters
 #' 
 #' @param g igraph graph object. the graph to check on
+#'          assumed the weight edge attr means distance
 #' 
 #' @param clusterMemberVect integer vector, or igraph communities object
 #'                          the clustering to look at
@@ -1548,13 +1560,12 @@ fourCliqueRatio = function(g, clusterMemberVect = rep(1, vcount(g))){
         clusterMemberVect = clusterMemberVect$membership
     }
     commList = commListFromMembership(clusterMemberVect)
-    n = length(commList)
     commSubgraphs = lapply(commList, function(comm)induced_subgraph(g, comm))
     vectFourCliqueCount = sapply(commSubgraphs, function(subG)length(cliques(subG, 4, 4)))
-    vectNs = sapply(commSubgraphs, vcount) - 3
+    vectNs = sapply(commList, length)
     return(list(c4 = vectFourCliqueCount, 
                 ns = vectNs, 
-                ratio = vectFourCliqueCount / vectNs))
+                ratio = vectFourCliqueCount / (vectNs - 3)))
 }
 
 #' 

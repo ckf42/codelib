@@ -8,8 +8,6 @@
 if (!require(igraph)){
     stop('these functions requires igraph')
 }
-# TODO source this only when needed
-source("DMPLib.r", echo = FALSE)
 
 #' 
 #' @description constructing the Planar Maximally Filtered Graph (PMFG)

@@ -205,8 +205,8 @@ adjusted_Rand_index = function(clustering1, clustering2){
     nij = outer(seq_along(clustering1), 
                 seq_along(clustering2), 
                 Vectorize(function(idx1, idx2)
-                              length(intersect(clustering1[[idx1]], 
-                                               clustering2[[idx2]]))))
+                    length(intersect(clustering1[[idx1]], 
+                                     clustering2[[idx2]]))))
     denom = (sumAi + sumBi) / 2 - (sumAi * sumBi) / nC2
     if (denom == 0){
         return(1)
@@ -251,7 +251,7 @@ clustering_NMI_similarity = function(clustering1, clustering2, useMax = FALSE){
                                      clustering2[[idx2]]))))
     nProd = outer(n1, n2)
     return(sum(ifelse(nij == 0, 0, nij * log2(n * nij / nProd))) / 
-           (if(useMax) max else mean)(c(sum(n1 * log2(n / n1)), sum(n2 * log2(n / n2)))))
+               (if(useMax) max else mean)(c(sum(n1 * log2(n / n1)), sum(n2 * log2(n / n2)))))
 }
 
 #' 
@@ -962,7 +962,7 @@ modNOVER_score = function(g){
                       uniMask = adjMatrix[u, ] | adjMatrix[v, ]
                       uniMask[c(u, v)] = FALSE
                       return(sum(deg[adjMatrix[u, ] & adjMatrix[v, ]]) / sum(deg[uniMask]))
-                      }))
+                  }))
 }
 
 modNOVER_Louvain = function(g){
@@ -1039,7 +1039,7 @@ edge_nbhd_score = function(g, measure = 'hoffman', edgeList = E(g)){
                       # default: 1
                       unweighted =,
                       1))
-        })
+    })
     if (measure == 'novel'){ # extra computation
         edgeWeights = edgeWeights / edge.betweenness(g, edgeList)
     } else if (measure == 'invnovel'){
@@ -1076,47 +1076,52 @@ custom_weight_Louvain = function(g, measure, linearNormalize = TRUE){
     return(make_clusters(g, thisMembership, modularity = thisQ))
 }
 
-# instantiation of custom_weight_Louvain on edge measures starts here
-custom_weight_Louvain_hoffman = function(g){
-    return(custom_weight_Louvain(g, 'hoffman'))
-}
+custom_weight_Louvain_measures = list(
+    
+    # instantiation of custom_weight_Louvain on edge measures starts here
+    custom_weight_Louvain_hoffman = function(g){
+        return(custom_weight_Louvain(g, 'hoffman'))
+    }, 
+    
+    custom_weight_Louvain_maxwell = function(g){
+        return(custom_weight_Louvain(g, 'maxwell'))
+    }, 
+    
+    custom_weight_Louvain_phi = function(g){
+        return(custom_weight_Louvain(g, 'phi'))
+    }, 
+    
+    custom_weight_Louvain_rand = function(g){
+        return(custom_weight_Louvain(g, 'rand'))
+    }, 
+    
+    custom_weight_Louvain_kulcyznski = function(g){
+        return(custom_weight_Louvain(g, 'kulcyznski'))
+    }, 
+    
+    custom_weight_Louvain_preferential = function(g){
+        return(custom_weight_Louvain(g, 'preferential'))
+    }, 
+    
+    custom_weight_Louvain_jaccard = function(g){
+        return(custom_weight_Louvain(g, 'jaccard'))
+    }, 
+    
+    custom_weight_Louvain_nover = function(g){
+        return(custom_weight_Louvain(g, 'nover'))
+    }, 
+    
+    custom_weight_Louvain_novel = function(g){
+        return(custom_weight_Louvain(g, 'novel'))
+    }, 
+    
+    custom_weight_Louvain_invnovel = function(g){
+        return(custom_weight_Louvain(g, 'invnovel'))
+    }
+    # instantiation of custom_weight_Louvain on edge measures ends here
+    
+)
 
-custom_weight_Louvain_maxwell = function(g){
-    return(custom_weight_Louvain(g, 'maxwell'))
-}
-
-custom_weight_Louvain_phi = function(g){
-    return(custom_weight_Louvain(g, 'phi'))
-}
-
-custom_weight_Louvain_rand = function(g){
-    return(custom_weight_Louvain(g, 'rand'))
-}
-
-custom_weight_Louvain_kulcyznski = function(g){
-    return(custom_weight_Louvain(g, 'kulcyznski'))
-}
-
-custom_weight_Louvain_preferential = function(g){
-    return(custom_weight_Louvain(g, 'preferential'))
-}
-
-custom_weight_Louvain_jaccard = function(g){
-    return(custom_weight_Louvain(g, 'jaccard'))
-}
-
-custom_weight_Louvain_nover = function(g){
-    return(custom_weight_Louvain(g, 'nover'))
-}
-
-custom_weight_Louvain_novel = function(g){
-    return(custom_weight_Louvain(g, 'novel'))
-}
-
-custom_weight_Louvain_invnovel = function(g){
-    return(custom_weight_Louvain(g, 'invnovel'))
-}
-# instantiation of custom_weight_Louvain on edge measures ends here
 
 # all possible configs, better way than hard-coded?
 ST_clustering_optionalPara_all = list(list(precomputeOrder = FALSE, useMaxSpanTree = TRUE, oneEdgeAtATime = TRUE), 
@@ -1225,277 +1230,281 @@ ST_clustering = function(g, edgeMeasure = NULL, precomputeOrder = FALSE, useMaxS
     return(make_clusters(g, maxMembership, modularity = maxQ))
 }
 
-# instantiation of ST_clustering on edge measures starts here
-ST_clustering_hoffman = function(g){
-    return(ST_clustering(g, 'hoffman', FALSE, TRUE, TRUE))
-}
-
-ST_clustering_maxwell = function(g){
-    return(ST_clustering(g, 'maxwell', FALSE, TRUE, TRUE))
-}
-
-ST_clustering_phi = function(g){
-    return(ST_clustering(g, 'phi', FALSE, TRUE, TRUE))
-}
-
-ST_clustering_rand = function(g){
-    return(ST_clustering(g, 'rand', FALSE, TRUE, TRUE))
-}
-
-ST_clustering_kulcyznski = function(g){
-    return(ST_clustering(g, 'kulcyznski', FALSE, TRUE, TRUE))
-}
-
-ST_clustering_preferential = function(g){
-    return(ST_clustering(g, 'preferential', TRUE, TRUE, NA))
-}
-
-ST_clustering_jaccard = function(g){
-    return(ST_clustering(g, 'jaccard', FALSE, TRUE, TRUE))
-}
-
-ST_clustering_nover = function(g){
-    return(ST_clustering(g, 'nover', FALSE, TRUE, TRUE))
-}
-
-ST_clustering_novel = function(g){
-    return(ST_clustering(g, 'novel', FALSE, TRUE, TRUE))
-}
-
-ST_clustering_invnovel = function(g){
-    return(ST_clustering(g, 'invnovel', TRUE, TRUE, NA))
-}
-
-ST_clustering_unweighted = function(g){
-    return(ST_clustering(g, 'unweighted', FALSE, TRUE, TRUE))
-}
-
-# instantiation of ST_clustering on edge measures ends here
-
-#' 
-#' @description a function to test clustering algorithms
-#' 
-#' @param testGraph igraph graph object. the graph to test clustering on
-#' 
-#' @param configForST a named list, or NULL. the parameters to pass to ST_clustering
-#'                    should be one of ST_clustering_optionalPara_all
-#'                    if some optional parameter in ST_clustering is missing, 
-#'                        the default config (precomputeOrder = F, useMaxSpanTree = T, oneEdgeAtATime = T) is used
-#'                        this default config is the same as in the paper by Kulkarni et al.
-#'                    if NULL, same as all three parameters are missing
-#'                    default: NULL
-#' 
-#' @param attachPara boolean. determine of the parameters used should be attached to the test names
-#' 
-#' @return a list containing 
-#'             res, a list of igraph communities objects where each is an output of an algorithm
-#'             modularity, a numeric vector recording the outputed modularity of each algorithm
-#'             clusterCount, a integer vector containing the number of clusters each algorithm finds
-#'             ARI, a numeric matrix representing the adjusted Rand index between clusterings
-#'             NMI, a numeric matrix representing the normalized mutual infromation similarity between clusterings
-#' 
-#' @note this function loops through all edge measures with the same config
-#' 
-#' @details this function compares algorithms using different edge measures
-#'          it will test the following algorithms on testGraph: 
-#'              - unweighted_Louvain: classical Louvain, unweighted
-#'              - louvain_*: custom_weight_Louvain, classical Louvain but with given edge measure as weight
-#'              - louvain_\*_F: same as louvain_\*, but with linearNormalize = FALSE (default: TRUE)
-#'              - ST_\*: ST_clustering with different edge measures
-#'                       (the parameters needed for ST_clustering is given in configForST)
-#'          after clustering, it will compute some simple statistics based on the results:
-#'              - ARI: pairwise clustering result similarity by adjusted Rand index
-#'              - NMI: same as ARI but with normalized mutual information
-#'              - modularity: the output modularities found by each algorithm
-#'              - clusterCount: the numbers of the clusters found by each algorithm
-#'              - res: all output clusterings
-#'          also, it will plot the modularities as a bar chart
-#' 
-testFunctionOnClustering_differentMeasure = function(testGraph, configForST = NULL, attachPara = FALSE){
-    if (is.null(configForST)){
-        configForST = list()
+ST_clustering_measures = list(
+    # instantiation of ST_clustering on edge measures starts here
+    ST_clustering_hoffman = function(g){
+        return(ST_clustering(g, 'hoffman', FALSE, TRUE, TRUE))
+    }, 
+    
+    ST_clustering_maxwell = function(g){
+        return(ST_clustering(g, 'maxwell', FALSE, TRUE, TRUE))
+    }, 
+    
+    ST_clustering_phi = function(g){
+        return(ST_clustering(g, 'phi', FALSE, TRUE, TRUE))
+    }, 
+    
+    ST_clustering_rand = function(g){
+        return(ST_clustering(g, 'rand', FALSE, TRUE, TRUE))
+    }, 
+    
+    ST_clustering_kulcyznski = function(g){
+        return(ST_clustering(g, 'kulcyznski', FALSE, TRUE, TRUE))
+    }, 
+    
+    ST_clustering_preferential = function(g){
+        return(ST_clustering(g, 'preferential', TRUE, TRUE, NA))
+    }, 
+    
+    ST_clustering_jaccard = function(g){
+        return(ST_clustering(g, 'jaccard', FALSE, TRUE, TRUE))
+    }, 
+    
+    ST_clustering_nover = function(g){
+        return(ST_clustering(g, 'nover', FALSE, TRUE, TRUE))
+    }, 
+    
+    ST_clustering_novel = function(g){
+        return(ST_clustering(g, 'novel', FALSE, TRUE, TRUE))
+    }, 
+    
+    ST_clustering_invnovel = function(g){
+        return(ST_clustering(g, 'invnovel', TRUE, TRUE, NA))
+    }, 
+    
+    ST_clustering_unweighted = function(g){
+        return(ST_clustering(g, 'unweighted', FALSE, TRUE, TRUE))
     }
-    ST_optionalPara_name = c('precomputeOrder', 'useMaxSpanTree', 'oneEdgeAtATime')
-    ST_optionalPara_val = c(FALSE, TRUE, TRUE)
-    configForST[ST_optionalPara_name] = ifelse(sapply(configForST[ST_optionalPara_name], 
-                                                      is.null), 
-                                               ST_optionalPara_val, 
-                                               configForST[ST_optionalPara_name])
-    resCommObj = list(unweighted_Louvain = cluster_louvain(testGraph, NA))
-    resCommObj[paste('louvain', 
-                     edge_nbhd_score_measure_list, 
-                     sep = '_')] = lapply(edge_nbhd_score_measure_list, 
-                                          function(measureName)custom_weight_Louvain(testGraph, measureName))
-    resCommObj[paste('louvain', 
-                     edge_nbhd_score_measure_list, 
-                     'F',
-                     sep = '_')] = lapply(edge_nbhd_score_measure_list, 
-                                          function(measureName)custom_weight_Louvain(testGraph, measureName, F))
-    configName = ''
-    if (attachPara){
-        configName = paste(names(configForST), configForST, collapse = '_', sep = '=')
-    }
-    resCommObj[paste('ST',
-                     edge_nbhd_score_measure_list,
-                     configName,
-                     sep = '_')] = lapply(edge_nbhd_score_measure_list,
-                                          function(measureName)do.call(ST_clustering,
-                                                                       c(list(g = testGraph,
-                                                                              edgeMeasure = measureName),
-                                                                         configForST)))
-    n = length(resCommObj)
-    ARIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
-    NMIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
-    idxToCompute = combn(n, 2)
-    for (idx in seq_len(ncol(idxToCompute))){
-        ARIMatrix[idxToCompute[1, idx], 
-                  idxToCompute[2, idx]] = adjusted_Rand_index(resCommObj[[idxToCompute[1, idx]]], 
-                                                              resCommObj[[idxToCompute[2, idx]]])
-        NMIMatrix[idxToCompute[1, idx], 
-                  idxToCompute[2, idx]] = clustering_NMI_similarity(resCommObj[[idxToCompute[1, idx]]], 
-                                                                    resCommObj[[idxToCompute[2, idx]]])
-    }
-    ARIMatrix = ARIMatrix + t(ARIMatrix)
-    NMIMatrix = NMIMatrix + t(NMIMatrix)
-    diag(ARIMatrix) = 1
-    diag(NMIMatrix) = 1
-    modu = sapply(resCommObj, function(comm)max(comm$modularity))
-    origParMai = par("mai")
-    par(mai = c(1, 2, 1, 1))
-    barplot(modu, horiz = TRUE, las = 1)
-    par(mai = origParMai)
-    return(list(res = resCommObj, 
-                modularity = modu, 
-                clusterCount = sapply(resCommObj, function(comm)max(comm$membership)), 
-                ARI = ARIMatrix, 
-                NMI = NMIMatrix))
-}
+    # instantiation of ST_clustering on edge measures ends here
+)
 
-#' 
-#' @description a function to test clustering algorithms
-#' 
-#' @param testGraph igraph graph object. the graph to test clustering on
-#' 
-#' @param measureName character string. the name of the edge measure used
-#'                    should be one of edge_nbhd_score_measure_list
-#' 
-#' @return a list containing 
-#'             res, a list of igraph communities objects where each is an output of an algorithm
-#'             modularity, a numeric vector recording the outputed modularity of each algorithm
-#'             clusterCount, a integer vector containing the number of clusters each algorithm finds
-#'             ARI, a numeric matrix representing the adjusted Rand index between clusterings
-#'             NMI, a numeric matrix representing the normalized mutual infromation similarity between clusterings
-#' 
-#' @note this function loops through all configuations for ST_clustering with the same edge measure
-#' 
-#' @details this function compares different config for ST_clustering with given edge measure
-#'          it will test all configs in ST_clustering_optionalPara_all on testGraph
-#'          like testFunctionOnClustering_differentMeasure, it will compute the same set of statistics
-#'          it will not plot the bar chart
-#' 
-testFunctionOnClustering_differentSTConfig = function(testGraph, measureName){
-    if (is.directed(testGraph)){
-        testGraph = as.undirected(testGraph)
-    }
-    resCommObj = list(unweighted_Louvain = cluster_louvain(testGraph, NA))
-    resCommObj[[paste(measureName, T, sep = '_')]] = custom_weight_Louvain(testGraph, measureName, TRUE)
-    resCommObj[[paste(measureName, F, sep = '_')]] = custom_weight_Louvain(testGraph, measureName, FALSE)
-    resCommObj[paste(measureName, 
-                     sapply(ST_clustering_optionalPara_all, 
-                            function(configs)paste(configs, 
-                                                   collapse = '_')), 
-                     sep = '_')] = lapply(ST_clustering_optionalPara_all, 
-                                          function(configs)do.call(ST_clustering, 
-                                                                   c(list(g = testGraph, edgeMeasure = measureName), 
-                                                                     configs)))
-    n = length(resCommObj)
-    ARIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
-    NMIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
-    idxToCompute = combn(n, 2)
-    for (idx in seq_len(ncol(idxToCompute))){
-        ARIMatrix[idxToCompute[1, idx], 
-                  idxToCompute[2, idx]] = adjusted_Rand_index(resCommObj[[idxToCompute[1, idx]]], 
-                                                              resCommObj[[idxToCompute[2, idx]]])
-        NMIMatrix[idxToCompute[1, idx], 
-                  idxToCompute[2, idx]] = clustering_NMI_similarity(resCommObj[[idxToCompute[1, idx]]], 
-                                                                    resCommObj[[idxToCompute[2, idx]]])
-    }
-    ARIMatrix = ARIMatrix + t(ARIMatrix)
-    NMIMatrix = NMIMatrix + t(NMIMatrix)
-    diag(ARIMatrix) = 1
-    diag(NMIMatrix) = 1
-    return(list(res = resCommObj, 
-                modularity = sapply(resCommObj, function(comm)max(comm$modularity)), 
-                clusterCount = sapply(resCommObj, function(comm)max(comm$membership)), 
-                ARI = ARIMatrix, 
-                NMI = NMIMatrix))
-}
-
-#' 
-#' @description a function to test clustering algorithms
-#' 
-#' @param testGraph igraph graph object. the graph to test clustering on
-#' 
-#' @param clusteringFuncList a list of functions. the algorithm to be tested
-#'                           each function should take only one argument, the input graph
-#'                           since this parameter is parsed to generated names, 
-#'                               all function passing in should be wrapped as a single variable function, 
-#'                               if it requires more parameters
-#' 
-#' @return a list containing 
-#'             res, a list of igraph communities objects where each is an output of an algorithm
-#'             modularity, a numeric vector recording the outputed modularity of each algorithm
-#'             clusterCount, a integer vector containing the number of clusters each algorithm finds
-#'             ARI, a numeric matrix representing the adjusted Rand index between clusterings
-#'             NMI, a numeric matrix representing the normalized mutual infromation similarity between clusterings
-#' 
-#' @note this function loops through all functions in clusteringFuncList
-#' 
-#' @details this function compares the results of different algorithms
-#'          it will test all functions in clusteringFuncList on testGraph
-#'          like testFunctionOnClustering_differentMeasure, it will compute the same set of statistics
-#'          it will not plot the bar chart
-#' 
-testFunctionOnClustering_givenFunction = function(testGraph, clusteringFuncList){
-    if (is.directed(testGraph)){
-        testGraph = as.undirected(testGraph)
-    }
-    resCommObj = list()
-    n = length(clusteringFuncList)
-    for (i in seq_len(n)){
-        resCommObj[[as.character(substitute(clusteringFuncList)[i + 1])]] = clusteringFuncList[[i]](testGraph)
-    }
-    if (n == 1){
+testFunctions = list(
+    #' 
+    #' @description a function to test clustering algorithms
+    #' 
+    #' @param testGraph igraph graph object. the graph to test clustering on
+    #' 
+    #' @param configForST a named list, or NULL. the parameters to pass to ST_clustering
+    #'                    should be one of ST_clustering_optionalPara_all
+    #'                    if some optional parameter in ST_clustering is missing, 
+    #'                        the default config (precomputeOrder = F, useMaxSpanTree = T, oneEdgeAtATime = T) is used
+    #'                        this default config is the same as in the paper by Kulkarni et al.
+    #'                    if NULL, same as all three parameters are missing
+    #'                    default: NULL
+    #' 
+    #' @param attachPara boolean. determine of the parameters used should be attached to the test names
+    #' 
+    #' @return a list containing 
+    #'             res, a list of igraph communities objects where each is an output of an algorithm
+    #'             modularity, a numeric vector recording the outputed modularity of each algorithm
+    #'             clusterCount, a integer vector containing the number of clusters each algorithm finds
+    #'             ARI, a numeric matrix representing the adjusted Rand index between clusterings
+    #'             NMI, a numeric matrix representing the normalized mutual infromation similarity between clusterings
+    #' 
+    #' @note this function loops through all edge measures with the same config
+    #' 
+    #' @details this function compares algorithms using different edge measures
+    #'          it will test the following algorithms on testGraph: 
+    #'              - unweighted_Louvain: classical Louvain, unweighted
+    #'              - louvain_*: custom_weight_Louvain, classical Louvain but with given edge measure as weight
+    #'              - louvain_\*_F: same as louvain_\*, but with linearNormalize = FALSE (default: TRUE)
+    #'              - ST_\*: ST_clustering with different edge measures
+    #'                       (the parameters needed for ST_clustering is given in configForST)
+    #'          after clustering, it will compute some simple statistics based on the results:
+    #'              - ARI: pairwise clustering result similarity by adjusted Rand index
+    #'              - NMI: same as ARI but with normalized mutual information
+    #'              - modularity: the output modularities found by each algorithm
+    #'              - clusterCount: the numbers of the clusters found by each algorithm
+    #'              - res: all output clusterings
+    #'          also, it will plot the modularities as a bar chart
+    #' 
+    testFunctionOnClustering_differentMeasure = function(testGraph, configForST = NULL, attachPara = FALSE){
+        if (is.null(configForST)){
+            configForST = list()
+        }
+        ST_optionalPara_name = c('precomputeOrder', 'useMaxSpanTree', 'oneEdgeAtATime')
+        ST_optionalPara_val = c(FALSE, TRUE, TRUE)
+        configForST[ST_optionalPara_name] = ifelse(sapply(configForST[ST_optionalPara_name], 
+                                                          is.null), 
+                                                   ST_optionalPara_val, 
+                                                   configForST[ST_optionalPara_name])
+        resCommObj = list(unweighted_Louvain = cluster_louvain(testGraph, NA))
+        resCommObj[paste('louvain', 
+                         edge_nbhd_score_measure_list, 
+                         sep = '_')] = lapply(edge_nbhd_score_measure_list, 
+                                              function(measureName)custom_weight_Louvain(testGraph, measureName))
+        resCommObj[paste('louvain', 
+                         edge_nbhd_score_measure_list, 
+                         'F',
+                         sep = '_')] = lapply(edge_nbhd_score_measure_list, 
+                                              function(measureName)custom_weight_Louvain(testGraph, measureName, F))
+        configName = ''
+        if (attachPara){
+            configName = paste(names(configForST), configForST, collapse = '_', sep = '=')
+        }
+        resCommObj[paste('ST',
+                         edge_nbhd_score_measure_list,
+                         configName,
+                         sep = '_')] = lapply(edge_nbhd_score_measure_list,
+                                              function(measureName)do.call(ST_clustering,
+                                                                           c(list(g = testGraph,
+                                                                                  edgeMeasure = measureName),
+                                                                             configForST)))
+        n = length(resCommObj)
+        ARIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
+        NMIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
+        idxToCompute = combn(n, 2)
+        for (idx in seq_len(ncol(idxToCompute))){
+            ARIMatrix[idxToCompute[1, idx], 
+                      idxToCompute[2, idx]] = adjusted_Rand_index(resCommObj[[idxToCompute[1, idx]]], 
+                                                                  resCommObj[[idxToCompute[2, idx]]])
+            NMIMatrix[idxToCompute[1, idx], 
+                      idxToCompute[2, idx]] = clustering_NMI_similarity(resCommObj[[idxToCompute[1, idx]]], 
+                                                                        resCommObj[[idxToCompute[2, idx]]])
+        }
+        ARIMatrix = ARIMatrix + t(ARIMatrix)
+        NMIMatrix = NMIMatrix + t(NMIMatrix)
+        diag(ARIMatrix) = 1
+        diag(NMIMatrix) = 1
+        modu = sapply(resCommObj, function(comm)max(comm$modularity))
+        origParMai = par("mai")
+        par(mai = c(1, 2, 1, 1))
+        barplot(modu, horiz = TRUE, las = 1)
+        par(mai = origParMai)
         return(list(res = resCommObj, 
-                    modularity = max(resCommObj[[1]]$modularity), 
-                    clusterCount = max(resCommObj[[1]]$membership)))
+                    modularity = modu, 
+                    clusterCount = sapply(resCommObj, function(comm)max(comm$membership)), 
+                    ARI = ARIMatrix, 
+                    NMI = NMIMatrix))
+    }, 
+    
+    #' 
+    #' @description a function to test clustering algorithms
+    #' 
+    #' @param testGraph igraph graph object. the graph to test clustering on
+    #' 
+    #' @param measureName character string. the name of the edge measure used
+    #'                    should be one of edge_nbhd_score_measure_list
+    #' 
+    #' @return a list containing 
+    #'             res, a list of igraph communities objects where each is an output of an algorithm
+    #'             modularity, a numeric vector recording the outputed modularity of each algorithm
+    #'             clusterCount, a integer vector containing the number of clusters each algorithm finds
+    #'             ARI, a numeric matrix representing the adjusted Rand index between clusterings
+    #'             NMI, a numeric matrix representing the normalized mutual infromation similarity between clusterings
+    #' 
+    #' @note this function loops through all configuations for ST_clustering with the same edge measure
+    #' 
+    #' @details this function compares different config for ST_clustering with given edge measure
+    #'          it will test all configs in ST_clustering_optionalPara_all on testGraph
+    #'          like testFunctionOnClustering_differentMeasure, it will compute the same set of statistics
+    #'          it will not plot the bar chart
+    #' 
+    testFunctionOnClustering_differentSTConfig = function(testGraph, measureName){
+        if (is.directed(testGraph)){
+            testGraph = as.undirected(testGraph)
+        }
+        resCommObj = list(unweighted_Louvain = cluster_louvain(testGraph, NA))
+        resCommObj[[paste(measureName, T, sep = '_')]] = custom_weight_Louvain(testGraph, measureName, TRUE)
+        resCommObj[[paste(measureName, F, sep = '_')]] = custom_weight_Louvain(testGraph, measureName, FALSE)
+        resCommObj[paste(measureName, 
+                         sapply(ST_clustering_optionalPara_all, 
+                                function(configs)paste(configs, 
+                                                       collapse = '_')), 
+                         sep = '_')] = lapply(ST_clustering_optionalPara_all, 
+                                              function(configs)do.call(ST_clustering, 
+                                                                       c(list(g = testGraph, edgeMeasure = measureName), 
+                                                                         configs)))
+        n = length(resCommObj)
+        ARIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
+        NMIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
+        idxToCompute = combn(n, 2)
+        for (idx in seq_len(ncol(idxToCompute))){
+            ARIMatrix[idxToCompute[1, idx], 
+                      idxToCompute[2, idx]] = adjusted_Rand_index(resCommObj[[idxToCompute[1, idx]]], 
+                                                                  resCommObj[[idxToCompute[2, idx]]])
+            NMIMatrix[idxToCompute[1, idx], 
+                      idxToCompute[2, idx]] = clustering_NMI_similarity(resCommObj[[idxToCompute[1, idx]]], 
+                                                                        resCommObj[[idxToCompute[2, idx]]])
+        }
+        ARIMatrix = ARIMatrix + t(ARIMatrix)
+        NMIMatrix = NMIMatrix + t(NMIMatrix)
+        diag(ARIMatrix) = 1
+        diag(NMIMatrix) = 1
+        return(list(res = resCommObj, 
+                    modularity = sapply(resCommObj, function(comm)max(comm$modularity)), 
+                    clusterCount = sapply(resCommObj, function(comm)max(comm$membership)), 
+                    ARI = ARIMatrix, 
+                    NMI = NMIMatrix))
+    }, 
+    
+    #' 
+    #' @description a function to test clustering algorithms
+    #' 
+    #' @param testGraph igraph graph object. the graph to test clustering on
+    #' 
+    #' @param clusteringFuncList a list of functions. the algorithm to be tested
+    #'                           each function should take only one argument, the input graph
+    #'                           since this parameter is parsed to generated names, 
+    #'                               all function passing in should be wrapped as a single variable function, 
+    #'                               if it requires more parameters
+    #' 
+    #' @return a list containing 
+    #'             res, a list of igraph communities objects where each is an output of an algorithm
+    #'             modularity, a numeric vector recording the outputed modularity of each algorithm
+    #'             clusterCount, a integer vector containing the number of clusters each algorithm finds
+    #'             ARI, a numeric matrix representing the adjusted Rand index between clusterings
+    #'             NMI, a numeric matrix representing the normalized mutual infromation similarity between clusterings
+    #' 
+    #' @note this function loops through all functions in clusteringFuncList
+    #' 
+    #' @details this function compares the results of different algorithms
+    #'          it will test all functions in clusteringFuncList on testGraph
+    #'          like testFunctionOnClustering_differentMeasure, it will compute the same set of statistics
+    #'          it will not plot the bar chart
+    #' 
+    testFunctionOnClustering_givenFunction = function(testGraph, clusteringFuncList){
+        if (is.directed(testGraph)){
+            testGraph = as.undirected(testGraph)
+        }
+        resCommObj = list()
+        n = length(clusteringFuncList)
+        for (i in seq_len(n)){
+            resCommObj[[as.character(substitute(clusteringFuncList)[i + 1])]] = clusteringFuncList[[i]](testGraph)
+        }
+        if (n == 1){
+            return(list(res = resCommObj, 
+                        modularity = max(resCommObj[[1]]$modularity), 
+                        clusterCount = max(resCommObj[[1]]$membership)))
+        }
+        ARIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
+        NMIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
+        idxToCompute = combn(n, 2)
+        for (idx in seq_len(ncol(idxToCompute))){
+            ARIMatrix[idxToCompute[1, idx], 
+                      idxToCompute[2, idx]] = adjusted_Rand_index(resCommObj[[idxToCompute[1, idx]]], 
+                                                                  resCommObj[[idxToCompute[2, idx]]])
+            NMIMatrix[idxToCompute[1, idx], 
+                      idxToCompute[2, idx]] = clustering_NMI_similarity(resCommObj[[idxToCompute[1, idx]]], 
+                                                                        resCommObj[[idxToCompute[2, idx]]])
+        }
+        ARIMatrix = ARIMatrix + t(ARIMatrix)
+        NMIMatrix = NMIMatrix + t(NMIMatrix)
+        diag(ARIMatrix) = 1
+        diag(NMIMatrix) = 1
+        return(list(res = resCommObj, 
+                    modularity = sapply(resCommObj, function(comm)max(comm$modularity)), 
+                    modOrder = as.character(
+                        substitute(clusteringFuncList)[-1][order(
+                            sapply(resCommObj, 
+                                   function(comm)max(comm$modularity)), 
+                            decreasing = T)]), 
+                    clusterCount = sapply(resCommObj, function(comm)max(comm$membership)), 
+                    ARI = ARIMatrix, 
+                    NMI = NMIMatrix))
     }
-    ARIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
-    NMIMatrix = matrix(0, n, n, dimnames = list(names(resCommObj), names(resCommObj)))
-    idxToCompute = combn(n, 2)
-    for (idx in seq_len(ncol(idxToCompute))){
-        ARIMatrix[idxToCompute[1, idx], 
-                  idxToCompute[2, idx]] = adjusted_Rand_index(resCommObj[[idxToCompute[1, idx]]], 
-                                                              resCommObj[[idxToCompute[2, idx]]])
-        NMIMatrix[idxToCompute[1, idx], 
-                  idxToCompute[2, idx]] = clustering_NMI_similarity(resCommObj[[idxToCompute[1, idx]]], 
-                                                                    resCommObj[[idxToCompute[2, idx]]])
-    }
-    ARIMatrix = ARIMatrix + t(ARIMatrix)
-    NMIMatrix = NMIMatrix + t(NMIMatrix)
-    diag(ARIMatrix) = 1
-    diag(NMIMatrix) = 1
-    return(list(res = resCommObj, 
-                modularity = sapply(resCommObj, function(comm)max(comm$modularity)), 
-                modOrder = as.character(
-                    substitute(clusteringFuncList)[-1][order(
-                        sapply(resCommObj, 
-                               function(comm)max(comm$modularity)), 
-                        decreasing = T)]), 
-                clusterCount = sapply(resCommObj, function(comm)max(comm$membership)), 
-                ARI = ARIMatrix, 
-                NMI = NMIMatrix))
-}
+)
+
 
 #' 
 #' @description compute the mean clique disparity
@@ -1503,9 +1512,10 @@ testFunctionOnClustering_givenFunction = function(testGraph, clusteringFuncList)
 #' @param distG igraph graph object. the graph to compute on. 
 #'              assumed to have edge attribute "weight". higher weight should mean higher disparity
 #' 
-#' @param listOfCliqueVertices list of integer vector, or integer vector
+#' @param listOfCliqueVertices list of integer vectors or igraph vertex sequences, or integer vector
 #'                             the list of cliques represented as the vertex indices in the clique
 #'                             if it is integer vector, the whole vector is seen as one clique
+#'                             default: cliques(distG, 4, 4)
 #' 
 #' @param forceSparse boolean. Determine if sparse matrix should be used in computation
 #'                    if FALSE, will fall back to default setting (igraph_opt("sparsematrices"))
@@ -1517,12 +1527,15 @@ testFunctionOnClustering_givenFunction = function(testGraph, clusteringFuncList)
 #'             Hierarchies in communities of UK stock market from the perspective of Brexit
 #'             doi: 10.1080/02664763.2020.1796942
 #' 
-mean_clique_disparity = function(distG, listOfCliqueVertices, forceSparse = FALSE){
+mean_clique_disparity = function(distG, listOfCliqueVertices = cliques(distG, 4, 4), forceSparse = FALSE){
     adjMatrix = as_adjacency_matrix(distG, 
                                     attr = 'weight', 
                                     sparse = forceSparse || igraph_opt("sparsematrices"))
     if (is.atomic(listOfCliqueVertices)){
         listOfCliqueVertices = list(listOfCliqueVertices)
+    }
+    if (class(listOfCliqueVertices[[1]]) == 'igraph.vs'){
+        listOfCliqueVertices = lapply(listOfCliqueVertices, as.integer)
     }
     yi = lapply(listOfCliqueVertices, 
                 function(cliq){

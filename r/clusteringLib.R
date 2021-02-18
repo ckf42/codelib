@@ -159,6 +159,23 @@ commListFromMembership = function(membershipVector, namesOfIdx = NULL){
 }
 
 #' 
+#' @description transform list of communities to membership vector
+#' 
+#' @param commList list of integer vectors. 
+#'                 assumed a partition of 1:max(unlist(commList))
+#'                 (no overlapping, each integer appears exactly once)
+#' 
+#' @return a integer vector of length max(unlist(commList)) denoting the community index
+#' 
+membershipFromCommList = function(commList){
+    membershipVect = rep(NULL, max(sapply(commList, max)))
+    for (commIdx in seq_along(commList)){
+        membershipVect[commList[[commIdx]]] = commIdx
+    }
+    return(membershipVect)
+}
+
+#' 
 #' @description transform clustering items to list of clusters
 #' 
 #' @param clustering igraph::communities object, integer vector, or list of integer vectors
@@ -969,6 +986,58 @@ modNOVER_Louvain = function(g){
     thisMembership = cluster_louvain(g, modNOVER_score(g))$membership
     thisQ = modularity(g, thisMembership)
     return(make_clusters(g, thisMembership, modularity = thisQ))
+}
+
+#' 
+#' @description Find communities by recursively finding leading eigenvector
+#' 
+#' @param g igraph::graph object. The graph to cluster on
+#'          assumed undirected and simple
+#'          taken as unweighted
+#' 
+#' @return 
+#' 
+#' @references M. E. J. Newman. 
+#'             Modularity and community structure in networks
+#'             arxiv: physics/0602124
+#' 
+NewmanEigenClustering = function(g){
+    eps = .Machine$double.eps # tolerance to 0
+    vc = vcount(g)
+    m = ecount(g)
+    A = as_adjacency_matrix(g)
+    d = degree(g)
+    QMatrix = A - outer(d, d) / (2 * m)
+    NewmanEigenClustering_internal = function(subGIndices){
+        if (length(subGIndices) <= 1){
+            return(list(partition = list(subGIndices), 
+                        QCon = 0))
+        }
+        k = d[subGIndices]
+        dg = Matrix::rowSums(A[subGIndices, subGIndices])
+        eigenPair = eigen(QMatrix[subGIndices, subGIndices] - 
+                              Matrix::Diagonal(x = dg - k * sum(k) / (2 * m)), 
+                          symmetric = TRUE)
+        if (eigenPair$values[1] < eps){
+            return(list(partition = list(subGIndices), 
+                        QCon = 0))
+        }
+        s = ifelse(eigenPair$vectors[, 1] > eps , 1, -1)
+        QCon = sum(eigenPair$values * (t(eigenPair$vectors) %*% s)^2) / (4 * m)
+        if (QCon <= eps){
+            return(list(partition = list(subGIndices), 
+                        QCon = 0))
+        }
+        gp1Idx = which(s == 1)
+        gp1Part = NewmanEigenClustering_internal(subGIndices[gp1Idx])
+        gp2Part = NewmanEigenClustering_internal(subGIndices[-gp1Idx])
+        return(list(partition = c(gp1Part$partition, gp2Part$partition), 
+                    QCon = QCon + gp1Part$QCon + gp2Part$QCon))
+    }
+    res = NewmanEigenClustering_internal(seq_len(vc))
+    return(make_clusters(g, 
+                         membershipFromCommList(res$partition), 
+                         modularity = res$QCon))
 }
 
 # name of edge neighbour overlapping measures, 

@@ -1,7 +1,7 @@
 # source this file to load all scripts
 # this script reads the following variables:
-# loadFuncLibDir: string. the path to this script. 
-#                 if not exist, will ask to choose the parent directory
+# loadFuncLibPath: string. the path to this script. 
+#                  if not exist, will ask to choose the parent directory
 
 tempVar_loadFuncLib = list()
 
@@ -11,8 +11,8 @@ tempVar_loadFuncLib$originWD = getwd()
 # let user choose dir
 # TODO determine location of this file automatically
 tempVar_loadFuncLib$codefile_dir = NULL
-if (exists("loadFuncLibDir")){
-    tempVar_loadFuncLib$codefile_dir = dirname(get("loadFuncLibDir"))
+if (exists("loadFuncLibPath")){
+    tempVar_loadFuncLib$codefile_dir = dirname(get("loadFuncLibPath"))
 } else {
     tempVar_loadFuncLib$codefile_dir = choose.dir(caption = "Select the dirrectory that contains this script (loadFuncLib.R)")
 }

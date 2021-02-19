@@ -197,7 +197,7 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
         g = graph_from_adjacency_matrix(g, weighted = TRUE, mode = 'undirected')
     }
     emptyG = make_empty_graph(vcount(g), directed = FALSE)
-    newG = NULL
+    newG = emptyG
     edgeWeights = E(g)$weight
     if (is.null(edgeWeights)){
         stop("input graph has no edge attribute called weight")
@@ -206,11 +206,11 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
     loopRoutine = is_connected
     if (useEigen){
         loopRoutine = function(targetG){
-            eigen(graph.laplacian(targetG, 
-                                  normalized = useNormalizedLaplacian, 
-                                  weights = NA), 
-                  only.values = TRUE, 
-                  symmetric = TRUE)$values[vcount(targetG) - 1] > sqrt(.Machine$double.eps)
+            tail(eigen(graph.laplacian(targetG, 
+                                       normalized = useNormalizedLaplacian, 
+                                       weights = NA), 
+                       only.values = TRUE, 
+                       symmetric = TRUE)$values, 2)[1] > .Machine$double.eps
         }
     }
     edgeOrderIdx = NULL
@@ -219,7 +219,7 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
     }
     t = 0
     tau = NA
-    while (TRUE){
+    while (!loopRoutine(newG)){
         t = t + 1
         if (is.infinite(h)){
             tau = edgeWeights[edgeOrderIdx[t]]
@@ -231,9 +231,6 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
         newG = add_edges(emptyG, 
                          as.vector(endpts[, edgeMask]), 
                          weight = edgeWeights[edgeMask])
-        if (loopRoutine(newG)){
-            break
-        }
     }
     if (printThresholdMsg){
         print(paste("threshold val:", tau))

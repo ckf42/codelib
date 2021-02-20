@@ -1629,26 +1629,44 @@ mean_clique_disparity = function(distG, listOfCliqueVertices = cliques(distG, 4,
 #'                          if communities, it should be a clustering on the graph g
 #'                          default: rep(1, vcount(g)) (all vertices in one cluster)
 #' 
+#' @param cliqueSize integer. the size of cliques interested
+#'                   default: 4
+#' 
+#' @param useAdjustedRatio boolean. Determine if the adjusted denominator should be used
+#'                         if TRUE and cliqueSize == 4, the denominator is the number of vertices - 3
+#'                         otherwise, the denominator is the number of possible cliques
+#'                         default: TRUE
+#' 
 #' @return a list of 3 numeric vectors (c4, ns, ratio)
-#'         c4 is an integer vector representing the number of 4-cliques in each cluster
-#'         ns is the number of vertices in the clusters minus 3
-#'         ratio is the ratio between c4 and ns
+#'         c4 is an integer vector representing the number of cliques of size cliqueSize in each cluster
+#'         ns is the number of vertices in the clusters
+#'         ratio is the density of cliques (c4 / denom)
+#'         if the cluster has less than 4 vertices (when useAdjustedRatio == TRUE and cliqueSize == 4) 
+#'            or the cluster cannot have such cliques (otherwise), ratio is NA
 #' 
 #' @references M. A. Balci, O. Akguller, S. C. Guzel. 
 #'             Hierarchies in communities of UK stock market from the perspective of Brexit
 #'             doi: 10.1080/02664763.2020.1796942
 #' 
-fourCliqueRatio = function(g, clusterMemberVect = rep(1, vcount(g))){
+fourCliqueRatio = function(g, clusterMemberVect = rep(1, vcount(g)), cliqueSize = 4, useAdjustedRatio = TRUE){
     if (class(clusterMemberVect) == 'communities'){
         clusterMemberVect = clusterMemberVect$membership
     }
     commList = commListFromMembership(clusterMemberVect)
     commSubgraphs = lapply(commList, function(comm)induced_subgraph(g, comm))
-    vectFourCliqueCount = sapply(commSubgraphs, function(subG)length(cliques(subG, 4, 4)))
+    vectFourCliqueCount = sapply(commSubgraphs, 
+                                 function(subG)length(cliques(subG, cliqueSize, cliqueSize)))
     vectNs = sapply(commList, length)
+    denom = NULL
+    if (cliqueSize != 4 || !useAdjustedRatio){
+        denom = choose(vectNs, cliqueSize)
+    } else {
+        denom = vectNs - 3
+    }
     return(list(c4 = vectFourCliqueCount, 
                 ns = vectNs, 
-                ratio = vectFourCliqueCount / (vectNs - 3)))
+                ratio = ifelse(denom > 0, vectFourCliqueCount / denom, NA))
+           )
 }
 
 #' 

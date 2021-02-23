@@ -35,3 +35,7 @@ def ssim(arr1, arr2, channelLast = True, bitPerPixel = 8):
     L = 2**bitPerPixel - 1
     c1, c2 = (0.01*L)**2, (0.03*L)**2
     return (2 * mux * muy + c1) / (mux**2 + muy**2 + c1) * (2 * covar + c2) / (sigma2x + sigma2y + c2)
+
+def tanPlotHelper(f, interval=(-np.inf, np.inf), nPts=1000):
+    pts = np.linspace(np.arctan(interval[0]), np.arctan(interval[1]), nPts)
+    return (pts, f(np.tan(pts)))

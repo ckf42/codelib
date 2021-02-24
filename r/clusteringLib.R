@@ -1618,7 +1618,7 @@ mean_clique_disparity = function(distG, listOfCliqueVertices = cliques(distG, 4,
 }
 
 #' 
-#' @description compute the 4-clique intra-connectedness of clusters
+#' @description compute the clique-based intra-connectedness of clusters
 #' 
 #' @param g igraph graph object. the graph to check on
 #'          assumed the weight edge attr means distance
@@ -1630,27 +1630,41 @@ mean_clique_disparity = function(distG, listOfCliqueVertices = cliques(distG, 4,
 #'                          default: rep(1, vcount(g)) (all vertices in one cluster)
 #' 
 #' @param cliqueSize integer. the size of cliques interested
+#'                   should be at least 3
 #'                   default: 4
 #' 
-#' @param useAdjustedRatio boolean. Determine if the adjusted denominator should be used
-#'                         if TRUE and cliqueSize == 4, the denominator is the number of vertices - 3
-#'                         otherwise, the denominator is the number of possible cliques
-#'                         default: TRUE
+#' @param usePlanarRatio boolean. Determine if the planar denominator should be used
+#'                       if TRUE, the denominator is:
+#'                           3v - 8 if cliqueSize == 3
+#'                           v - 3  if cliqueSize == 4
+#'                           fallback to FALSE if cliqueSize is neither 3 nor 4
+#'                           where v is the number of vertices in the cluster
+#'                       if FALSE, the denominator is the number of possible cliques, C(v, cliqueSize)
+#'                           where v is the same as before
+#'                       default: TRUE
 #' 
 #' @return a list of 3 numeric vectors (c4, ns, ratio)
 #'         c4 is an integer vector representing the number of cliques of size cliqueSize in each cluster
 #'         ns is the number of vertices in the clusters
 #'         ratio is the density of cliques (c4 / denom)
-#'         if the cluster has less than 4 vertices (when useAdjustedRatio == TRUE and cliqueSize == 4) 
-#'            or the cluster cannot have such cliques (otherwise), ratio is NA
+#'         if the cluster has less than cliqueSize vertices, ratio is NA
 #' 
 #' @references M. A. Balci, O. Akguller, S. C. Guzel. 
 #'             Hierarchies in communities of UK stock market from the perspective of Brexit
 #'             doi: 10.1080/02664763.2020.1796942
 #' 
-fourCliqueRatio = function(g, clusterMemberVect = rep(1, vcount(g)), cliqueSize = 4, useAdjustedRatio = TRUE){
+#' @note the denominator used when usePlanarRatio == TRUE is the maximal number of such cliques
+#'       for reference, refer to this paper:
+#'       J. Birch, A. A. Pantelous, K. Zuev
+#'       The maximum number of 3- and 4-cliques within a planar maximally filtered graph
+#'       doi: 10.1016/j.physa.2014.09.011
+#' 
+cliqueRatio = function(g, clusterMemberVect = rep(1, vcount(g)), cliqueSize = 4, usePlanarRatio = TRUE){
     if (class(clusterMemberVect) == 'communities'){
         clusterMemberVect = clusterMemberVect$membership
+    }
+    if (cliqueSize <= 2){
+        stop("Invalid clique size. Should be at least 3")
     }
     commList = commListFromMembership(clusterMemberVect)
     commSubgraphs = lapply(commList, function(comm)induced_subgraph(g, comm))
@@ -1658,15 +1672,42 @@ fourCliqueRatio = function(g, clusterMemberVect = rep(1, vcount(g)), cliqueSize 
                                  function(subG)length(cliques(subG, cliqueSize, cliqueSize)))
     vectNs = sapply(commList, length)
     denom = NULL
-    if (cliqueSize != 4 || !useAdjustedRatio){
+    if (usePlanarRatio && cliqueSize %in% c(3, 4)){
+        denom = list('3' = 3 * vectNs - 8,
+                     '4' = vectNs - 3)[[as.character(cliqueSize)]]
+    }
+    if (is.null(denom)){
         denom = choose(vectNs, cliqueSize)
-    } else {
-        denom = vectNs - 3
     }
     return(list(c4 = vectFourCliqueCount, 
                 ns = vectNs, 
                 ratio = ifelse(denom > 0, vectFourCliqueCount / denom, NA))
            )
+}
+
+#' 
+#' @description compute the 4-clique intra-connectedness of clusters
+#' 
+#' @param g igraph graph object. the graph to check on
+#'          assumed the weight edge attr means distance
+#' 
+#' @param clusterMemberVect integer vector, or igraph communities object
+#'                          the clustering to look at
+#'                          if integer vector, it should record the indices of the clusters the vertices belong to
+#'                          if communities, it should be a clustering on the graph g
+#'                          default: rep(1, vcount(g)) (all vertices in one cluster)
+#' 
+#' @param usePlanarRatio boolean. Determine if the planar denominator should be used
+#'                       if TRUE, the denominator is v - 3
+#'                           where v is the number of vertices in the cluster
+#'                       if FALSE, the denominator is the number of possible cliques, C(v, cliqueSize)
+#'                           where v is the same as before
+#'                       default: TRUE
+#' 
+#' @note alias for cliqueRatio with cliqueSize = 4
+#'  
+fourCliqueRatio = function(g, clusterMemberVect = rep(1, vcount(g)), usePlanarRatio = TRUE){
+    return(cliqueRatio(g, clusterMemberVect, 4, usePlanarRatio))
 }
 
 #' 

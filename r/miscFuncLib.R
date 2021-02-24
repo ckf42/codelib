@@ -631,17 +631,35 @@ getComponentMembers = function(g, vs){
 #' 
 #' @param lines a vector of strings
 #' 
-#' @param padding a string of length. Used to pad strings
+#' @param padding a string of length 1, or a vector of such strings
+#'                Used to pad strings
+#'                if a single string is provided, all strings use this pad
+#'                if a vector, there should be exactly one pad for every string, inclusing empty ones
 #'                default: " ", a space character
+#' 
+#' @param stripWSFirst boolean. determine if leading and trailing white spaces shuold be trimmed first
+#'                     if TRUE, strings are processed with trimws() before padding
+#'                     if FALSE, strings are padded as inputed
+#'                     default: TRUE
 #' 
 #' @return the same vector of strings, but the strings are centered by padding on both sides
 #'         empty strings are not processed
 #' 
-centerLinesOfStrings = function(lines, padding = " "){
-    if (nchar(padding) != 1){
+centerLinesOfStrings = function(lines, padding = " ", stripWSFirst = TRUE){
+    numLines = length(lines)
+    if (stripWSFirst){
+        lines = sapply(lines, trimws)
+    }
+    if (any(sapply(padding, function(pad)nchar(pad) != 1))){
         stop("padding is not of length 1")
     }
-    whiteSpacesStr = function(k)paste(rep(padding, k), collapse = '')
+    if (length(padding) != 1){
+        if (length(padding) != numLines){
+            stop("Number of paddings does not match the numbers of lines provided")
+        }
+    } else {
+        padding = rep(padding, numLines)
+    }
     alignIndices = sapply(lines, function(x)as.integer((nchar(x) + 1) / 2))
     strLen = sapply(lines, nchar)
     preLen = max(alignIndices) - alignIndices
@@ -650,9 +668,9 @@ centerLinesOfStrings = function(lines, padding = " "){
         if (nchar(lines[lIdx]) == 0){
             next
         }
-        lines[lIdx] = paste0(whiteSpacesStr(preLen[lIdx]), 
+        lines[lIdx] = paste0(paste(rep(padding[lIdx], preLen[lIdx]), collapse = ''), 
                              lines[lIdx], 
-                             whiteSpacesStr(postLen[lIdx]))
+                             paste(rep(padding[lIdx], preLen[lIdx]), collapse = ''))
     }
     return(lines)
 }

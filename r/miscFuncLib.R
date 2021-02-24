@@ -625,3 +625,34 @@ getComponentMembers = function(g, vs){
     comp = components(g)$membership
     return(sapply(vs, function(vid)which(comp == comp[vid]), simplify = "vector"))
 }
+
+#' 
+#' @description align string by centering
+#' 
+#' @param lines a vector of strings
+#' 
+#' @param padding a string of length. Used to pad strings
+#'                default: " ", a space character
+#' 
+#' @return the same vector of strings, but the strings are centered by padding on both sides
+#'         empty strings are not processed
+#' 
+centerLinesOfStrings = function(lines, padding = " "){
+    if (nchar(padding) != 1){
+        stop("padding is not of length 1")
+    }
+    whiteSpacesStr = function(k)paste(rep(padding, k), collapse = '')
+    alignIndices = sapply(lines, function(x)as.integer((nchar(x) + 1) / 2))
+    strLen = sapply(lines, nchar)
+    preLen = max(alignIndices) - alignIndices
+    postLen = max(strLen) - strLen - preLen
+    for (lIdx in seq_along(lines)){
+        if (nchar(lines[lIdx]) == 0){
+            next
+        }
+        lines[lIdx] = paste0(whiteSpacesStr(preLen[lIdx]), 
+                             lines[lIdx], 
+                             whiteSpacesStr(postLen[lIdx]))
+    }
+    return(lines)
+}

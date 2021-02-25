@@ -1606,7 +1606,6 @@ mean_clique_disparity = function(distG, listOfCliqueVertices = cliques(distG, 4,
     if (class(listOfCliqueVertices[[1]]) == 'igraph.vs'){
         listOfCliqueVertices = lapply(listOfCliqueVertices, as.integer)
     }
-    print(paste("number of cliques:", length(listOfCliqueVertices)))
     yi = lapply(listOfCliqueVertices, 
                 function(cliq){
                     cliqDistMatrix = adjMatrix[cliq, cliq]

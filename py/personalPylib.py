@@ -1,6 +1,7 @@
 if __name__ == '__main__':
     exit()
 
+
 def viewList(lst, itemPerPage,
              displayMethod=print, showOrdinal=False, useIndex=False,
              headMessageStrFunc=lambda lstLen: f"{lstLen} item(s) in total"):
@@ -98,7 +99,7 @@ def viewList(lst, itemPerPage,
                 showOrdinal = not showOrdinal
 
 
-def genStr(charList, minLen, maxLen) -> str:  
+def genStr(charList, minLen, maxLen) -> str:
     # O(length+0.5*length) per yield
     for outputLen in range(max(minLen, 1), maxLen + 1):
         selectCharIdx = [0] * outputLen
@@ -195,35 +196,38 @@ def inputPath(displayStr, forFile=True, defaultPath=None) -> str:
             s = defaultPath
     return s
 
+
 def textColoring(text: str, color="white") -> str:
     color = color.lower().strip()
     try:
-        int(color[0:6], 16)
-        colorCode = f'38;2;{int(color[0:2], 16)};{int(color[2:4], 16)};{int(color[4:6], 16)}'
-    except ValueError: # is string name
-        colorCode = colorCodeDict = {
-                    'reset': 0, 
-                    'none': 0,
-                    'black': 30,
-                    'red': 31,
-                    'green': 32,
-                    'yellow': 33,
-                    'blue': 34,
-                    'magenta': 35,
-                    'cyan': 36,
-                    'white': 37,
-                    'bright black': 90,
-                    'bright red': 91,
-                    'bright green': 92,
-                    'bright yellow': 93,
-                    'bright blue': 94,
-                    'bright magenta': 95,
-                    'bright cyan': 96,
-                    'bright white': 97,
-                }.get(color, 0)
+        rHex, gHex, bHex = \
+            int(color[:2], 16), int(color[2:4], 16), int(color[4:], 16)
+        colorCode = f'38;2;{rHex};{gHex};{bHex}'
+    except ValueError:  # is string name
+        colorCode = {
+            'reset': 0,
+            'none': 0,
+            'black': 30,
+            'red': 31,
+            'green': 32,
+            'yellow': 33,
+            'blue': 34,
+            'magenta': 35,
+            'cyan': 36,
+            'white': 37,
+            'bright black': 90,
+            'bright red': 91,
+            'bright green': 92,
+            'bright yellow': 93,
+            'bright blue': 94,
+            'bright magenta': 95,
+            'bright cyan': 96,
+            'bright white': 97,
+        }.get(color, 0)
     return f'\x1b[{colorCode}m{text}\x1b[0m'
 
-def FareyApprox(x: float, tol=1e-8, maxIter = 1000) -> (int, int):
+
+def FareyApprox(x: float, tol=1e-8, maxIter=1000) -> (int, int):
     isNeg = False
     if x < 0:
         isNeg = True
@@ -232,13 +236,6 @@ def FareyApprox(x: float, tol=1e-8, maxIter = 1000) -> (int, int):
     x = x % 1
     if x < tol:
         return ((-1) ** isNeg * intPart, 1)
-    # def refinePair(intPair):
-        # def gcd(a,b):
-            # return a if b == 0 else gcd(b, a % b)
-        # g = gcd(intPair[0], intPair[1])
-        # if g != 1:
-            # print(a, b, g)
-        # return (intPair[0] // g, intPair[1] // g)
     lPtr = (0, 1)
     rPtr = (1, 1)
     medPtr = (1, 2)
@@ -248,13 +245,13 @@ def FareyApprox(x: float, tol=1e-8, maxIter = 1000) -> (int, int):
             rPtr = medPtr
         else:
             lPtr = medPtr
-        # medPtr = refinePair((lPtr[0] + rPtr[0], lPtr[1] + rPtr[1]))
         medPtr = (lPtr[0] + rPtr[0], lPtr[1] + rPtr[1])
         medVal = medPtr[0] / medPtr[1]
         maxIter -= 1
     return ((-1) ** isNeg * (medPtr[0] + intPart * medPtr[1]), medPtr[1])
 
-def GaussLegendreAlgorithm(iterTime = 5, prec = 53):
+
+def GaussLegendreAlgorithm(iterTime=5, prec=53):
     import decimal
     decimal.getcontext().prec = prec
     a = decimal.Decimal('1')
@@ -269,31 +266,37 @@ def GaussLegendreAlgorithm(iterTime = 5, prec = 53):
         a, b = newA, newB
     return (a + b) ** 2 / (4 * t)
 
+
 class stringToPhoneNum:
     __internaldict = {
-        **dict.fromkeys(list('abc'), '2'), 
-        **dict.fromkeys(list('def'), '3'), 
-        **dict.fromkeys(list('ghi'), '4'), 
-        **dict.fromkeys(list('jkl'), '5'), 
-        **dict.fromkeys(list('mno'), '6'), 
-        **dict.fromkeys(list('pqrs'), '7'), 
-        **dict.fromkeys(list('tuv'), '8'), 
-        **dict.fromkeys(list('wxyz'), '9'), 
+        **dict.fromkeys(list('abc'), '2'),
+        **dict.fromkeys(list('def'), '3'),
+        **dict.fromkeys(list('ghi'), '4'),
+        **dict.fromkeys(list('jkl'), '5'),
+        **dict.fromkeys(list('mno'), '6'),
+        **dict.fromkeys(list('pqrs'), '7'),
+        **dict.fromkeys(list('tuv'), '8'),
+        **dict.fromkeys(list('wxyz'), '9'),
     }
+
     def __new__(cls, s):
         return ''.join([cls.__internaldict.get(i, i) for i in s])
+
 
 class jyutpingTone:
     # singleton pattern: no need to have more than one obj
     __instance = None
     __internaldict = None
     __printInfo = False
+
     @property
     def printInfo(self):
         return self.__printInfo
+
     @printInfo.setter
     def printInfo(self, value):
         self.__instance.__printInfo = bool(value)
+
     @staticmethod
     def __get_latest_dict__():
         if jyutpingTone.__instance.printInfo:
@@ -302,15 +305,20 @@ class jyutpingTone:
         data = None
         with open(dictLoc, 'r', encoding='utf-8') as f:
             content = f.read()
-            data = [line for line in content.split('\n') if not line.startswith('#') and len(line) != 0]
+            data = [line for line in content.split(
+                '\n') if not line.startswith('#') and len(line) != 0]
         if jyutpingTone.__instance.printInfo:
             print("Parsing dictionary ...")
         data = [line.split('\t')[:2] for line in data[data.index('...') + 1:]]
-        data = [(wd, pron[:-1], int(pron[-1]), '平' if pron[-1] in '14' else '仄') for (wd, pron) in data if len(wd) == 1]
+        data = [(wd, pron[:-1], int(pron[-1]), '平'
+                 if pron[-1] in '14'
+                 else '仄')
+                for (wd, pron) in data if len(wd) == 1]
         d = dict()
         for (wd, pron, tone, levelIndi) in data:
             d[wd] = d.get(wd, []) + [(pron, tone, levelIndi)]
         return d
+
     @classmethod
     def update_dict(cls):
         if cls.__instance is not None:
@@ -320,15 +328,21 @@ class jyutpingTone:
             cls().printInfo = ogPrintInfo
         else:
             cls(True).printInfo = False
+
     @classmethod
     def list_all(cls, s):
-        return [cls().__internaldict[c] if c in cls().__internaldict else c for c in s]
+        return [cls().__internaldict[c]
+                if c in cls().__internaldict
+                else c
+                for c in s]
+
     @classmethod
     def convert(cls, s):
         lst = cls().list_all(s)
         for wordChoices in lst:
             print(wordChoices)
-    def __new__(cls, printInfo = False):
+
+    def __new__(cls, printInfo=False):
         if cls.__instance is None:
             cls.__instance = object.__new__(cls)
             cls.__instance.__internaldict = jyutpingTone.__get_latest_dict__()

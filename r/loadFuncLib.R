@@ -2,7 +2,6 @@
 # this script reads the following variables:
 # loadFuncLibPath: string. the path to this script. 
 #                  if not exist, will ask to choose the parent directory
-
 tempVar_loadFuncLib = list()
 
 # get original wd
@@ -14,7 +13,13 @@ tempVar_loadFuncLib$codefile_dir = NULL
 if (exists("loadFuncLibPath")){
     tempVar_loadFuncLib$codefile_dir = dirname(get("loadFuncLibPath"))
 } else {
-    tempVar_loadFuncLib$codefile_dir = choose.dir(caption = "Select the dirrectory that contains this script (loadFuncLib.R)")
+    if (!is.null(sys.frames())){
+        tempVar_loadFuncLib$codefile_dir = dirname(sys.frame(1)$ofile)
+    } else {
+        tempVar_loadFuncLib$codefile_dir = choose.dir(
+            caption = "Select the dirrectory that contains this script (loadFuncLib.R)"
+            )
+    }
 }
 setwd(tempVar_loadFuncLib$codefile_dir)
 

@@ -674,3 +674,34 @@ centerLinesOfStrings = function(lines, padding = " ", stripWSFirst = TRUE){
     }
     return(lines)
 }
+
+#' 
+#' @description find the top results
+#' 
+#' @param val numeric vector. The values to look at
+#' 
+#' @param N integer. The number of results to return
+#'          default: 10
+#' 
+#' @param takeMax boolean. Determine if the largest ones should be returned
+#'                default: TRUE
+#' 
+#' @param valOnly boolean. Determine if only the values should be returned
+#'                default: FALSE
+#' 
+#' @return  if valOnly == FALSE, a list containing two equal-length vectors:
+#'              values: the N largest (if takeMax == TRUE, otherwise smallest)
+#'                          values in val
+#'              indices: the corresponding indices in val
+#'          if valOnly == FALSE, only the values vector would be returned
+#' 
+topResults = function(val, N = 10, takeMax = TRUE, valOnly = FALSE){
+    targetIdx = order(val, 
+                      decreasing = takeMax)[1:min(N, length(val))]
+    if (valOnly){
+        return(val[targetIdx])
+    } else {
+        return(list(indices = targetIdx, 
+                    values = val[targetIdx]))
+    }
+}

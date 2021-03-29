@@ -197,34 +197,24 @@ def inputPath(displayStr, forFile=True, defaultPath=None) -> str:
     return s
 
 
-def textColoring(text: str, color="white") -> str:
-    color = color.lower().strip()
-    try:
-        rHex, gHex, bHex = \
-            int(color[:2], 16), int(color[2:4], 16), int(color[4:], 16)
-        colorCode = f'38;2;{rHex};{gHex};{bHex}'
-    except ValueError:  # is string name
-        colorCode = {
-            'reset': 0,
-            'none': 0,
-            'black': 30,
-            'red': 31,
-            'green': 32,
-            'yellow': 33,
-            'blue': 34,
-            'magenta': 35,
-            'cyan': 36,
-            'white': 37,
-            'bright black': 90,
-            'bright red': 91,
-            'bright green': 92,
-            'bright yellow': 93,
-            'bright blue': 94,
-            'bright magenta': 95,
-            'bright cyan': 96,
-            'bright white': 97,
-        }.get(color, 0)
-    return f'\x1b[{colorCode}m{text}\x1b[0m'
+class textColoring:
+    colorCode = {
+        'reset': 0, 'none': 0, 'black': 30, 'red': 31, 'green': 32,
+        'yellow': 33, 'blue': 34, 'magenta': 35, 'cyan': 36, 'white': 37,
+        'bright black': 90, 'bright red': 91, 'bright green': 92,
+        'bright yellow': 93, 'bright blue': 94, 'bright magenta': 95,
+        'bright cyan': 96, 'bright white': 97,
+    }
+
+    def __new__(cls, text: str, color="white") -> str:
+        color = color.lower().strip()
+        try:
+            rHex, gHex, bHex = \
+                int(color[:2], 16), int(color[2:4], 16), int(color[4:], 16)
+            color = f'38;2;{rHex};{gHex};{bHex}'
+        except ValueError:  # is string name
+            color = cls.colorCode.get(color, 0)
+        return f'\x1b[{color}m{text}\x1b[0m'
 
 
 def FareyApprox(x: float, tol=1e-8, maxIter=1000) -> (int, int):
@@ -268,7 +258,7 @@ def GaussLegendreAlgorithm(iterTime=5, prec=53):
 
 
 class stringToPhoneNum:
-    __internaldict = {
+    _internaldict = {
         **dict.fromkeys(list('abc'), '2'),
         **dict.fromkeys(list('def'), '3'),
         **dict.fromkeys(list('ghi'), '4'),
@@ -280,7 +270,8 @@ class stringToPhoneNum:
     }
 
     def __new__(cls, s):
-        return ''.join([cls.__internaldict.get(i, i) for i in s])
+        return ''.join([cls._internaldict.get(i, i) for i in s])
+
 
 def listMatrix(val, *args):
     from numbers import Number
@@ -293,3 +284,24 @@ def listMatrix(val, *args):
         return [listMatrix(lambda *x: valF(idx, *x), *(args[1:])) for idx in range(args[0])]
 
 
+def overwriteThenDelete(filePath, passes=3, blockSize=4096, randomModule='os'):
+    randomBitGen = None
+    if randomModule == 'random':
+        from random import getrandbits
+        randomBitGen = lambda k: bytes(getrandbits(8) for i in range(k))
+    elif randomModule == 'secrets':
+        from secrets import randbits
+        randomBitGen = lambda k: bytes(randbits(8) for i in range(k))
+    else:
+        from os import urandom
+        randomBitGen = lambda k: urandom(k)
+    from os import fstat, remove
+    with open(filePath, 'rb+') as f:
+        fileSize = fstat(f.fileno()).st_size
+        blockCount, remainBytes = divmod(fileSize, blockSize)
+        for passNo in range(passes):
+            f.seek(0)
+            for i in range(blockCount):
+                f.write(randomBitGen(blockSize))
+            f.write(randomBitGen(remainBytes))
+    remove(filePath)

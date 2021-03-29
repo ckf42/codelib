@@ -282,6 +282,16 @@ class stringToPhoneNum:
     def __new__(cls, s):
         return ''.join([cls.__internaldict.get(i, i) for i in s])
 
+def listMatrix(val, *args):
+    from numbers import Number
+    valF = val
+    if isinstance(val, Number):
+        valF = lambda *args: val
+    if len(args) == 1:
+        return [valF(idx) for idx in range(args[0])]
+    else:
+        return [listMatrix(lambda *x: valF(idx, *x), *(args[1:])) for idx in range(args[0])]
+
 
 class jyutpingTone:
     # singleton pattern: no need to have more than one obj

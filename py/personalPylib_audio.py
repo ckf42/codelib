@@ -1,5 +1,5 @@
-if __name__ == '__main__':
-    exit()
+# if __name__ == '__main__':
+#     exit()
 
 # TODO no numpy as dependency
 # TODO higher width than float32
@@ -124,18 +124,18 @@ class AudioOutputInterface:
                 signal = (_np.vstack((signalPair[0][:maxLen],
                                      signalPair[1][:maxLen])).T.ravel()
                           for signalPair in zip(signal, signalR)
-                          for maxLen in (len(min(signalPair, key=len)), )
-                          )
+                          for maxLen in (len(min(signalPair, key=len)), ))
         if self._stream.is_stopped():
             self._stream.start_stream()
         for buf in signal:
-            self._stream.write(buf.tobytes())
+            self._stream.write(buf.clip(-1., 1.).astype(_np.float32,
+                                                        casting='same_kind',
+                                                        copy=False).tobytes())
         if not keepActivate:
             self._stream.stop_stream()
 
-    def signalByAmpFunc(self, ampFunc, duration, wholeChunk):
-        ampFunc_formatted = _np.vectorize(ampFunc,
-                                          otypes=(_np.float32, ))
+    def signalByAmpFunc(self, ampFunc, duration=1., wholeChunk=False):
+        ampFunc_formatted = _np.vectorize(ampFunc)
         if wholeChunk:
             yield ampFunc_formatted(_np.arange(int(duration * self._sr))
                                     / self._sr)
@@ -150,7 +150,11 @@ class AudioOutputInterface:
                                      + _np.arange(nRemain))
                                     / self._sr)
 
-    def signalByFreqFunc(self, freqFunc, duration, amplitude, wholeChunk):
+    def signalByFreqFunc(self,
+                         freqFunc,
+                         duration=1.,
+                         amplitude=1.,
+                         wholeChunk=False):
         yield from self.signalByAmpFunc(
             ampFunc=lambda t: amplitude * _np.sin(
                 2 * _np.pi * t * freqFunc(t)),
@@ -169,7 +173,10 @@ class AudioOutputInterface:
                                          wholeChunk=wholeChunk)
 
     def squareWave(self,
-                   frequency, duration, amplitude=1., wholeChunk=False):
+                   frequency,
+                   duration=1.,
+                   amplitude=1.,
+                   wholeChunk=False):
         yield from self.signalByAmpFunc(ampFunc=lambda t:
                                         amplitude * _np.sign(
                                             _np.sin(2 * _np.pi
@@ -178,7 +185,10 @@ class AudioOutputInterface:
                                         wholeChunk=wholeChunk)
 
     def sawWave(self,
-                frequency, duration, amplitude=1., wholeChunk=False):
+                frequency,
+                duration=1.,
+                amplitude=1.,
+                wholeChunk=False):
         yield from self.signalByAmpFunc(ampFunc=lambda t:
                                         amplitude * (_np.modf(
                                             t * frequency)[0] * 2 - 1),
@@ -186,9 +196,22 @@ class AudioOutputInterface:
                                         wholeChunk=wholeChunk)
 
     def triangleWave(self,
-                     frequency, duration=1., amplitude=1., wholeChunk=False):
-        yield from self.signalByAmpFunc(ampFunc=lambda t:
-                                        amplitude * (2 * _np.abs(2 * _np.modf(
+                     frequency,
+                     duration=1.,
+                     amplitude=1.,
+                     wholeChunk=False):
+        yield from self.signalByAmpFunc(ampFunc=lambda t: amplitude
+                                        * (2 * _np.abs(2 * _np.modf(
                                             t * frequency)[0] - 1) - 1),
                                         duration=duration,
                                         wholeChunk=wholeChunk)
+
+    def damping(self, sigGen, dampingFactor=1):
+        blockOffset = 0
+        for amp in self._ensureGen(sigGen):
+            blockLen = len(amp)
+            yield amp * _np.exp(-dampingFactor
+                                * (_np.arange(blockOffset,
+                                              blockOffset + blockLen))
+                                / self._sr)
+            blockOffset += blockLen

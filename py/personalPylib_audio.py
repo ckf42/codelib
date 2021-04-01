@@ -1,8 +1,9 @@
-# if __name__ == '__main__':
-#     exit()
+if __name__ == '__main__':
+    exit()
 
 # TODO no numpy as dependency
 # TODO higher width than float32
+# TODO make signal class
 
 import pyaudio as _pa
 import numpy as _np
@@ -206,12 +207,14 @@ class AudioOutputInterface:
                                         duration=duration,
                                         wholeChunk=wholeChunk)
 
-    def damping(self, sigGen, dampingFactor=1):
+    def damping(self, sigGen, dampingFactor=1, tol=1e-6):
         blockOffset = 0
         for amp in self._ensureGen(sigGen):
             blockLen = len(amp)
-            yield amp * _np.exp(-dampingFactor
-                                * (_np.arange(blockOffset,
-                                              blockOffset + blockLen))
-                                / self._sr)
+            yield _np.zeros((blockLen, )) \
+                if _np.exp(-dampingFactor * blockOffset) < tol \
+                else amp * _np.exp(-dampingFactor
+                                   * (_np.arange(blockOffset,
+                                                 blockOffset + blockLen))
+                                   / self._sr)
             blockOffset += blockLen

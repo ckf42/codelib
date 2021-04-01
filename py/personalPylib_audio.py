@@ -230,3 +230,8 @@ class AudioOutputInterface:
                                      / self._sr)
                 yield _np.where(damper < tol, 0, amp * damper)
             blockOffset += blockLen
+
+    def ampModify(self, sigGen, ampFunc):
+        ampFunc = _np.vectorize(ampFunc)
+        for amp in self._ensureGen(sigGen):
+            yield ampFunc(amp)

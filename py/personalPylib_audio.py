@@ -1,5 +1,5 @@
-if __name__ == '__main__':
-    exit()
+# if __name__ == '__main__':
+#     exit()
 
 # TODO no numpy as dependency
 # TODO higher width than float32
@@ -7,6 +7,149 @@ if __name__ == '__main__':
 
 import pyaudio as _pa
 import numpy as _np
+import itertools as _it
+
+
+class AudioOutputSignal:
+    _genObj = None
+
+    def __init__(self, gen):
+        self._genObj = gen
+
+    @classmethod
+    def fromNpArray(cls, npArray, bufferSize=4096):
+        if npArray.dtype != _np.float32:
+            npArray = npArray.astype(_np.float32)
+        nPieces = len(npArray) // bufferSize
+        arrLen = len(npArray)
+        return cls((npArray[bIdx * bufferSize:min((bIdx + 1) * bufferSize,
+                                                  arrLen)]
+                    for bIdx in range(nPieces)))
+
+    @classmethod
+    def fromAmpFunc(cls, ampFunc, duration=1.,
+                    bufferSize=4096, sampleRate=48000, aoObj=None):
+        if aoObj is not None:
+            bufferSize = aoObj.bufferSize
+            sampleRate = aoObj.sampleRate
+        ampFunc_formatted = _np.vectorize(ampFunc)
+        totalSamples = int(duration * sampleRate)
+        nPieces, nRemain = divmod(totalSamples, bufferSize)
+        return cls((ampFunc_formatted(_np.arange(bIdx * bufferSize,
+                                                 min((bIdx + 1) * bufferSize,
+                                                     totalSamples))
+                                      / sampleRate)
+                    for bIdx in range(nPieces)))
+
+    @classmethod
+    def fromFreqFunc(cls, freqFunc, duration=1., amplitude=1.,
+                     bufferSize=4096, sampleRate=48000, aoObj=None):
+        if aoObj is not None:
+            bufferSize = aoObj.bufferSize
+            sampleRate = aoObj.sampleRate
+        return cls.fromAmpFunc(ampFunc=lambda t: amplitude
+                               * _np.sin(2 * _np.pi * t * freqFunc(t)),
+                               duration=duration,
+                               bufferSize=bufferSize,
+                               sampleRate=sampleRate,
+                               aoObj=aoObj)
+
+    @classmethod
+    def silentSignal(cls, duration=1.,
+                     bufferSize=4096, sampleRate=48000, aoObj=None):
+        return cls.fromAmpFunc(ampFunc=lambda t: 0.,
+                               duration=duration,
+                               bufferSize=bufferSize,
+                               sampleRate=sampleRate,
+                               aoObj=aoObj)
+
+    @classmethod
+    def sineWave(cls, frequency, duration=1., amplitude=1.,
+                 bufferSize=4096, sampleRate=48000, aoObj=None):
+        return cls.fromFreqFunc(freqFunc=lambda t: frequency,
+                                duration=duration,
+                                amplitude=amplitude,
+                                bufferSize=bufferSize,
+                                sampleRate=sampleRate,
+                                aoObj=aoObj)
+
+    @classmethod
+    def squareWave(cls, frequency, duration=1., amplitude=1.,
+                   bufferSize=4096, sampleRate=48000, aoObj=None):
+        return cls.signalByAmpFunc(ampFunc=lambda t:
+                                   amplitude * _np.sign(
+                                       _np.sin(2 * _np.pi
+                                               * frequency * t)),
+                                   duration=duration,
+                                   amplitude=amplitude,
+                                   bufferSize=bufferSize,
+                                   sampleRate=sampleRate,
+                                   aoObj=aoObj)
+
+    @classmethod
+    def sawWave(cls, frequency, duration=1., amplitude=1.,
+                bufferSize=4096, sampleRate=48000, aoObj=None):
+        return cls.signalByAmpFunc(ampFunc=lambda t:
+                                   amplitude * (_np.modf(
+                                       t * frequency)[0] * 2 - 1),
+                                   duration=duration,
+                                   amplitude=amplitude,
+                                   bufferSize=bufferSize,
+                                   sampleRate=sampleRate,
+                                   aoObj=aoObj)
+
+    @classmethod
+    def triangleWave(cls, frequency, duration=1., amplitude=1.,
+                     bufferSize=4096, sampleRate=48000, aoObj=None):
+        return cls.signalByAmpFunc(ampFunc=lambda t: amplitude
+                                   * (2 * _np.abs(2 * _np.modf(
+                                       t * frequency)[0] - 1) - 1),
+                                   duration=duration,
+                                   amplitude=amplitude,
+                                   bufferSize=bufferSize,
+                                   sampleRate=sampleRate,
+                                   aoObj=aoObj)
+
+    def toNpArray(self):
+        return _np.hstack(tuple(self._genObj))
+
+    def join(self, secondSigObj):
+        self = self.__class__(_it.chain(self._genObj, secondSigObj._genObj))
+        return self
+
+    def damping(self, dampingFactor=1, dampingMethod='exp',
+                tol=None, stopBelowTol=False,
+                sampleRate=48000, aoObj=None):
+        if aoObj is not None:
+            sampleRate = aoObj.sampleRate
+        if tol is None:
+            tol = 0
+        dampingFunc = {
+            'exp': lambda t: _np.exp(-dampingFactor * t),
+            'quad': lambda t: _np.reciprocal(1 + dampingFactor * t)
+        }.get(dampingMethod, lambda t: _np.exp(-dampingFactor * t))
+
+        def _dampedAmp():
+            blockOffset = 0
+            for amp in self._genObj:
+                blockLen = len(amp)
+                if dampingFunc(blockOffset / sampleRate) < tol:
+                    if stopBelowTol:
+                        return
+                    yield _np.zeros((blockLen, ))
+                else:
+                    damper = dampingFunc(_np.arange(blockOffset,
+                                                    blockOffset + blockLen)
+                                         / sampleRate)
+                    yield _np.where(damper < tol, 0, amp * damper)
+                blockOffset += blockLen
+        self = self.__class__(_dampedAmp())
+        return self
+
+    def ampModify(self, ampFunc):
+        ampFunc = _np.vectorize(ampFunc)
+        self = self.__class__((ampFunc(amp) for amp in self._genObj))
+        return self
 
 
 class AudioOutputInterface:
@@ -92,27 +235,13 @@ class AudioOutputInterface:
         self._paObj = _pa.PyAudio()
         self._init_stream()
 
-    def _arrToGenerator(self, npArr):
-        if npArr.dtype != _np.float32:
-            npArr = npArr.astype(_np.float32)
-        nPieces = len(npArr) // self._buffSize
-        for bIdx in range(nPieces):
-            yield npArr[range(bIdx * self._buffSize,
-                              (bIdx + 1) * self._buffSize)]
-        yield npArr[nPieces * self._buffSize:]
-
-    @staticmethod
-    def sigGenToArr(gen):
-        return _np.hstack(tuple(gen))
-
-    def _ensureGen(self, npArr_or_gen):
-        if isinstance(npArr_or_gen, _np.ndarray):
-            return self._arrToGenerator(npArr_or_gen)
+    def _ensureGen(nparr_or_sig):
+        if nparr_or_sig.__class__ is _np.ndarray:
+            return AudioOutputSignal.fromNpArray(nparr_or_sig)
+        elif nparr_or_sig.__class__ is AudioOutputSignal:
+            return nparr_or_sig
         else:
-            return npArr_or_gen
-
-    def getArrayDuration(self, npArr):
-        return len(npArr) / (self._sr * self._channel)
+            raise ValueError("Unknown signal type")
 
     def play(self, signal, signalR=None, keepActivate=True):
         signal = self._ensureGen(signal)
@@ -123,7 +252,7 @@ class AudioOutputInterface:
             else:
                 signalR = self._ensureGen(signalR)
                 signal = (_np.vstack((signalPair[0][:maxLen],
-                                     signalPair[1][:maxLen])).T.ravel()
+                                      signalPair[1][:maxLen])).T.ravel()
                           for signalPair in zip(signal, signalR)
                           for maxLen in (len(min(signalPair, key=len)), ))
         if self._stream.is_stopped():
@@ -134,104 +263,3 @@ class AudioOutputInterface:
                                                         copy=False).tobytes())
         if not keepActivate:
             self._stream.stop_stream()
-
-    def signalByAmpFunc(self, ampFunc, duration=1., wholeChunk=False):
-        ampFunc_formatted = _np.vectorize(ampFunc)
-        if wholeChunk:
-            yield ampFunc_formatted(_np.arange(int(duration * self._sr))
-                                    / self._sr)
-        else:
-            nPieces, nRemain = divmod(int(duration * self._sr),
-                                      self._buffSize)
-            for bIdx in range(nPieces):
-                yield ampFunc_formatted((bIdx * self._buffSize
-                                         + _np.arange(self._buffSize))
-                                        / self._sr)
-            yield ampFunc_formatted((nPieces * self._buffSize
-                                     + _np.arange(nRemain))
-                                    / self._sr)
-
-    def signalByFreqFunc(self,
-                         freqFunc,
-                         duration=1.,
-                         amplitude=1.,
-                         wholeChunk=False):
-        yield from self.signalByAmpFunc(
-            ampFunc=lambda t: amplitude * _np.sin(
-                2 * _np.pi * t * freqFunc(t)),
-            duration=duration,
-            wholeChunk=wholeChunk)
-
-    def silentSignal(self, duration=1., wholeChunk=False):
-        yield from self.signalByAmpFunc(ampFunc=lambda t: 0.,
-                                        duration=duration,
-                                        wholeChunk=wholeChunk)
-
-    def sineWave(self, frequency, duration=1., amplitude=1., wholeChunk=False):
-        yield from self.signalByFreqFunc(freqFunc=lambda t: frequency,
-                                         duration=duration,
-                                         amplitude=amplitude,
-                                         wholeChunk=wholeChunk)
-
-    def squareWave(self,
-                   frequency,
-                   duration=1.,
-                   amplitude=1.,
-                   wholeChunk=False):
-        yield from self.signalByAmpFunc(ampFunc=lambda t:
-                                        amplitude * _np.sign(
-                                            _np.sin(2 * _np.pi
-                                                    * frequency * t)),
-                                        duration=duration,
-                                        wholeChunk=wholeChunk)
-
-    def sawWave(self,
-                frequency,
-                duration=1.,
-                amplitude=1.,
-                wholeChunk=False):
-        yield from self.signalByAmpFunc(ampFunc=lambda t:
-                                        amplitude * (_np.modf(
-                                            t * frequency)[0] * 2 - 1),
-                                        duration=duration,
-                                        wholeChunk=wholeChunk)
-
-    def triangleWave(self,
-                     frequency,
-                     duration=1.,
-                     amplitude=1.,
-                     wholeChunk=False):
-        yield from self.signalByAmpFunc(ampFunc=lambda t: amplitude
-                                        * (2 * _np.abs(2 * _np.modf(
-                                            t * frequency)[0] - 1) - 1),
-                                        duration=duration,
-                                        wholeChunk=wholeChunk)
-
-    def damping(self,
-                sigGen,
-                dampingFactor=1, dampingMethod='exp',
-                tol=None, stopBelowTol=False):
-        if tol is None:
-            tol = 0
-        dampingFunc = {
-            'exp': lambda t: _np.exp(-dampingFactor * t),
-            'quad': lambda t: _np.reciprocal(1 + dampingFactor * t)
-        }.get(dampingMethod, lambda t: _np.exp(-dampingFactor * t))
-        blockOffset = 0
-        for amp in self._ensureGen(sigGen):
-            blockLen = len(amp)
-            if dampingFunc(blockOffset / self._sr) < tol:
-                if stopBelowTol:
-                    return
-                yield _np.zeros((blockLen, ))
-            else:
-                damper = dampingFunc(_np.arange(blockOffset,
-                                                blockOffset + blockLen)
-                                     / self._sr)
-                yield _np.where(damper < tol, 0, amp * damper)
-            blockOffset += blockLen
-
-    def ampModify(self, sigGen, ampFunc):
-        ampFunc = _np.vectorize(ampFunc)
-        for amp in self._ensureGen(sigGen):
-            yield ampFunc(amp)

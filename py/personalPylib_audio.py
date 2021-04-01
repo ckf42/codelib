@@ -207,14 +207,17 @@ class AudioOutputInterface:
                                         duration=duration,
                                         wholeChunk=wholeChunk)
 
-    def damping(self, sigGen, dampingFactor=1, tol=1e-6):
+    def damping(self, sigGen, dampingFactor=1, tol=1e-6, stopBelowTol=False):
         blockOffset = 0
         for amp in self._ensureGen(sigGen):
             blockLen = len(amp)
-            yield _np.zeros((blockLen, )) \
-                if _np.exp(-dampingFactor * blockOffset) < tol \
-                else amp * _np.exp(-dampingFactor
-                                   * (_np.arange(blockOffset,
-                                                 blockOffset + blockLen))
-                                   / self._sr)
+            if _np.exp(-dampingFactor * blockOffset) < tol:
+                if stopBelowTol:
+                    return
+                yield _np.zeros((blockLen, ))
+            else:
+                yield amp * _np.exp(-dampingFactor
+                                    * (_np.arange(blockOffset,
+                                                  blockOffset + blockLen))
+                                    / self._sr)
             blockOffset += blockLen

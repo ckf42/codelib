@@ -237,46 +237,6 @@ class AudioOutputSignal:
                           ampScale=ampScale,
                           forceAsTwoChannel=forceAsTwoChannel)
 
-    @classmethod
-    def fromMandelbrotMap(cls, c, interpolFreq=440, bufferLimit=100,
-                          bufferSize=4096, sampleRate=48000, aoObj=None):
-        if c[0] ** 2 + c[1] ** 2 > 4:
-            raise ValueError("Initial c is too far away from 0")
-
-        def _mandelbrotIter(z):
-            return (z[0] ** 2 - z[1] ** 2 + c[0], 2 * z[0] * z[1] + c[1])
-        if aoObj is not None:
-            bufferSize = aoObj.bufferSize
-            sampleRate = aoObj.sampleRate
-        totalInterpolSample = int(sampleRate / interpolFreq)
-
-        def _mandelbrotYielder():
-            bufferCounter = 0
-            buf = _np.zeros(0)
-            z = c
-            znew = _mandelbrotIter(z)
-            while znew[0] ** 2 + znew[1] ** 2 <= 4:
-                buf = _np.hstack((buf,
-                                  _np.vstack((_np.linspace(z[0] / 2,
-                                                           znew[0] / 2,
-                                                           totalInterpolSample,
-                                                           endpoint=False),
-                                              _np.linspace(z[1] / 2,
-                                                           znew[1] / 2,
-                                                           totalInterpolSample,
-                                                           endpoint=False))
-                                             ).T.ravel()
-                                  ))
-                while len(buf) >= bufferSize and bufferCounter < bufferLimit:
-                    bufferCounter += 1
-                    yield buf[:bufferSize]
-                    buf = buf[bufferSize:]
-                z = znew
-                znew = _mandelbrotIter(z)
-                if bufferCounter >= bufferLimit:
-                    break
-        return cls(_mandelbrotYielder(), bufferSize=bufferSize, aoObj=aoObj)
-
 
 class AudioOutputInterface:
     _paObj = None

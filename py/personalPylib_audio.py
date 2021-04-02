@@ -3,7 +3,6 @@
 
 # TODO no numpy as dependency
 # TODO higher width than float32
-# TODO make signal class
 
 import pyaudio as _pa
 import numpy as _np
@@ -13,11 +12,13 @@ import itertools as _it
 class AudioOutputSignal:
     _genObj = None
     _buffSize = None
+    _aoObj = None
     isEffective = True
 
-    def __init__(self, gen, bufferSize=None):
+    def __init__(self, gen, bufferSize=None, aoObj=None):
         self._genObj = gen
         self._buffSize = bufferSize
+        self._aoObj = aoObj
 
     @classmethod
     def fromNpArray(cls, npArray, bufferSize=4096):
@@ -44,7 +45,8 @@ class AudioOutputSignal:
                                                      totalSamples))
                                       / sampleRate)
                     for bIdx in range(nPieces)),
-                   bufferSize=bufferSize)
+                   bufferSize=bufferSize,
+                   aoObj=aoObj)
 
     @classmethod
     def fromFreqFunc(cls, freqFunc, duration=1., amplitude=1.,
@@ -81,164 +83,151 @@ class AudioOutputSignal:
     @classmethod
     def squareWave(cls, frequency, duration=1., amplitude=1.,
                    bufferSize=4096, sampleRate=48000, aoObj=None):
-        return cls.signalByAmpFunc(ampFunc=lambda t:
-                                   amplitude * _np.sign(
-                                       _np.sin(2 * _np.pi
-                                               * frequency * t)),
-                                   duration=duration,
-                                   amplitude=amplitude,
-                                   bufferSize=bufferSize,
-                                   sampleRate=sampleRate,
-                                   aoObj=aoObj)
+        return cls.fromAmpFunc(ampFunc=lambda t:
+                               amplitude * _np.sign(
+                                   _np.sin(2 * _np.pi
+                                           * frequency * t)),
+                               duration=duration,
+                               bufferSize=bufferSize,
+                               sampleRate=sampleRate,
+                               aoObj=aoObj)
 
     @classmethod
     def sawWave(cls, frequency, duration=1., amplitude=1.,
                 bufferSize=4096, sampleRate=48000, aoObj=None):
-        return cls.signalByAmpFunc(ampFunc=lambda t:
-                                   amplitude * (_np.modf(
-                                       t * frequency)[0] * 2 - 1),
-                                   duration=duration,
-                                   amplitude=amplitude,
-                                   bufferSize=bufferSize,
-                                   sampleRate=sampleRate,
-                                   aoObj=aoObj)
+        return cls.fromAmpFunc(ampFunc=lambda t:
+                               amplitude * (_np.modf(
+                                   t * frequency)[0] * 2 - 1),
+                               duration=duration,
+                               bufferSize=bufferSize,
+                               sampleRate=sampleRate,
+                               aoObj=aoObj)
 
     @classmethod
     def triangleWave(cls, frequency, duration=1., amplitude=1.,
                      bufferSize=4096, sampleRate=48000, aoObj=None):
-        return cls.signalByAmpFunc(ampFunc=lambda t: amplitude
-                                   * (2 * _np.abs(2 * _np.modf(
-                                       t * frequency)[0] - 1) - 1),
-                                   duration=duration,
-                                   amplitude=amplitude,
-                                   bufferSize=bufferSize,
-                                   sampleRate=sampleRate,
-                                   aoObj=aoObj)
+        return cls.fromAmpFunc(ampFunc=lambda t: amplitude
+                               * (2 * _np.abs(2 * _np.modf(
+                                   t * frequency)[0] - 1) - 1),
+                               duration=duration,
+                               bufferSize=bufferSize,
+                               sampleRate=sampleRate,
+                               aoObj=aoObj)
 
     def toNpArray(self):
         self.isEffective = False
         return _np.hstack(tuple(self._genObj))
 
     def join(self, secondSigObj):
+        self.isEffective = False
         secondSigObj.isEffective = False
-        self = self.__class__(_it.chain(self._genObj, secondSigObj._genObj))
-        return self
+        return self.__class__(_it.chain(self._genObj, secondSigObj._genObj),
+                              bufferSize=self._buffSize)
 
     def damping(self, dampingFactor=1, dampingMethod='exp',
                 tol=None, stopBelowTol=False,
                 sampleRate=48000, aoObj=None):
+        self.isEffective = False
         if aoObj is not None:
             sampleRate = aoObj.sampleRate
         if tol is None:
             tol = -1
             stopBelowTol = False
-        dampingFunc = {
-            'exp': lambda t: _np.exp(-dampingFactor * t),
-            'quad': lambda t: _np.reciprocal(1 + dampingFactor * t)
-        }
-        dampingMethod = dampingMethod.lower()
-        if dampingMethod not in dampingFunc.keys():
-            dampingMethod = 'exp'
-        dampingFunc = dampingFunc[dampingMethod]
+        if not callable(dampingMethod):
+            dampingFuncDict = {
+                'exp': lambda t: _np.exp(-dampingFactor * t),
+                'linear': lambda t: _np.reciprocal(1 + dampingFactor * t),
+                'quad': lambda t: _np.reciprocal(1 + (dampingFactor * t) ** 2),
+                'cubic': lambda t: _np.reciprocal(1 + (dampingFactor * t) ** 3)
+            }
+            dampingMethod = dampingFuncDict.get(dampingMethod.lower(),
+                                                dampingFuncDict['exp'])
 
         def _dampedAmp(_gen):
             blockOffset = 0
             for amp in _gen:
                 blockLen = len(amp)
-                if dampingFunc(blockOffset / sampleRate) < tol:
+                if dampingMethod(blockOffset / sampleRate) < tol:
                     if stopBelowTol:
                         return
                     yield _np.zeros((blockLen, ))
                 else:
-                    damper = dampingFunc(_np.arange(blockOffset,
-                                                    blockOffset + blockLen)
-                                         / sampleRate)
+                    damper = dampingMethod(_np.arange(blockOffset,
+                                                      blockOffset + blockLen)
+                                           / sampleRate)
                     yield _np.where(damper < tol, 0, amp * damper)
                 blockOffset += blockLen
 
-        self = self.__class__(_dampedAmp(self._genObj))
-        return self
+        return self.__class__(_dampedAmp(self._genObj),
+                              bufferSize=self._buffSize)
 
     def ampModify(self, ampFunc):
-        self = self.__class__(map(_np.vectorize(ampFunc),
-                                  self._genObj))
-        return self
+        self.isEffective = False
+        return self.__class__(map(_np.vectorize(ampFunc),
+                                  self._genObj),
+                              bufferSize=self._buffSize)
 
-    def add(self, secondSigObj, doAverage=True):
+    @staticmethod
+    def _elementOpOnBuffers(gen0, gen1, npVectFunc, buffSize):
+        buf = [_np.zeros(0), _np.zeros(0)]
+        someGenIsEmpty = False
+        while not someGenIsEmpty:
+            while len(buf[0]) < buffSize:
+                nextBuf = next(gen0, None)
+                if nextBuf is None:
+                    someGenIsEmpty = True
+                    break
+                buf[0] = _np.hstack((buf[0], nextBuf))
+            while len(buf[1]) < buffSize:
+                nextBuf = next(gen1, None)
+                if nextBuf is None:
+                    someGenIsEmpty = True
+                    break
+                buf[1] = _np.hstack((buf[1], nextBuf))
+            minBufLen = min(len(buf[0]), len(buf[1]))
+            if minBufLen == 0:
+                break
+            yield npVectFunc(buf[0][:minBufLen], buf[1][:minBufLen])
+            buf[0] = buf[0][minBufLen:]
+            buf[1] = buf[1][minBufLen:]
+
+    def elementwiseOp(self, secondSigObj, ampFunc):
         if secondSigObj.__class__ is not AudioOutputSignal:
             raise ValueError("Not a signal class")
+        self.isEffective = False
         secondSigObj.isEffective = False
-
-        def _sumTwoBuffers(gen0, gen1):
-            buf = [_np.zeros(0), _np.zeros(0)]
-            someGenIsEmpty = False
-            while not someGenIsEmpty:
-                while len(buf[0]) < self._buffSize:
-                    nextBuf = next(gen0, None)
-                    if nextBuf is None:
-                        someGenIsEmpty = True
-                        break
-                    buf[0] = _np.hstack((buf[0], nextBuf))
-                while len(buf[1]) < self._buffSize:
-                    nextBuf = next(gen1, None)
-                    if nextBuf is None:
-                        someGenIsEmpty = True
-                        break
-                    buf[1] = _np.hstack((buf[1], nextBuf))
-                minBufLen = min(len(buf[0]), len(buf[1]))
-                yield (buf[0][:minBufLen] + buf[1][:minBufLen]) \
-                    / (2 if doAverage else 1)
-                buf[0] = buf[0][minBufLen:]
-                buf[1] = buf[1][minBufLen:]
-
-        self = self.__class__(_sumTwoBuffers(self._genObj,
-                                             secondSigObj._genObj),
+        ampFunc = _np.vectorize(ampFunc)
+        return self.__class__(self._elementOpOnBuffers(self._genObj,
+                                                       secondSigObj._genObj,
+                                                       ampFunc,
+                                                       self._buffSize),
                               bufferSize=self._buffSize)
-        return self
+
+    def add(self, secondSigObj, doAverage=True):
+        return self.elementwiseOp(secondSigObj,
+                                  lambda x, y: (x + y) / 2
+                                  if doAverage
+                                  else _np.ndarray.__add__)
 
     def __add__(self, secondSigObj):
-        secondSigObj.isEffective = False
-        self = self.add(secondSigObj, doAverage=True)
-        return self
+        return self.add(secondSigObj, doAverage=True)
 
     def __mul__(self, secondSigObj):
         from numbers import Number as _numClass
         if isinstance(secondSigObj, _numClass):
-            self = self.ampModify(lambda x: x * secondSigObj)
-            return self
-        if secondSigObj.__class__ is not AudioOutputSignal:
-            raise ValueError("Not a signal class")
-        secondSigObj.isEffective = False
-
-        def _prodTwoBuffers(gen0, gen1):
-            buf = [_np.zeros(0), _np.zeros(0)]
-            someGenIsEmpty = False
-            while not someGenIsEmpty:
-                while len(buf[0]) < self._buffSize:
-                    nextBuf = next(gen0, None)
-                    if nextBuf is None:
-                        someGenIsEmpty = True
-                        break
-                    buf[0] = _np.hstack((buf[0], nextBuf))
-                while len(buf[1]) < self._buffSize:
-                    nextBuf = next(gen1, None)
-                    if nextBuf is None:
-                        someGenIsEmpty = True
-                        break
-                    buf[1] = _np.hstack((buf[1], nextBuf))
-                minBufLen = min(len(buf[0]), len(buf[1]))
-                yield (buf[0][:minBufLen] * buf[1][:minBufLen])
-                buf[0] = buf[0][minBufLen:]
-                buf[1] = buf[1][minBufLen:]
-
-        self = self.__class__(_prodTwoBuffers(self._genObj,
-                                              secondSigObj._genObj),
-                              bufferSize=self._buffSize)
-        return self
+            return self.ampModify(lambda x: x * secondSigObj)
+        return self.elementwiseOp(secondSigObj, lambda x, y: x * y)
 
     def __rmul__(self, secondSigObj):
-        self = self.__mul__(secondSigObj)
-        return self
+        return self.__mul__(secondSigObj)
+
+    def play(self, playerAO=None, keepActivate=True, ampScale=1):
+        if playerAO is None:
+            playerAO = self._aoObj
+        if playerAO is None:
+            raise ValueError("No AudioOutputInterface object given")
+        else:
+            playerAO.play(self, keepActivate=keepActivate, ampScale=ampScale)
 
     @classmethod
     def fromMandelbrotMap(cls, c):
@@ -329,23 +318,24 @@ class AudioOutputInterface:
         self._init_stream()
 
     @staticmethod
-    def _ensureGen(nparr_or_sig):
-        if nparr_or_sig.__class__ is _np.ndarray:
-            return AudioOutputSignal.fromNpArray(nparr_or_sig)
-        elif nparr_or_sig.__class__ is AudioOutputSignal:
-            return nparr_or_sig
+    def _ensureGen(obj):
+        if obj.__class__ is AudioOutputSignal:
+            return obj
+        elif obj.__class__ is _np.ndarray:
+            return AudioOutputSignal.fromNpArray(obj)
         else:
-            raise ValueError(
-                f"Unknown signal type {nparr_or_sig.__class__.__name__}")
+            raise ValueError(f"Unknown signal type {obj.__class__.__name__}")
 
     def play(self, signal, signalR=None, keepActivate=True, ampScale=1):
         if isinstance(signal, tuple) and len(signal) >= 2:
             signal, signalR = signal[0], signal[1]
         signal = self._ensureGen(signal)
+        if not signal.isEffective:
+            raise ValueError("Signal has no valid data")
         signal.isEffective = False
         signal = signal._genObj
         if self._channel == 2:
-            if signalR is None:
+            if signalR is None or not signalR.isEffective:
                 signal = (_np.vstack((sig, sig)).T.ravel()
                           for sig in signal)
             else:

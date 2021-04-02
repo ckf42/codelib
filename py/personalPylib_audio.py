@@ -122,7 +122,8 @@ class AudioOutputSignal:
         self.isEffective = False
         secondSigObj.isEffective = False
         return self.__class__(_it.chain(self._genObj, secondSigObj._genObj),
-                              bufferSize=self._buffSize)
+                              bufferSize=self._buffSize,
+                              aoObj=self._aoObj)
 
     def damping(self, dampingFactor=1, dampingMethod='exp',
                 tol=None, stopBelowTol=False,
@@ -159,13 +160,15 @@ class AudioOutputSignal:
                 blockOffset += blockLen
 
         return self.__class__(_dampedAmp(self._genObj),
-                              bufferSize=self._buffSize)
+                              bufferSize=self._buffSize,
+                              aoObj=self._aoObj)
 
     def ampModify(self, ampFunc):
         self.isEffective = False
         return self.__class__(map(_np.vectorize(ampFunc),
                                   self._genObj),
-                              bufferSize=self._buffSize)
+                              bufferSize=self._buffSize,
+                              aoObj=self._aoObj)
 
     @staticmethod
     def _elementOpOnBuffers(gen0, gen1, npVectFunc, buffSize):
@@ -201,7 +204,8 @@ class AudioOutputSignal:
                                                        secondSigObj._genObj,
                                                        ampFunc,
                                                        self._buffSize),
-                              bufferSize=self._buffSize)
+                              bufferSize=self._buffSize,
+                              aoObj=self._aoObj)
 
     def add(self, secondSigObj, doAverage=True):
         return self.elementwiseOp(secondSigObj,
@@ -221,17 +225,57 @@ class AudioOutputSignal:
     def __rmul__(self, secondSigObj):
         return self.__mul__(secondSigObj)
 
-    def play(self, playerAO=None, keepActivate=True, ampScale=1):
+    def play(self, playerAO=None,
+             keepActivate=True, ampScale=1., forceAsTwoChannel=False):
         if playerAO is None:
             playerAO = self._aoObj
         if playerAO is None:
             raise ValueError("No AudioOutputInterface object given")
         else:
-            playerAO.play(self, keepActivate=keepActivate, ampScale=ampScale)
+            playerAO.play(self,
+                          keepActivate=keepActivate,
+                          ampScale=ampScale,
+                          forceAsTwoChannel=forceAsTwoChannel)
 
     @classmethod
-    def fromMandelbrotMap(cls, c):
-        pass
+    def fromMandelbrotMap(cls, c, interpolFreq=440, bufferLimit=100,
+                          bufferSize=4096, sampleRate=48000, aoObj=None):
+        if c[0] ** 2 + c[1] ** 2 > 4:
+            raise ValueError("Initial c is too far away from 0")
+
+        def _mandelbrotIter(z):
+            return (z[0] ** 2 - z[1] ** 2 + c[0], 2 * z[0] * z[1] + c[1])
+        if aoObj is not None:
+            bufferSize = aoObj.bufferSize
+            sampleRate = aoObj.sampleRate
+        totalInterpolSample = int(sampleRate / interpolFreq)
+
+        def _mandelbrotYielder():
+            bufferCounter = 0
+            buf = _np.zeros(0)
+            z = c
+            znew = _mandelbrotIter(z)
+            while znew[0] ** 2 + znew[1] ** 2 <= 4:
+                buf = _np.hstack((buf,
+                                  _np.vstack((_np.linspace(z[0] / 2,
+                                                           znew[0] / 2,
+                                                           totalInterpolSample,
+                                                           endpoint=False),
+                                              _np.linspace(z[1] / 2,
+                                                           znew[1] / 2,
+                                                           totalInterpolSample,
+                                                           endpoint=False))
+                                             ).T.ravel()
+                                  ))
+                while len(buf) >= bufferSize and bufferCounter < bufferLimit:
+                    bufferCounter += 1
+                    yield buf[:bufferSize]
+                    buf = buf[bufferSize:]
+                z = znew
+                znew = _mandelbrotIter(z)
+                if bufferCounter >= bufferLimit:
+                    break
+        return cls(_mandelbrotYielder(), bufferSize=bufferSize, aoObj=aoObj)
 
 
 class AudioOutputInterface:
@@ -326,7 +370,9 @@ class AudioOutputInterface:
         else:
             raise ValueError(f"Unknown signal type {obj.__class__.__name__}")
 
-    def play(self, signal, signalR=None, keepActivate=True, ampScale=1):
+    def play(self, signal, signalR=None,
+             keepActivate=True, ampScale=1,
+             forceAsTwoChannel=False):
         if isinstance(signal, tuple) and len(signal) >= 2:
             signal, signalR = signal[0], signal[1]
         signal = self._ensureGen(signal)
@@ -334,7 +380,7 @@ class AudioOutputInterface:
             raise ValueError("Signal has no valid data")
         signal.isEffective = False
         signal = signal._genObj
-        if self._channel == 2:
+        if self._channel == 2 and not forceAsTwoChannel:
             if signalR is None or not signalR.isEffective:
                 signal = (_np.vstack((sig, sig)).T.ravel()
                           for sig in signal)

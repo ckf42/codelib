@@ -1,35 +1,32 @@
-# if __name__ == '__main__':
-#     exit()
-
 # TODO no numpy as dependency
 # TODO higher width than float32
 
 import pyaudio as _pa
 import numpy as _np
 import itertools as _it
+from numbers import Number as _numClass
 
 
 class AudioOutputSignal:
     _genObj = None
-    _buffSize = None
     _aoObj = None
-    isEffective = True
+    isInEffect = True
 
-    def __init__(self, gen, bufferSize=None, aoObj=None):
+    def __init__(self, gen, aoObj=None):
         self._genObj = gen
-        self._buffSize = bufferSize
         self._aoObj = aoObj
 
     @classmethod
     def fromNpArray(cls, npArray, bufferSize=4096):
         if npArray.dtype != _np.float32:
             npArray = npArray.astype(_np.float32)
+        if bufferSize is None:
+            bufferSize = len(npArray)
         nPieces = len(npArray) // bufferSize
         arrLen = len(npArray)
         return cls((npArray[bIdx * bufferSize:min((bIdx + 1) * bufferSize,
                                                   arrLen)]
-                    for bIdx in range(nPieces)),
-                   bufferSize=bufferSize)
+                    for bIdx in range(nPieces)))
 
     @classmethod
     def fromAmpFunc(cls, ampFunc, duration=1.,
@@ -38,24 +35,37 @@ class AudioOutputSignal:
             bufferSize = aoObj.bufferSize
             sampleRate = aoObj.sampleRate
         ampFunc_formatted = _np.vectorize(ampFunc)
-        totalSamples = int(duration * sampleRate)
-        nPieces, nRemain = divmod(totalSamples, bufferSize)
-        return cls((ampFunc_formatted(_np.arange(bIdx * bufferSize,
-                                                 min((bIdx + 1) * bufferSize,
-                                                     totalSamples))
-                                      / sampleRate)
-                    for bIdx in range(nPieces)),
-                   bufferSize=bufferSize,
-                   aoObj=aoObj)
+        if duration is not None:
+            totalSamples = int(duration * sampleRate)
+            if bufferSize is None:
+                bufferSize = totalSamples
+            nPieces, nRemain = divmod(totalSamples, bufferSize)
+            return cls((ampFunc_formatted(
+                _np.arange(bIdx * bufferSize,
+                           min((bIdx + 1) * bufferSize,
+                               totalSamples))
+                / sampleRate)
+                for bIdx in range(nPieces)),
+                aoObj=aoObj)
+        else:
+            if bufferSize is None:
+                raise ValueError("No bufferSize provided")
+            return cls((ampFunc_formatted(_np.arange(bIdx * bufferSize,
+                                                     (bIdx + 1) * bufferSize)
+                                          / sampleRate)
+                        for bIdx in _it.count()),
+                       aoObj=aoObj)
 
     @classmethod
-    def fromFreqFunc(cls, freqFunc, duration=1., amplitude=1.,
+    def fromFreqFunc(cls, freqFunc, duration=1., amplitude=1., initPhase=0.,
                      bufferSize=4096, sampleRate=48000, aoObj=None):
         if aoObj is not None:
             bufferSize = aoObj.bufferSize
             sampleRate = aoObj.sampleRate
         return cls.fromAmpFunc(ampFunc=lambda t: amplitude
-                               * _np.sin(2 * _np.pi * t * freqFunc(t)),
+                               * _np.sin(2 * _np.pi * t
+                                         * freqFunc(t)
+                                         + initPhase),
                                duration=duration,
                                bufferSize=bufferSize,
                                sampleRate=sampleRate,
@@ -71,11 +81,12 @@ class AudioOutputSignal:
                                aoObj=aoObj)
 
     @classmethod
-    def sineWave(cls, frequency, duration=1., amplitude=1.,
+    def sineWave(cls, frequency, duration=1., amplitude=1., initPhase=0.,
                  bufferSize=4096, sampleRate=48000, aoObj=None):
         return cls.fromFreqFunc(freqFunc=lambda t: frequency,
                                 duration=duration,
                                 amplitude=amplitude,
+                                initPhase=initPhase,
                                 bufferSize=bufferSize,
                                 sampleRate=sampleRate,
                                 aoObj=aoObj)
@@ -114,21 +125,27 @@ class AudioOutputSignal:
                                sampleRate=sampleRate,
                                aoObj=aoObj)
 
-    def toNpArray(self):
-        self.isEffective = False
-        return _np.hstack(tuple(self._genObj))
+    def toNpArray(self, frameLimit=4096):
+        return _np.hstack(tuple(self.keepTime(timeToKeep=1.,
+                                              sampleRate=frameLimit,
+                                              aoObj=None)._genObj))
 
-    def join(self, secondSigObj):
-        self.isEffective = False
-        secondSigObj.isEffective = False
-        return self.__class__(_it.chain(self._genObj, secondSigObj._genObj),
-                              bufferSize=self._buffSize,
-                              aoObj=self._aoObj)
+    def join(self, *sigObj):
+        if len(sigObj) == 0:
+            return self
+        elif len(sigObj) == 1:
+            sigObj = sigObj[0]
+            self.isInEffect = False
+            sigObj.isInEffect = False
+            return self.__class__(_it.chain(self._genObj, sigObj._genObj),
+                                  aoObj=self._aoObj)
+        else:
+            return self.join(sigObj[0]).join(*(sigObj[1:]))
 
     def damping(self, dampingFactor=1, dampingMethod='exp',
                 tol=None, stopBelowTol=False,
                 sampleRate=48000, aoObj=None):
-        self.isEffective = False
+        self.isInEffect = False
         if aoObj is not None:
             sampleRate = aoObj.sampleRate
         if tol is None:
@@ -160,73 +177,119 @@ class AudioOutputSignal:
                 blockOffset += blockLen
 
         return self.__class__(_dampedAmp(self._genObj),
-                              bufferSize=self._buffSize,
                               aoObj=self._aoObj)
 
     def ampModify(self, ampFunc):
-        self.isEffective = False
+        self.isInEffect = False
         return self.__class__(map(_np.vectorize(ampFunc),
                                   self._genObj),
-                              bufferSize=self._buffSize,
                               aoObj=self._aoObj)
 
     @staticmethod
-    def _elementOpOnBuffers(gen0, gen1, npVectFunc, buffSize):
+    def _elementOpOnBuffers(gen0, gen1, npVectFunc):
         buf = [_np.zeros(0), _np.zeros(0)]
-        someGenIsEmpty = False
-        while not someGenIsEmpty:
-            while len(buf[0]) < buffSize:
-                nextBuf = next(gen0, None)
-                if nextBuf is None:
-                    someGenIsEmpty = True
-                    break
-                buf[0] = _np.hstack((buf[0], nextBuf))
-            while len(buf[1]) < buffSize:
+        gen1IsEmpty = False
+        while not gen1IsEmpty:
+            buf[0] = next(gen0, None)
+            if buf[0] is None:
+                break
+            while len(buf[1]) < len(buf[0]):
                 nextBuf = next(gen1, None)
                 if nextBuf is None:
-                    someGenIsEmpty = True
+                    gen1IsEmpty = True
                     break
                 buf[1] = _np.hstack((buf[1], nextBuf))
-            minBufLen = min(len(buf[0]), len(buf[1]))
-            if minBufLen == 0:
+            if gen1IsEmpty:
                 break
-            yield npVectFunc(buf[0][:minBufLen], buf[1][:minBufLen])
-            buf[0] = buf[0][minBufLen:]
-            buf[1] = buf[1][minBufLen:]
+            yield npVectFunc(buf[0], buf[1][:len(buf[0])])
+            buf[1] = buf[1][len(buf[0]):]
+        if gen1IsEmpty:
+            bufLen = min(len(buf[0]), len(buf[1]))
+            yield npVectFunc(buf[0][:bufLen], buf[1][:bufLen])
 
     def elementwiseOp(self, secondSigObj, ampFunc):
         if secondSigObj.__class__ is not AudioOutputSignal:
             raise ValueError("Not a signal class")
-        self.isEffective = False
-        secondSigObj.isEffective = False
+        self.isInEffect = False
+        secondSigObj.isInEffect = False
         ampFunc = _np.vectorize(ampFunc)
         return self.__class__(self._elementOpOnBuffers(self._genObj,
                                                        secondSigObj._genObj,
-                                                       ampFunc,
-                                                       self._buffSize),
-                              bufferSize=self._buffSize,
+                                                       ampFunc),
                               aoObj=self._aoObj)
 
-    def add(self, secondSigObj, doAverage=True):
-        return self.elementwiseOp(secondSigObj,
-                                  lambda x, y: (x + y) / 2
-                                  if doAverage
-                                  else _np.ndarray.__add__)
+    def add(self, *signalObj, doAverage=True):
+        if len(signalObj) == 0:
+            return self
+        else:
+            n = len(signalObj) + 1
+            return self.elementwiseOp(signalObj[0].add(*signalObj[1:],
+                                                       doAverage=False),
+                                      lambda x, y: (x + y) / (n
+                                                              if doAverage
+                                                              else 1))
 
     def __add__(self, secondSigObj):
-        return self.add(secondSigObj, doAverage=True)
+        if isinstance(secondSigObj, _numClass):
+            return self.ampModify(lambda x: x + secondSigObj)
+        else:
+            return self.add(secondSigObj, doAverage=False)
+
+    def __radd__(self, secondSigObj):
+        return self.__add__(secondSigObj)
+
+    @classmethod
+    def sum(cls, *signalObj, doAverage=False):
+        if len(signalObj) == 0:
+            return cls.silentSignal(duration=None)
+        else:
+            return signalObj[0].add(*signalObj[1:], doAverage=doAverage)
+
+    def mul(self, *signalObj):
+        if len(signalObj) == 0:
+            return self
+        else:
+            return self.elementwiseOp(signalObj[0].mul(*signalObj[1:]),
+                                      lambda x, y: x * y)
 
     def __mul__(self, secondSigObj):
-        from numbers import Number as _numClass
         if isinstance(secondSigObj, _numClass):
             return self.ampModify(lambda x: x * secondSigObj)
-        return self.elementwiseOp(secondSigObj, lambda x, y: x * y)
+        return self.mul(secondSigObj)
 
     def __rmul__(self, secondSigObj):
         return self.__mul__(secondSigObj)
 
+    @classmethod
+    def prod(cls, *signalObj):
+        if len(signalObj) == 0:
+            return cls.fromAmpFunc(lambda x: 1, None)
+        else:
+            return signalObj[0].mul(*signalObj[1:])
+
+    def enforceBufferSize(self, bufferSize=4096):
+        self.isInEffect = False
+        if bufferSize is None:
+            arr = self.toNpArray()
+            return self.__class__.fromNpArray(arr, bufferSize=len(arr))
+
+        def _enforceBufSize(_gen):
+            buf = _np.zeros(0)
+            while True:
+                nextBuf = next(_gen, None)
+                if nextBuf is None:
+                    break
+                buf = _np.hstack((buf, nextBuf))
+                while len(buf) >= bufferSize:
+                    yield buf[:bufferSize]
+                    buf = buf[bufferSize:]
+            if len(buf) > 0:
+                yield buf
+        return self.__class__(_enforceBufSize(self._genObj),
+                              aoObj=self._aoObj)
+
     def play(self, playerAO=None,
-             keepActivate=True, ampScale=1., forceAsTwoChannel=False):
+             keepActivate=True, volume=1., forceAsTwoChannel=False):
         if playerAO is None:
             playerAO = self._aoObj
         if playerAO is None:
@@ -234,8 +297,90 @@ class AudioOutputSignal:
         else:
             playerAO.play(self,
                           keepActivate=keepActivate,
-                          ampScale=ampScale,
+                          volume=volume,
                           forceAsTwoChannel=forceAsTwoChannel)
+
+    def skipTime(self, timeToSkip=0.,
+                 sampleRate=48000, aoObj=None):
+        if timeToSkip <= 0:
+            return self
+        if aoObj is not None:
+            sampleRate = aoObj.sampleRate
+        framesToSkip = int(sampleRate * timeToSkip)
+        self.isInEffect = False
+
+        def _skip(_gen):
+            skippedFrames = 0
+            while True:
+                buf = next(_gen, None)
+                if buf is None:
+                    break
+                if skippedFrames + len(buf) > framesToSkip:
+                    yield buf[framesToSkip - skippedFrames:]
+                    break
+                else:
+                    skippedFrames += len(buf)
+            yield from _gen
+        return self.__class__(_skip(self._genObj), aoObj=self._aoObj)
+
+    def keepTime(self, timeToKeep=0.,
+                 sampleRate=48000, aoObj=None):
+        self.isInEffect = False
+        if timeToKeep < 0:
+            return self
+        if aoObj is not None:
+            sampleRate = aoObj.sampleRate
+        framesToKeep = int(sampleRate * timeToKeep)
+
+        def _keep(_gen):
+            keepedFrames = 0
+            while True:
+                buf = next(_gen, None)
+                if buf is None:
+                    break
+                if keepedFrames + len(buf) > framesToKeep:
+                    yield buf[:framesToKeep - keepedFrames]
+                    break
+                else:
+                    yield buf
+                    keepedFrames += len(buf)
+        return self.__class__(_keep(self._genObj), aoObj=self._aoObj)
+
+    @classmethod
+    def fromFourier(cls, ampList, freqList, initPhaseList=0.,
+                    duration=1., doL1Normalize=True,
+                    bufferSize=4096, sampleRate=48000, aoObj=None):
+        if len(ampList) != len(freqList):
+            raise ValueError("the two lists have different lengths")
+        if len(ampList) == 0:
+            return cls.silentSignal(duration=duration,
+                                    bufferSize=bufferSize,
+                                    sampleRate=sampleRate,
+                                    aoObj=aoObj)
+        else:
+            if isinstance(initPhaseList, _numClass):
+                initPhaseList = tuple(initPhaseList
+                                      for _ in range(len(ampList)))
+            if doL1Normalize:
+                ampSum = _np.sum(_np.abs(ampList))
+                ampList = list(amp / ampSum for amp in ampList)
+            return cls.sum(*(cls.sineWave(frequency=freq,
+                                          duration=duration,
+                                          amplitude=amp,
+                                          initPhase=initPhase,
+                                          bufferSize=bufferSize,
+                                          sampleRate=sampleRate,
+                                          aoObj=aoObj)
+                             for (freq, amp, initPhase)
+                             in zip(freqList, ampList, initPhaseList)),
+                           doAverage=False)
+
+    def clip(self):
+        self.isInEffect = False
+        return self.__class__((amp.clip(-1., 1.)
+                               for amp
+                               in self._gen),
+                              aoObj=self._aoObj)
 
 
 class AudioOutputInterface:
@@ -321,33 +466,33 @@ class AudioOutputInterface:
         self._paObj = _pa.PyAudio()
         self._init_stream()
 
-    @staticmethod
-    def _ensureGen(obj):
+    def _ensureGen(self, obj):
         if obj.__class__ is AudioOutputSignal:
-            return obj
+            if not obj.isInEffect:
+                raise ValueError("Signal has no valid data")
+            obj.isInEffect = False
+            return obj._genObj
         elif obj.__class__ is _np.ndarray:
-            return AudioOutputSignal.fromNpArray(obj)
+            return AudioOutputSignal.fromNpArray(obj,
+                                                 bufferSize=self.bufferSize
+                                                 )._genObj
+        elif obj.__class__.__name__ == 'generator':
+            return obj
         else:
             raise ValueError(f"Unknown signal type {obj.__class__.__name__}")
 
     def play(self, signal, signalR=None,
-             keepActivate=True, ampScale=1,
+             keepActivate=True, volume=1,
              forceAsTwoChannel=False):
         if isinstance(signal, tuple) and len(signal) >= 2:
             signal, signalR = signal[0], signal[1]
         signal = self._ensureGen(signal)
-        if not signal.isEffective:
-            raise ValueError("Signal has no valid data")
-        signal.isEffective = False
-        signal = signal._genObj
         if self._channel == 2 and not forceAsTwoChannel:
-            if signalR is None or not signalR.isEffective:
+            if signalR is None or not signalR.isInEffect:
                 signal = (_np.vstack((sig, sig)).T.ravel()
                           for sig in signal)
             else:
                 signalR = self._ensureGen(signalR)
-                signalR.isEffective = False
-                signalR = signalR._genObj
                 signal = (_np.vstack((signalPair[0][:maxLen],
                                       signalPair[1][:maxLen])).T.ravel()
                           for signalPair in zip(signal, signalR)
@@ -355,12 +500,19 @@ class AudioOutputInterface:
         if self._stream.is_stopped():
             self._stream.start_stream()
         for buf in signal:
-            buf = buf.clip(-1., 1.) * ampScale
+            buf = buf.clip(-1., 1.) * volume
             self._stream.write(buf.astype(_np.float32,
                                           casting='same_kind',
                                           copy=False).tobytes())
         if not keepActivate:
             self._stream.stop_stream()
 
-    def clearBuf(self):
-        self.play(AudioOutputSignal.silentSignal(duration=0.5, aoObj=self))
+    def clearBuf(self, duration=0.1):
+        self.play(AudioOutputSignal.silentSignal(duration=duration,
+                                                 aoObj=self),
+                  keepActivate=False)
+
+
+if __name__ == '__main__':
+    ao = AudioOutputInterface()
+    aos = AudioOutputSignal

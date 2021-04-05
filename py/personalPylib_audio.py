@@ -310,10 +310,10 @@ class AudioOutputSignal:
         else:
             return signalObj[0].mul(*signalObj[1:])
 
-    def enforceBufferSize(self, bufferSize=4096):
+    def enforceBufferSize(self, bufferSize=4096, frameLimit=None):
         self._isInEffect = False
         if bufferSize is None:
-            arr = self.toNpArray()
+            arr = self.toNpArray(frameLimit=frameLimit)
             return self.__class__.fromNpArray(arr, bufferSize=len(arr))
 
         def _enforceBufferSize_gen(_gen):
@@ -442,9 +442,14 @@ class AudioOutputSignal:
         if fillSilentWithZero and len(signalArr) < eachBlockLen:
             signalArr = _np.hstack((signalArr,
                                    _np.zeros(eachBlockLen - len(signalArr))))
-        return self.__class__.fromNpArray(_np.tile(signalArr,
-                                                   repeatTimes),
-                                          aoObj=self._aoObj)
+        # return self.__class__.fromNpArray(_np.tile(signalArr,
+        #                                            repeatTimes),
+        #                                   aoObj=self._aoObj)
+        if repeatTimes is None:
+            return self.__class__(_it.repeat(signalArr), aoObj=self._aoObj)
+        else:
+            return self.__class__(_it.repeat(signalArr, repeatTimes),
+                                  aoObj=self._aoObj)
 
 
 class AudioOutputInterface:
@@ -536,12 +541,18 @@ class AudioOutputInterface:
         if isinstance(obj, AudioOutputSignal):
             if not obj._isInEffect:
                 raise ValueError("Signal has no valid data")
-            if not forcePrecompute:
-                obj._isInEffect = False
-                return obj.enforceBufferSize(
-                    bufferSize=self.bufferSize)._genObj
+            if forcePrecompute is None:
+                forcePrecompute = True
+            if isinstance(forcePrecompute, bool):
+                if forcePrecompute:
+                    forcePrecompute = 60.
+                else:
+                    obj._isInEffect = False
+                    return obj.enforceBufferSize(
+                        bufferSize=self.bufferSize)._genObj
             else:
-                obj = obj.toNpArray()
+                obj = obj.toNpArray(
+                    frameLimit=forcePrecompute * self.bufferSize())
         if isinstance(obj, _np.ndarray):
             return AudioOutputSignal.fromNpArray(obj,
                                                  bufferSize=self.bufferSize

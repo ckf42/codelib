@@ -20,7 +20,7 @@ class AudioOutputSignal:
     def isInEffect(self):
         return self._isInEffect
 
-    @isInEffect.getter
+    @isInEffect.setter
     def isInEffect(self, newFlag):
         raise ValueError("Cannot modify the property")
 
@@ -137,6 +137,11 @@ class AudioOutputSignal:
                                aoObj=aoObj)
 
     def toNpArray(self, frameLimit=None, getLenOnly=False):
+        if not self.isInEffect:
+            raise ValueError("No valid signal data")
+        if getLenOnly:
+            return len(self.toNpArray(frameLimit=frameLimit,
+                                      getLenOnly=False))
         self._isInEffect = False
         # default frameLimit: 60 seconds
         if frameLimit is None:
@@ -146,14 +151,15 @@ class AudioOutputSignal:
         sampleRate = 48000
         if self._aoObj is not None:
             sampleRate = self._aoObj.sampleRate
-        outputArr = _np.hstack(tuple(
-            self.keepTime(timeToKeep=frameLimit / sampleRate,
-                          sampleRate=sampleRate,
-                          aoObj=None)._genObj))
-        if getLenOnly:
-            return len(outputArr)
+        outputArr = None
+        if frameLimit < 0:
+            outputArr = _np.hstack(tuple(self._genObj))
         else:
-            return outputArr
+            outputArr = _np.hstack(tuple(
+                self.keepTime(timeToKeep=frameLimit / sampleRate,
+                              sampleRate=sampleRate,
+                              aoObj=None)._genObj))
+        return outputArr
 
     def join(self, *sigObj):
         if len(sigObj) == 0:
@@ -240,7 +246,8 @@ class AudioOutputSignal:
     def elementwiseOp(self, secondSigObj, ampFunc):
         if not isinstance(secondSigObj, AudioOutputSignal):
             raise ValueError(
-                f"Not a signal class ({secondSigObj.__class__.__name__})")
+                f"Not a signal class ({secondSigObj.__class__.__name__})"
+            )
         self._isInEffect = False
         secondSigObj._isInEffect = False
         ampFunc = _np.vectorize(ampFunc)
@@ -399,7 +406,7 @@ class AudioOutputSignal:
 
     @classmethod
     def fromFourier(cls, ampList, freqList, initPhaseList=0.,
-                    duration=1., doL1Normalize=True,
+                    duration=1., ampWeightNormalize=True,
                     bufferSize=4096, sampleRate=48000, aoObj=None):
         if len(ampList) != len(freqList):
             raise ValueError("the two lists have different lengths")
@@ -410,9 +417,8 @@ class AudioOutputSignal:
                                     aoObj=aoObj)
         else:
             if isinstance(initPhaseList, _numClass):
-                initPhaseList = tuple(initPhaseList
-                                      for _ in range(len(ampList)))
-            if doL1Normalize:
+                initPhaseList = _it.repeat(initPhaseList, len(ampList))
+            if ampWeightNormalize:
                 ampSum = _np.sum(_np.abs(ampList))
                 ampList = list(amp / ampSum for amp in ampList)
             return cls.sum(*(cls.sineWave(frequency=freq,
@@ -433,13 +439,13 @@ class AudioOutputSignal:
                                in self._gen),
                               aoObj=self._aoObj)
 
-    def repeat(self, repeatTimes=1, eachDuration=1., fillSilentWithZero=False,
+    def repeat(self, repeatTimes=1, eachDuration=1., patchLenWithZero=False,
                sampleRate=48000):
         if self._aoObj is not None:
             sampleRate = self._aoObj.sampleRate
         eachBlockLen = int(eachDuration * sampleRate)
         signalArr = self.toNpArray(frameLimit=eachBlockLen)
-        if fillSilentWithZero and len(signalArr) < eachBlockLen:
+        if patchLenWithZero and len(signalArr) < eachBlockLen:
             signalArr = _np.hstack((signalArr,
                                    _np.zeros(eachBlockLen - len(signalArr))))
         # return self.__class__.fromNpArray(_np.tile(signalArr,

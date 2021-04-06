@@ -33,7 +33,7 @@ class AudioOutputSignal:
         elif bufferSize is None:
             bufferSize = len(npArray)
         arrLen = len(npArray)
-        nPieces = arrLen // bufferSize
+        nPieces = (arrLen + bufferSize - 1) // bufferSize
         return cls((npArray[bIdx * bufferSize:min((bIdx + 1) * bufferSize,
                                                   arrLen)]
                     for bIdx in range(nPieces)),
@@ -50,13 +50,13 @@ class AudioOutputSignal:
             totalSamples = int(duration * sampleRate)
             if bufferSize is None:
                 bufferSize = totalSamples
-            nPieces, nRemain = divmod(totalSamples, bufferSize)
-            return cls((ampFunc_formatted(
-                _np.arange(bIdx * bufferSize,
-                           min((bIdx + 1) * bufferSize,
-                               totalSamples))
-                / sampleRate)
-                for bIdx in range(nPieces + (1 if nRemain != 0 else 0))),
+            nPieces = (totalSamples + bufferSize - 1) // bufferSize
+            return cls((
+                ampFunc_formatted(_np.arange(bIdx * bufferSize,
+                                             min((bIdx + 1) * bufferSize,
+                                                 totalSamples))
+                                  / sampleRate)
+                for bIdx in range(nPieces)),
                 aoObj=aoObj)
         else:
             if bufferSize is None:
@@ -151,15 +151,14 @@ class AudioOutputSignal:
         sampleRate = 48000
         if self._aoObj is not None:
             sampleRate = self._aoObj.sampleRate
-        outputArr = None
+        # extract np array till the end if frameLimit is negative
         if frameLimit < 0:
-            outputArr = _np.hstack(tuple(self._genObj))
+            return _np.hstack(tuple(self._genObj))
         else:
-            outputArr = _np.hstack(tuple(
+            return _np.hstack(tuple(
                 self.keepTime(timeToKeep=frameLimit / sampleRate,
                               sampleRate=sampleRate,
                               aoObj=None)._genObj))
-        return outputArr
 
     def join(self, *sigObj):
         if len(sigObj) == 0:
@@ -207,7 +206,7 @@ class AudioOutputSignal:
                 if dampingMethod(blockOffset / sampleRate) < tol:
                     if stopBelowTol:
                         return
-                    yield _np.zeros((blockLen, ))
+                    yield _np.zeros(blockLen)
                 else:
                     damper = dampingMethod(_np.arange(blockOffset,
                                                       blockOffset + blockLen)
@@ -224,25 +223,6 @@ class AudioOutputSignal:
                                   self._genObj),
                               aoObj=self._aoObj)
 
-    @staticmethod
-    def _elementOpOnBuffers(gen0, gen1, npVectFunc):
-        buf = [_np.zeros(0), _np.zeros(0)]
-        gen1IsEmpty = False
-        while not gen1IsEmpty:
-            buf[0] = next(gen0, None)
-            if buf[0] is None:
-                break
-            while len(buf[0]) > len(buf[1]):
-                nextBuf = next(gen1, None)
-                if nextBuf is None:
-                    gen1IsEmpty = True
-                    break
-                buf[1] = _np.hstack((buf[1], nextBuf))
-            if gen1IsEmpty:
-                buf[0] = buf[0][:len(buf[1])]
-            yield npVectFunc(buf[0], buf[1][:len(buf[0])])
-            buf[1] = buf[1][len(buf[0]):]
-
     def elementwiseOp(self, secondSigObj, ampFunc):
         if not isinstance(secondSigObj, AudioOutputSignal):
             raise ValueError(
@@ -251,9 +231,28 @@ class AudioOutputSignal:
         self._isInEffect = False
         secondSigObj._isInEffect = False
         ampFunc = _np.vectorize(ampFunc)
-        return self.__class__(self._elementOpOnBuffers(self._genObj,
-                                                       secondSigObj._genObj,
-                                                       ampFunc),
+
+        def _elementwiseOp_gen(gen0, gen1, npVectFunc):
+            buf = [_np.zeros(0), _np.zeros(0)]
+            gen1IsEmpty = False
+            while not gen1IsEmpty:
+                buf[0] = next(gen0, None)
+                if buf[0] is None:
+                    break
+                while len(buf[0]) > len(buf[1]):
+                    nextBuf = next(gen1, None)
+                    if nextBuf is None:
+                        gen1IsEmpty = True
+                        break
+                    buf[1] = _np.hstack((buf[1], nextBuf))
+                if gen1IsEmpty:
+                    buf[0] = buf[0][:len(buf[1])]
+                yield npVectFunc(buf[0], buf[1][:len(buf[0])])
+                buf[1] = buf[1][len(buf[0]):]
+
+        return self.__class__(_elementwiseOp_gen(self._genObj,
+                                                 secondSigObj._genObj,
+                                                 ampFunc),
                               aoObj=self._aoObj)
 
     def add(self, *signalObj, average=False):
@@ -448,9 +447,6 @@ class AudioOutputSignal:
         if patchLenWithZero and len(signalArr) < eachBlockLen:
             signalArr = _np.hstack((signalArr,
                                    _np.zeros(eachBlockLen - len(signalArr))))
-        # return self.__class__.fromNpArray(_np.tile(signalArr,
-        #                                            repeatTimes),
-        #                                   aoObj=self._aoObj)
         if repeatTimes is None:
             return self.__class__(_it.repeat(signalArr), aoObj=self._aoObj)
         else:

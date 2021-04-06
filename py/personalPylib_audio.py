@@ -550,15 +550,13 @@ class AudioOutputInterface:
             if forcePrecompute is None:
                 forcePrecompute = True
             if isinstance(forcePrecompute, bool):
-                if forcePrecompute:
-                    forcePrecompute = 60.
-                else:
+                if not forcePrecompute:
                     obj._isInEffect = False
                     return obj.enforceBufferSize(
                         bufferSize=self.bufferSize)._genObj
-            else:
-                obj = obj.toNpArray(
-                    frameLimit=forcePrecompute * self.bufferSize())
+                else:
+                    forcePrecompute = 60.
+            obj = obj.toNpArray(frameLimit=forcePrecompute * self.bufferSize)
         if isinstance(obj, _np.ndarray):
             return AudioOutputSignal.fromNpArray(obj,
                                                  bufferSize=self.bufferSize

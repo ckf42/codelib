@@ -103,6 +103,12 @@ class AudioOutputSignal:
                                 aoObj=aoObj)
 
     @classmethod
+    def unitSound(cls, frequency, aoObj):
+        return cls.sineWave(frequency=frequency,
+                            duration=1. / frequency,
+                            aoObj=aoObj)
+
+    @classmethod
     def squareWave(cls, frequency, duration=1., amplitude=1.,
                    bufferSize=4096, sampleRate=48000, aoObj=None):
         return cls.fromAmpFunc(ampFunc=lambda t:

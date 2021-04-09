@@ -16,6 +16,12 @@ class AudioOutputSignal:
         self._genObj = gen
         self._aoObj = aoObj
 
+    def __next__(self):
+        yield next(self._genObj)
+
+    def __iter__(self):
+        return self._genObj
+
     @property
     def isInEffect(self):
         return self._isInEffect
@@ -223,6 +229,20 @@ class AudioOutputSignal:
         return self.__class__(_damping_gen(self._genObj),
                               aoObj=self._aoObj)
 
+    def cutoff(self, chunkTotalVarTol=1e-3):
+        self._isInEffect = False
+
+        def _cutoff_gen(_gen):
+            for chunk in _gen:
+                if len(chunk) == 1 and _np.abs(chunk[0]) < chunkTotalVarTol:
+                    return
+                elif _np.sum(_np.abs(_np.diff(chunk))) < chunkTotalVarTol:
+                    return
+                else:
+                    yield chunk
+        return self.__class__(_cutoff_gen(self._genObj),
+                              aoObj=self._aoObj)
+
     def ampModify(self, ampFunc):
         self._isInEffect = False
         return self.__class__(map(_np.vectorize(ampFunc),
@@ -344,27 +364,27 @@ class AudioOutputSignal:
                               aoObj=self._aoObj)
 
     def play(self, playerAO=None,
-             keepActivate=True, volume=1.,
-             forceAsTwoChannel=False, forcePrecompute=False):
+             keepActive=True, volume=1.,
+             forceAsTwoChannel=False, forcePrecompute=False,
+             smoothClip=False):
         if playerAO is None:
             playerAO = self._aoObj
         if playerAO is None:
             raise ValueError("No AudioOutputInterface object given")
         else:
             playerAO.play(self,
-                          keepActivate=keepActivate,
+                          keepActive=keepActive,
                           volume=volume,
                           forceAsTwoChannel=forceAsTwoChannel,
-                          forcePrecompute=forcePrecompute)
+                          forcePrecompute=forcePrecompute,
+                          smoothClip=smoothClip)
 
     def skipTime(self, timeToSkip=0.,
-                 sampleRate=48000, aoObj=None):
+                 sampleRate=48000):
         if timeToSkip <= 0:
             return self
-        if aoObj is None:
-            aoObj = self._aoObj
-        if aoObj is not None:
-            sampleRate = aoObj.sampleRate
+        if self._aoObj is not None:
+            sampleRate = self._aoObj.sampleRate
         framesToSkip = int(sampleRate * timeToSkip)
         self._isInEffect = False
 
@@ -384,14 +404,12 @@ class AudioOutputSignal:
                               aoObj=self._aoObj)
 
     def keepTime(self, timeToKeep=0.,
-                 sampleRate=48000, aoObj=None):
+                 sampleRate=48000):
         self._isInEffect = False
         if timeToKeep < 0:
             return self
-        if aoObj is None:
-            aoObj = self._aoObj
-        if aoObj is not None:
-            sampleRate = aoObj.sampleRate
+        if self._aoObj is not None:
+            sampleRate = self._aoObj.sampleRate
         framesToKeep = int(sampleRate * timeToKeep)
 
         def _keepTime_gen(_gen):
@@ -458,6 +476,32 @@ class AudioOutputSignal:
         else:
             return self.__class__(_it.repeat(signalArr, repeatTimes),
                                   aoObj=self._aoObj)
+
+    def echo(self, delayTime=0.5, echoAmp=0.7, infEcho=False,
+             sampleRate=48000):
+        if self._aoObj is not None:
+            sampleRate = self._aoObj.sampleRate
+        delayFrame = int(sampleRate * delayTime)
+
+        def _echo_gen(_gen):
+            memBuf = _np.zeros(delayFrame)
+            while True:
+                nextBuf = next(_gen, None)
+                if nextBuf is None:
+                    nextBuf = _np.zeros(delayFrame)
+                elif len(nextBuf) < delayFrame:
+                    nextBuf = _np.hstack((nextBuf,
+                                          _np.zeros(delayFrame - len(nextBuf))
+                                          ))
+                yield nextBuf + memBuf * echoAmp
+                if infEcho:
+                    memBuf = nextBuf + memBuf * echoAmp
+                else:
+                    memBuf = nextBuf
+
+        return self.__class__(
+            _echo_gen(self.enforceBufferSize(bufferSize=delayFrame)._genObj),
+            aoObj=self._aoObj)
 
 
 class AudioOutputInterface:
@@ -567,8 +611,9 @@ class AudioOutputInterface:
             raise ValueError(f"Unknown signal type {obj.__class__.__name__}")
 
     def play(self, signal, signalR=None,
-             keepActivate=True, volume=1.,
-             forceAsTwoChannel=False, forcePrecompute=False):
+             keepActive=True, volume=1.,
+             forceAsTwoChannel=False, forcePrecompute=False,
+             smoothClip=False):
         if isinstance(signal, tuple) and len(signal) >= 2:
             signal, signalR = signal[0], signal[1]
         signal = self._ensureSigGen(signal, forcePrecompute)
@@ -585,11 +630,15 @@ class AudioOutputInterface:
         if self._stream.is_stopped():
             self._stream.start_stream()
         for buf in signal:
-            buf = buf.clip(-1., 1.) * volume
+            if smoothClip:
+                buf = volume * (2 / (1 + _np.exp(-2 * buf)) - 1)
+                # ~ 75% peak loss
+            else:
+                buf = buf.clip(-1., 1.) * volume
             self._stream.write(buf.astype(_np.float32,
                                           casting='same_kind',
                                           copy=False).tobytes())
-        if not keepActivate:
+        if not keepActive:
             self._stream.stop_stream()
 
     def clearBuf(self, duration=0.1):

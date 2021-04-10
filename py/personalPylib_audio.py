@@ -17,9 +17,15 @@ class AudioOutputSignal:
         self._aoObj = aoObj
 
     def __next__(self):
-        yield next(self._genObj)
+        res = next(self._genObj, None)
+        if res is None:
+            self._isInEffect = False
+            raise StopIteration
+        else:
+            return res
 
     def __iter__(self):
+        self._isInEffect = False
         return self._genObj
 
     @property
@@ -57,12 +63,12 @@ class AudioOutputSignal:
             if bufferSize is None:
                 bufferSize = totalSamples
             nPieces = (totalSamples + bufferSize - 1) // bufferSize
-            return cls((
-                ampFunc_formatted(_np.arange(bIdx * bufferSize,
-                                             min((bIdx + 1) * bufferSize,
-                                                 totalSamples))
-                                  / sampleRate)
-                for bIdx in range(nPieces)),
+            return cls(
+                (ampFunc_formatted(_np.arange(bIdx * bufferSize,
+                                              min((bIdx + 1) * bufferSize,
+                                                  totalSamples))
+                                   / sampleRate)
+                 for bIdx in range(nPieces)),
                 aoObj=aoObj)
         else:
             if bufferSize is None:
@@ -169,8 +175,7 @@ class AudioOutputSignal:
         else:
             return _np.hstack(tuple(
                 self.keepTime(timeToKeep=frameLimit / sampleRate,
-                              sampleRate=sampleRate,
-                              aoObj=None)._genObj))
+                              sampleRate=sampleRate)._genObj))
 
     def join(self, *sigObj):
         if len(sigObj) == 0:
@@ -440,20 +445,20 @@ class AudioOutputSignal:
                                     aoObj=aoObj)
         else:
             if isinstance(initPhaseList, _numClass):
-                initPhaseList = _it.repeat(initPhaseList, len(ampList))
+                initPhaseList = [initPhaseList] * len(ampList)
             if ampWeightNormalize:
                 ampSum = _np.sum(_np.abs(ampList))
                 ampList = list(amp / ampSum for amp in ampList)
-            return cls.sum(*(cls.sineWave(frequency=freq,
-                                          duration=duration,
-                                          amplitude=amp,
-                                          initPhase=initPhase,
-                                          bufferSize=bufferSize,
-                                          sampleRate=sampleRate,
-                                          aoObj=aoObj)
-                             for (freq, amp, initPhase)
-                             in zip(freqList, ampList, initPhaseList)),
-                           average=False)
+            return cls.fromAmpFunc(
+                ampFunc=lambda t: sum(
+                    amp * _np.sin(2 * _np.pi * freq * t
+                                  + initPhase)
+                    for (amp, freq, initPhase)
+                    in zip(ampList, freqList, initPhaseList)),
+                duration=duration,
+                bufferSize=bufferSize,
+                sampleRate=sampleRate,
+                aoObj=aoObj)
 
     def clip(self):
         self._isInEffect = False
@@ -644,7 +649,7 @@ class AudioOutputInterface:
     def clearBuf(self, duration=0.1):
         self.play(AudioOutputSignal.silentSignal(duration=duration,
                                                  aoObj=self),
-                  keepActivate=False)
+                  keepActive=False)
 
 
 if __name__ == '__main__':

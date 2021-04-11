@@ -5,17 +5,17 @@ import personalPylib_audio as au
 
 print("Initiating ...")
 
-loopTime = 1. / 256
+loopTime = 1. / 18
 sampleRate = 48000
 bufferSize = int(sampleRate * loopTime)
 
-naturalDampingFactor = 10
-naturalDampingCutoffCount = int(0.25 * sampleRate / bufferSize)
+naturalDampingFactor = 9
+naturalDampingCutoffCount = int(0.3 * sampleRate / bufferSize)
 manualDampingIsActive = False
-manualDampingFactor = 6
+manualDampingFactor = 3
 manualDampedFrameCount = 0
 
-scaleOffset = 2
+scaleOffset = 3
 signalMode = 1
 globalVolume = 100
 
@@ -25,7 +25,7 @@ ao = au.AudioOutputInterface(bufferSize=bufferSize,
 aos = au.AudioOutputSignal
 
 scaler = 2**(1 / 12)
-freqDict = {
+freqDict = {  # at C2-B2
     "C": 110 * scaler ** -9,
     "Cs": 110 * scaler ** -8,
     "D": 110 * scaler ** -7,
@@ -39,7 +39,7 @@ freqDict = {
     "Bf": 110 * scaler ** 1,
     "B": 110 * scaler ** 2,
 }
-scaleNames = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Af', 'A', 'Bf', 'B']
+scaleNames = freqDict.keys()
 
 
 def getCommandFromKey(key):
@@ -58,12 +58,13 @@ def getCommandFromKey(key):
             12: 'A',
             102: 'Bf',
             96: 'dd',
-            192: 'o0',
+            # 192: 'o0',
             49: 'o1',
             50: 'o2',
             51: 'o3',
             52: 'o4',
-            # 53: 'o5',
+            53: 'o5',
+            54: 'o6',
         }.get(key.vk, None)
     else:
         return {
@@ -114,13 +115,16 @@ class MusicNote:
     doNaturalDamping = False
     naturalDampedFrameCount = 0
     isInEffect = True
+    justStarted = False
 
     def __init__(self, scaleName, octaveOffset, mode):
-        self.aosObj = getSignal(freqDict[scaleName] * 2 ** octaveOffset, mode)
+        self.aosObj = getSignal(freqDict[scaleName] * 2 ** (octaveOffset - 2),
+                                mode)
         self.name = (scaleName, octaveOffset, mode)
+        self.reset()
 
     def __iter__(self):
-        return self.aosObj._genObj
+        return self.aosObj.__iter__()
 
     def __next__(self):
         res = next(self.aosObj, None)  # should not be None, gen is infinite
@@ -128,6 +132,9 @@ class MusicNote:
             self.isInEffect = False
             raise StopIteration
         else:
+            if self.justStarted:
+                res *= np.arange(bufferSize) / bufferSize
+                self.justStarted = False
             if self.doNaturalDamping:
                 damp = damper(self.naturalDampedFrameCount * bufferSize,
                               naturalDampingFactor)
@@ -140,6 +147,7 @@ class MusicNote:
     def reset(self):
         self.isInEffect = True
         self.doNaturalDamping = False
+        self.justStarted = False
 
     def initDamping(self):
         self.doNaturalDamping = True
@@ -209,10 +217,10 @@ def onReleaseCallback(key):
         manualDampingIsActive = False
         manualDampedFrameCount = 0
     elif cmd == 'su':
-        scaleOffset = min(scaleOffset + 1, 4)
+        scaleOffset = min(scaleOffset + 1, 6)
         print(f"offset: {scaleOffset}")
     elif cmd == 'sd':
-        scaleOffset = max(scaleOffset - 1, 0)
+        scaleOffset = max(scaleOffset - 1, 1)
         print(f"offset: {scaleOffset}")
 
 
@@ -225,7 +233,7 @@ print("Initiated")
 print("esc: quit")
 print("7, /, *, -, left, up, pgup, +, end, middle, right, enter: C-B")
 print("insert: clear all")
-print("~, 1, 2, 3, 4: move to octave")
+print("1, 2, 3, 4, 5, 6: move to octave")
 print("f1, f2: octave up/down")
 print("f3, f4: volume up/down")
 print("f5: damp all")
@@ -250,5 +258,5 @@ while not mainLoopIsKilled:
             activeNoteBuf *= damper(manualDampedFrameCount,
                                     manualDampingFactor)
             manualDampedFrameCount += bufferSize
-    ao.play(activeNoteBuf * (globalVolume / 100))
+    ao.playNpArray(activeNoteBuf, volume=globalVolume / 100, keepActive=True)
 kbListener.stop()

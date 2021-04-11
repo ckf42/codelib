@@ -619,7 +619,9 @@ class AudioOutputInterface:
              keepActive=True, volume=1.,
              forceAsTwoChannel=False, forcePrecompute=False,
              smoothClip=False):
-        if isinstance(signal, tuple) and len(signal) >= 2:
+        if isinstance(signal, tuple) \
+                and len(signal) >= 2 \
+                and self.channels == 2:
             signal, signalR = signal[0], signal[1]
         signal = self._ensureSigGen(signal, forcePrecompute)
         if self._channel == 2 and not forceAsTwoChannel:
@@ -641,6 +643,26 @@ class AudioOutputInterface:
             else:
                 buf = buf.clip(-1., 1.) * volume
             self._stream.write(buf.astype(_np.float32,
+                                          casting='same_kind',
+                                          copy=False).tobytes())
+        if not keepActive:
+            self._stream.stop_stream()
+
+    def playNpArray(self, npArray,
+                    keepActive=True, volume=1., smoothClip=False):
+        if isinstance(npArray, tuple) \
+                and len(npArray) >= 2 \
+                and self.channels == 2:
+            if len(npArray[0]) != len(npArray[1]):
+                raise ValueError("Input arrays are not of equal length")
+            npArray = _np.vstack(npArray[0:2]).T.ravel()
+        if not isinstance(npArray, _np.ndarray):
+            raise ValueError("Input array not np ndarray")
+        if smoothClip:
+            npArray = (2 / (1 + _np.exp(-2 * npArray)) - 1) * volume
+        else:
+            npArray = npArray.clip(-1, 1) * volume
+        self._stream.write(npArray.astype(_np.float32,
                                           casting='same_kind',
                                           copy=False).tobytes())
         if not keepActive:

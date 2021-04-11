@@ -5,18 +5,19 @@ import personalPylib_audio as au
 
 print("Initiating ...")
 
-loopTime = 1. / 128
+loopTime = 1. / 256
 sampleRate = 48000
 bufferSize = int(sampleRate * loopTime)
 
 naturalDampingFactor = 10
 naturalDampingCutoffCount = int(0.25 * sampleRate / bufferSize)
 manualDampingIsActive = False
-manualDampingFactor = 3
+manualDampingFactor = 6
 manualDampedFrameCount = 0
 
 scaleOffset = 2
 signalMode = 1
+globalVolume = 100
 
 ao = au.AudioOutputInterface(bufferSize=bufferSize,
                              channels=1,
@@ -57,12 +58,12 @@ def getCommandFromKey(key):
             12: 'A',
             102: 'Bf',
             96: 'dd',
-            192: 's0',
-            49: 's1',
-            50: 's2',
-            51: 's3',
-            52: 's4',
-            # 53: 's5',
+            192: 'o0',
+            49: 'o1',
+            50: 'o2',
+            51: 'o3',
+            52: 'o4',
+            # 53: 'o5',
         }.get(key.vk, None)
     else:
         return {
@@ -75,11 +76,11 @@ def getCommandFromKey(key):
             kb.Key.right: 'Bf',
             kb.Key.end: 'Af',
             kb.Key.insert: 'dd',
-            kb.Key.f1: 'm1',
-            kb.Key.f2: 'm2',
-            kb.Key.f3: 'm3',
-            kb.Key.f4: 'm4',
-            kb.Key.f9: 'damp',
+            kb.Key.f1: 'su',
+            kb.Key.f2: 'sd',
+            kb.Key.f3: 'vu',
+            kb.Key.f4: 'vd',
+            kb.Key.f5: 'damp',
         }.get(key, None)
 
 
@@ -99,11 +100,6 @@ def getSignal(freq, mode=1):
                                duration=None,
                                aoObj=ao)
     elif mode == 3:
-        return aos.fromFourier([4 / 6, 1 / 6, 1 / 6],
-                               [freq, freq * scaler ** 16, freq * scaler ** 32],
-                               duration=None,
-                               aoObj=ao)
-    elif mode == 4:
         return aos.fromFourier([4 / 9, 2 / 9, 1 / 9, 2 / 9],
                                [freq, freq * 2, freq * 4, freq / 2],
                                duration=None,
@@ -160,6 +156,7 @@ def onPressCallback(key):
     global activeNotes
     global signalMode
     global manualDampingIsActive
+    global globalVolume
     cmd = getCommandFromKey(key)
     if cmd is None:
         pass
@@ -179,14 +176,20 @@ def onPressCallback(key):
         for note in activeNotes.values():
             if note.isInEffect and not note.doNaturalDamping:
                 note.initDamping()
-    elif cmd[0] == 's':
+    elif cmd in ('o0', 'o1', 'o2', 'o3', 'o4'):
         scaleOffset = int(cmd[1])
         print(scaleOffset)
-    elif cmd[0] == 'm':
+    elif cmd in ('m1', 'm2', 'm3', 'm4'):
         signalMode = int(cmd[1])
         print(signalMode)
     elif cmd == 'damp':
         manualDampingIsActive = True
+    elif cmd == 'vu':
+        globalVolume = min(globalVolume + 5, 100)
+        print(f"vol: {globalVolume}")
+    elif cmd == 'vd':
+        globalVolume = max(globalVolume - 5, 0)
+        print(f"vol: {globalVolume}")
 
 
 def onReleaseCallback(key):
@@ -205,6 +208,12 @@ def onReleaseCallback(key):
     elif cmd == 'damp':
         manualDampingIsActive = False
         manualDampedFrameCount = 0
+    elif cmd == 'su':
+        scaleOffset = min(scaleOffset + 1, 4)
+        print(f"offset: {scaleOffset}")
+    elif cmd == 'sd':
+        scaleOffset = max(scaleOffset - 1, 0)
+        print(f"offset: {scaleOffset}")
 
 
 reportedEmpty = False
@@ -215,10 +224,11 @@ kbListener.start()
 print("Initiated")
 print("esc: quit")
 print("7, /, *, -, left, up, pgup, +, end, middle, right, enter: C-B")
-print("~, 1, 2, 3, 4: move to octave")
 print("insert: clear all")
-print("f1-f4: different sound")
-print("f9: damp all")
+print("~, 1, 2, 3, 4: move to octave")
+print("f1, f2: octave up/down")
+print("f3, f4: volume up/down")
+print("f5: damp all")
 while not mainLoopIsKilled:
     activeNoteBuf = list(note
                          for note in activeNotes.values()
@@ -240,5 +250,5 @@ while not mainLoopIsKilled:
             activeNoteBuf *= damper(manualDampedFrameCount,
                                     manualDampingFactor)
             manualDampedFrameCount += bufferSize
-    ao.play(activeNoteBuf)
+    ao.play(activeNoteBuf * (globalVolume / 100))
 kbListener.stop()

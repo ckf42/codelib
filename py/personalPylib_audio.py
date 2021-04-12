@@ -650,18 +650,22 @@ class AudioOutputInterface:
 
     def playNpArray(self, npArray,
                     keepActive=True, volume=1., smoothClip=False):
-        if isinstance(npArray, tuple) \
-                and len(npArray) >= 2 \
-                and self.channels == 2:
-            if len(npArray[0]) != len(npArray[1]):
-                raise ValueError("Input arrays are not of equal length")
-            npArray = _np.vstack(npArray[0:2]).T.ravel()
+        # if isinstance(npArray, tuple) \
+        #         and len(npArray) >= 2 \
+        #         and self.channels == 2:
+        #     if len(npArray[0]) != len(npArray[1]):
+        #         raise ValueError("Input arrays are not of equal length")
+        #     npArray = _np.vstack(npArray[0:2]).T.ravel()
+        if self.channels != 1:
+            raise ValueError("Not supported for multiple channels")
         if not isinstance(npArray, _np.ndarray):
             raise ValueError("Input array not np ndarray")
         if smoothClip:
             npArray = (2 / (1 + _np.exp(-2 * npArray)) - 1) * volume
         else:
             npArray = npArray.clip(-1, 1) * volume
+        if self._stream.is_stopped():
+            self._stream.start_stream()
         self._stream.write(npArray.astype(_np.float32,
                                           casting='same_kind',
                                           copy=False).tobytes())

@@ -335,15 +335,15 @@ while not mainLoopIsKilled:
                 / (activeNoteCount + 1)
             recordedBufferPlayPtr = (recordedBufferPlayPtr + 1) \
                 % len(recordedBuffer)
-        if manualDampingIsActive:
-            print("damping")
-            activeNoteBuf *= damper(manualDampedFrameCount,
-                                    manualDampingFactor)
-            manualDampedFrameCount += bufferSize
+    if manualDampingIsActive:
+        print("damping")
+        activeNoteBuf *= damper(manualDampedFrameCount,
+                                manualDampingFactor)
+        manualDampedFrameCount += bufferSize
     ao.playNpArray(activeNoteBuf,
                    volume=globalVolume / 100,
                    keepActive=True)
-    if doRecording:
+    if doRecording is True:
         recordedBuffer.append(activeNoteBuf)
     if args.debug:
         debugBuf = np.hstack((debugBuf, activeNoteBuf))

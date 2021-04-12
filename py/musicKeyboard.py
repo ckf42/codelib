@@ -30,6 +30,9 @@ scaleOffset_adjust = 0
 signalMode = 1
 globalVolume = 100
 doNotesHolding = False
+doRecording = None
+recordedBuffer = []
+recordedBufferPlayPtr = 0
 
 ao = au.AudioOutputInterface(bufferSize=bufferSize,
                              channels=1,
@@ -98,6 +101,7 @@ def getCommandFromKey(key):
             # kb.Key.f9: 'm1',
             # kb.Key.f10: 'm2',
             # kb.Key.f11: 'm3',
+            kb.Key.f12: 'rec',
         }.get(key, None)
 
 
@@ -247,6 +251,9 @@ def onReleaseCallback(key):
     global manualDampingIsActive
     global manualDampedFrameCount
     global doNotesHolding
+    global doRecording
+    global recordedBuffer
+    global recordedBufferPlayPtr
     cmd = getCommandFromKey(key)
     if cmd is None:
         pass
@@ -264,6 +271,19 @@ def onReleaseCallback(key):
         print(f"offset adjust: 0, current: {scaleOffset}")
     elif cmd == 'hold':
         doNotesHolding = False
+    elif cmd == 'rec':
+        if doRecording is None:
+            print("start recording")
+            doRecording = True
+            recordedBuffer = []
+        elif doRecording:
+            print("done recording, start playing")
+            doRecording = False
+            recordedBufferPlayPtr = 0
+        else:
+            print("done playing, reset everything")
+            doRecording = None
+            recordedBuffer = []
 
 
 debugBuf = np.zeros(0)
@@ -281,17 +301,24 @@ print("f1, f2: temporal octave up/down")
 print("f3: damp all")
 print("f4: hold all")
 print("f5-6: volume up/down")
+print("f12: toggle recording")
 while not mainLoopIsKilled:
     # to avoid activeNotes changing when processing
     activeNotesCopy = activeNotes.copy()
     activeNoteBuf = list(noteName
                          for noteName in activeNotesCopy
                          if activeNotesCopy[noteName].isInEffect)
-    if len(activeNoteBuf) == 0:
+    activeNoteCount = len(activeNoteBuf)
+    if activeNoteCount == 0:
         if not reportedEmpty:
             print("empty")
             reportedEmpty = True
-        activeNoteBuf = np.zeros(bufferSize)
+        if doRecording is False:
+            activeNoteBuf = recordedBuffer[recordedBufferPlayPtr]
+            recordedBufferPlayPtr = (recordedBufferPlayPtr + 1) \
+                % len(recordedBuffer)
+        else:
+            activeNoteBuf = np.zeros(bufferSize)
     else:
         print(list(noteName for noteName in activeNoteBuf))
         reportedEmpty = False
@@ -301,7 +328,13 @@ while not mainLoopIsKilled:
                 activeNotesCopy[noteName].reset()
         activeNoteBuf = list(next(activeNotesCopy[noteName])
                              for noteName in activeNoteBuf)
-        activeNoteBuf = sum(activeNoteBuf) / len(activeNoteBuf)
+        activeNoteBuf = sum(activeNoteBuf) / activeNoteCount
+        if doRecording is False:
+            activeNoteBuf = (recordedBuffer[recordedBufferPlayPtr]
+                             + activeNoteBuf * activeNoteCount) \
+                / (activeNoteCount + 1)
+            recordedBufferPlayPtr = (recordedBufferPlayPtr + 1) \
+                % len(recordedBuffer)
         if manualDampingIsActive:
             print("damping")
             activeNoteBuf *= damper(manualDampedFrameCount,
@@ -310,6 +343,8 @@ while not mainLoopIsKilled:
     ao.playNpArray(activeNoteBuf,
                    volume=globalVolume / 100,
                    keepActive=True)
+    if doRecording:
+        recordedBuffer.append(activeNoteBuf)
     if args.debug:
         debugBuf = np.hstack((debugBuf, activeNoteBuf))
 kbListener.stop()

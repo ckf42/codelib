@@ -15,12 +15,12 @@ plt = None
 if args.debug:
     import matplotlib.pyplot as plt
 
-loopTime = 1. / 20
+loopTime = 1. / 30
 sampleRate = 48000
 bufferSize = int(sampleRate * loopTime)
 
 naturalDampingFactor = 15
-naturalDampingCutoffCount = int(0.3 * sampleRate / bufferSize)
+naturalDampingCutoffCount = int(0.5 * sampleRate / bufferSize)
 manualDampingIsActive = False
 manualDampingFactor = 3
 manualDampedFrameCount = 0
@@ -133,7 +133,7 @@ class MusicNote:
     aosObj = None
     name = None
     doNaturalDamping = False
-    naturalDampedFrameCount = 0
+    naturalDampedBufCount = 0
     isInEffect = True
     justStarted = True
 
@@ -142,7 +142,10 @@ class MusicNote:
                                 mode=1)
         # self.name = (scaleName, octaveOffset, mode)
         self.name = (scaleName, octaveOffset)
-        self.reset()
+        self.isInEffect = True
+        self.doNaturalDamping = False
+        self.justStarted = True
+        self.naturalDampedBufCount = 0
 
     def __iter__(self):
         return self.aosObj.__iter__()
@@ -154,21 +157,29 @@ class MusicNote:
             raise StopIteration
         else:
             if self.justStarted:
-                res *= np.linspace(np.exp(-naturalDampingFactor
-                                          * self.naturalDampedFrameCount
-                                          * bufferSize
-                                          / sampleRate),
-                                   1,
-                                   num=bufferSize,
-                                   endpoint=True)
+                damp = None
+                if self.naturalDampedBufCount == 0:  # is new sound
+                    damp = np.linspace(0, 1,
+                                       num=bufferSize, endpoint=False) ** 2
+                else:  # renew from damp
+                    damp = np.linspace(np.exp(-naturalDampingFactor
+                                              * self.naturalDampedBufCount
+                                              * bufferSize / sampleRate),
+                                       1,
+                                       num=bufferSize,
+                                       endpoint=False)
+                res *= damp
                 self.justStarted = False
             if self.doNaturalDamping:
-                damp = damper(self.naturalDampedFrameCount * bufferSize,
+                damp = damper(self.naturalDampedBufCount * bufferSize,
                               naturalDampingFactor)
                 res *= damp
-                self.naturalDampedFrameCount += 1
-                if self.naturalDampedFrameCount >= naturalDampingCutoffCount:
+                self.naturalDampedBufCount += 1
+                if self.naturalDampedBufCount >= naturalDampingCutoffCount:
                     self.isInEffect = False
+                    self.naturalDampedBufCount = 0
+                    print(self.name, "died")
+                    res *= np.linspace(1, 0, num=bufferSize, endpoint=False)
             return res
 
     def reset(self):
@@ -178,7 +189,7 @@ class MusicNote:
 
     def initDamping(self):
         self.doNaturalDamping = True
-        self.naturalDampedFrameCount = 0
+        self.naturalDampedBufCount = 0
 
 
 activeNotes = {}
@@ -249,7 +260,6 @@ def onReleaseCallback(key):
     global activeNotes
     # global signalMode
     global manualDampingIsActive
-    global manualDampedFrameCount
     global doNotesHolding
     global doRecording
     global recordedBuffer
@@ -264,8 +274,7 @@ def onReleaseCallback(key):
         if noteTriggered in activeNotes.keys():
             activeNotes[noteTriggered].initDamping()
     elif cmd == 'damp':
-        manualDampingIsActive = False
-        manualDampedFrameCount = 0
+        manualDampingIsActive = None
     elif cmd in ('su', 'sd'):
         scaleOffset_adjust = 0
         print(f"offset adjust: 0, current: {scaleOffset}")
@@ -286,8 +295,10 @@ def onReleaseCallback(key):
             recordedBuffer = []
 
 
+activeNoteBuf = np.zeros(bufferSize)
 debugBuf = np.zeros(0)
 reportedEmpty = False
+previousActiveNoteCount = 0
 kbListener = kb.Listener(on_press=onPressCallback,
                          on_release=onReleaseCallback,
                          suppress=True)
@@ -302,44 +313,67 @@ print("f3: damp all")
 print("f4: hold all")
 print("f5-6: volume up/down")
 print("f12: toggle recording")
+currentTime = 0
 while not mainLoopIsKilled:
     # to avoid activeNotes changing when processing
     activeNotesCopy = activeNotes.copy()
-    activeNoteBuf = list(noteName
-                         for noteName in activeNotesCopy
-                         if activeNotesCopy[noteName].isInEffect)
-    activeNoteCount = len(activeNoteBuf)
-    if activeNoteCount == 0:
+    activeNoteNames = list(noteName
+                           for noteName in activeNotesCopy
+                           if activeNotesCopy[noteName].isInEffect)
+    activeNoteBufList = list(next(activeNotesCopy[noteName])
+                             for noteName in activeNoteNames)
+    if doNotesHolding:
+        print("holding")
+        for noteName in activeNoteNames:
+            activeNotesCopy[noteName].reset()  # obj by ref
+    if doRecording is False:
+        activeNoteNames.append("record")
+        activeNoteBufList.append(recordedBuffer[recordedBufferPlayPtr])
+        recordedBufferPlayPtr = (recordedBufferPlayPtr + 1) \
+            % len(recordedBuffer)
+    activeNoteCount = len(activeNoteNames)
+    if activeNoteCount != 0:
+        print(activeNoteNames)
+        reportedEmpty = False
+        if 0 != previousActiveNoteCount != activeNoteCount:
+            # fade in/out on averaging
+            # NOTE
+            # currently,
+            # we are using linear shift in denominator
+            # for k**p fade in and if we do linear shift in weight
+            # with n = activeNoteCount
+            # and m = activeNoteCount  - previousActiveNoteCount,
+            # stability depends whether the inequality
+            # m k^p - (m+n) k^(p-1) + n >= 0
+            # holds for all k in [0, 1] and for all n >= 1, all m
+            # if p = 2, is fine when m <= n
+            # so should be fine
+            # if activeNoteCount / previousActiveNoteCount - 1 is small
+            activeNoteBuf = sum(activeNoteBufList) \
+                / np.linspace(previousActiveNoteCount,
+                              activeNoteCount,
+                              num=bufferSize, endpoint=False)
+            if args.debug and np.any(activeNoteBuf > 1):
+                mainLoopIsKilled = True
+        else:
+            activeNoteBuf = sum(activeNoteBufList) / activeNoteCount
+    else:
+        activeNoteBuf = np.zeros(bufferSize)
         if not reportedEmpty:
             print("empty")
             reportedEmpty = True
-        if doRecording is False:
-            activeNoteBuf = recordedBuffer[recordedBufferPlayPtr]
-            recordedBufferPlayPtr = (recordedBufferPlayPtr + 1) \
-                % len(recordedBuffer)
-        else:
-            activeNoteBuf = np.zeros(bufferSize)
-    else:
-        print(list(noteName for noteName in activeNoteBuf))
-        reportedEmpty = False
-        if doNotesHolding:
-            print("reseting")
-            for noteName in activeNoteBuf:
-                activeNotesCopy[noteName].reset()
-        activeNoteBuf = list(next(activeNotesCopy[noteName])
-                             for noteName in activeNoteBuf)
-        activeNoteBuf = sum(activeNoteBuf) / activeNoteCount
-        if doRecording is False:
-            activeNoteBuf = (recordedBuffer[recordedBufferPlayPtr]
-                             + activeNoteBuf * activeNoteCount) \
-                / (activeNoteCount + 1)
-            recordedBufferPlayPtr = (recordedBufferPlayPtr + 1) \
-                % len(recordedBuffer)
-    if manualDampingIsActive:
+    if manualDampingIsActive is True:
         print("damping")
         activeNoteBuf *= damper(manualDampedFrameCount,
                                 manualDampingFactor)
         manualDampedFrameCount += bufferSize
+    elif manualDampingIsActive is None:
+        activeNoteBuf *= np.linspace(
+            np.exp(-manualDampingFactor * manualDampedFrameCount / sampleRate),
+            1,
+            num=bufferSize, endpoint=False)
+        manualDampedFrameCount = 0
+        manualDampingIsActive = False
     ao.playNpArray(activeNoteBuf,
                    volume=globalVolume / 100,
                    keepActive=True)
@@ -347,6 +381,9 @@ while not mainLoopIsKilled:
         recordedBuffer.append(activeNoteBuf)
     if args.debug:
         debugBuf = np.hstack((debugBuf, activeNoteBuf))
+        currentTime += bufferSize / sampleRate
+        print(f"current time: {round(currentTime, 3)}")
+    previousActiveNoteCount = activeNoteCount
 kbListener.stop()
 if args.debug:
     plt.plot(np.linspace(0, len(debugBuf) / sampleRate, len(debugBuf),

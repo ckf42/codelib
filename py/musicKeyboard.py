@@ -33,6 +33,7 @@ doNotesHolding = False
 doRecording = None
 recordedBuffer = []
 recordedBufferPlayPtr = 0
+doReleaseDampAll = True
 
 ao = au.AudioOutputInterface(bufferSize=bufferSize,
                              channels=1,
@@ -41,25 +42,27 @@ aos = au.AudioOutputSignal
 
 scaler = 2**(1 / 12)
 freqDict = {  # at C2-B2
-    "C": round(110 * scaler ** -9, 3),
-    "Cs": round(110 * scaler ** -8, 3),
-    "D": round(110 * scaler ** -7, 3),
-    "Ds": round(110 * scaler ** -6, 3),
-    "E": round(110 * scaler ** -5, 3),
-    "F": round(110 * scaler ** -4, 3),
-    "Fs": round(110 * scaler ** -3, 3),
-    "G": round(110 * scaler ** -2, 3),
-    "Af": round(110 * scaler ** -1, 3),
-    "A": round(110, 3),
-    "Bf": round(110 * scaler ** 1, 3),
-    "B": round(110 * scaler ** 2, 3),
+    "C": 110 * scaler ** -9,
+    "Cs": 110 * scaler ** -8,
+    "D": 110 * scaler ** -7,
+    "Ds": 110 * scaler ** -6,
+    "E": 110 * scaler ** -5,
+    "F": 110 * scaler ** -4,
+    "Fs": 110 * scaler ** -3,
+    "G": 110 * scaler ** -2,
+    "Af": 110 * scaler ** -1,
+    "A": 110,
+    "Bf": 110 * scaler ** 1,
+    "B": 110 * scaler ** 2,
 }
+freqDict = {k: round(v, 4) for (k, v) in freqDict.items()}
 scaleNames = freqDict.keys()
 
 
 def getCommandFromKey(key):
+    returnCmd = None
     if hasattr(key, 'vk'):
-        return {
+        returnCmd = {
             103: 'C',
             111: 'Cs',
             106: 'D',
@@ -81,8 +84,13 @@ def getCommandFromKey(key):
             53: 'o5',
             54: 'o6',
         }.get(key.vk, None)
-    else:
-        return {
+    if returnCmd is None and hasattr(key, 'char'):
+        returnCmd = {
+            '[': 'vu',
+            ']': 'vd',
+        }.get(key.char, None)
+    if returnCmd is None:
+        returnCmd = {
             kb.Key.enter: 'B',
             kb.Key.esc: 'q',
             kb.Key.home: 'C',
@@ -96,13 +104,13 @@ def getCommandFromKey(key):
             kb.Key.f2: 'sd',
             kb.Key.f3: 'damp',
             kb.Key.f4: 'hold',
-            kb.Key.f5: 'vu',
-            kb.Key.f6: 'vd',
             # kb.Key.f9: 'm1',
             # kb.Key.f10: 'm2',
             # kb.Key.f11: 'm3',
-            kb.Key.f12: 'rec',
+            kb.Key.num_lock: 'rec',
+            kb.Key.f12: 'cut',
         }.get(key, None)
+    return returnCmd
 
 
 def damper(initFrame, dampFactor):
@@ -264,15 +272,21 @@ def onReleaseCallback(key):
     global doRecording
     global recordedBuffer
     global recordedBufferPlayPtr
+    global doReleaseDampAll
     cmd = getCommandFromKey(key)
     if cmd is None:
         pass
     elif cmd in scaleNames:
-        clippedScaleOffset = max(min(scaleOffset + scaleOffset_adjust, 6), 1)
-        # noteTriggered = (cmd, clippedScaleOffset, signalMode)
-        noteTriggered = (cmd, clippedScaleOffset)
-        if noteTriggered in activeNotes.keys():
-            activeNotes[noteTriggered].initDamping()
+        if doReleaseDampAll:
+            for scale in range(1, 7):
+                if (cmd, scale) in activeNotes:
+                    activeNotes[(cmd, scale)].initDamping()
+        else:
+            noteTriggered = (cmd, max(min(scaleOffset + scaleOffset_adjust,
+                                          6),
+                                      1))
+            if noteTriggered in activeNotes:
+                activeNotes[noteTriggered].initDamping()
     elif cmd == 'damp':
         manualDampingIsActive = None
     elif cmd in ('su', 'sd'):
@@ -290,9 +304,13 @@ def onReleaseCallback(key):
             doRecording = False
             recordedBufferPlayPtr = 0
         else:
-            print("done playing, reset everything")
+            print("stop playing, cleaning record")
             doRecording = None
             recordedBuffer = []
+    elif cmd == 'cut':
+        doReleaseDampAll = not doReleaseDampAll
+        print("release mode: "
+              + ("all" if doReleaseDampAll else "current only"))
 
 
 activeNoteBuf = np.zeros(bufferSize)
@@ -311,8 +329,9 @@ print("1-6: move to octave")
 print("f1, f2: temporal octave up/down")
 print("f3: damp all")
 print("f4: hold all")
-print("f5-6: volume up/down")
-print("f12: toggle recording")
+print("[ / ]: volume up/down")
+print("numlock: toggle recording")
+print("f12: toggle cut")
 currentTime = 0
 while not mainLoopIsKilled:
     # to avoid activeNotes changing when processing

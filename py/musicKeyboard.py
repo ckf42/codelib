@@ -1,4 +1,8 @@
-# TODO smooth transition between states (e.g. adding more notes)
+# TODO different temperament
+# TODO different tone
+# TODO transpose in keys?
+# TODO no dependency on personalPylib_audio? may need naked portaudio
+# TODO check portability?
 
 from pynput import keyboard as kb
 import numpy as np
@@ -9,18 +13,32 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--debug', action='store_true')
 args = parser.parse_args()
 
+
 print("Initiating ...")
+
+
+def printDebugMsg(*msg):
+    if args.debug:
+        print(*msg)
+
+
+def toName(name):
+    if isinstance(name, str):
+        return name
+    return name[0] + str(name[1])
+
 
 plt = None
 if args.debug:
     import matplotlib.pyplot as plt
 
-loopTime = 1. / 30
+unitTimeLength = 1. / 30
 sampleRate = 48000
-bufferSize = int(sampleRate * loopTime)
+bufferSize = int(sampleRate * unitTimeLength)
 
-naturalDampingFactor = 15
-naturalDampingCutoffCount = int(0.5 * sampleRate / bufferSize)
+naturalDampingFactor = 9
+# kill below ~5%
+naturalDampingCutoffCount = int(0.35 * sampleRate / bufferSize)
 manualDampingIsActive = False
 manualDampingFactor = 3
 manualDampedFrameCount = 0
@@ -40,8 +58,8 @@ ao = au.AudioOutputInterface(bufferSize=bufferSize,
                              sampleRate=sampleRate)
 aos = au.AudioOutputSignal
 
-scaler = 2**(1 / 12)
-freqDict = {  # at C2-B2
+scaler = 2 ** (1 / 12)
+freqDict = {  # at C2-B2, equal temperament
     "C": 110 * scaler ** -9,
     "Cs": 110 * scaler ** -8,
     "D": 110 * scaler ** -7,
@@ -167,9 +185,11 @@ class MusicNote:
             if self.justStarted:
                 damp = None
                 if self.naturalDampedBufCount == 0:  # is new sound
+                    print("starting", toName(self.name))
                     damp = np.linspace(0, 1,
                                        num=bufferSize, endpoint=False) ** 2
                 else:  # renew from damp
+                    print("renewing", toName(self.name))
                     damp = np.linspace(np.exp(-naturalDampingFactor
                                               * self.naturalDampedBufCount
                                               * bufferSize / sampleRate),
@@ -178,7 +198,10 @@ class MusicNote:
                                        endpoint=False)
                 res *= damp
                 self.justStarted = False
-            if self.doNaturalDamping:
+            if self.doNaturalDamping:  # TODO check if can change to elif
+                printDebugMsg("natural damping",
+                              toName(self.name),
+                              self.naturalDampedBufCount)
                 damp = damper(self.naturalDampedBufCount * bufferSize,
                               naturalDampingFactor)
                 res *= damp
@@ -186,7 +209,7 @@ class MusicNote:
                 if self.naturalDampedBufCount >= naturalDampingCutoffCount:
                     self.isInEffect = False
                     self.naturalDampedBufCount = 0
-                    print(self.name, "died")
+                    print(toName(self.name), "dying")
                     res *= np.linspace(1, 0, num=bufferSize, endpoint=False)
             return res
 
@@ -196,6 +219,9 @@ class MusicNote:
         self.doNaturalDamping = False
 
     def initDamping(self):
+        if not self.isInEffect:
+            return
+        printDebugMsg("start natural damping", toName(self.name))
         self.doNaturalDamping = True
         self.naturalDampedBufCount = 0
 
@@ -205,7 +231,7 @@ mainLoopIsKilled = False
 
 
 def onPressCallback(key):
-    print(key, 'pressed')
+    printDebugMsg(key, 'pressed')
     global scaleOffset
     global scaleOffset_adjust
     global activeNotes
@@ -262,7 +288,7 @@ def onPressCallback(key):
 
 
 def onReleaseCallback(key):
-    print(key, 'released')
+    printDebugMsg(key, 'released')
     global scaleOffset
     global scaleOffset_adjust
     global activeNotes
@@ -321,17 +347,21 @@ kbListener = kb.Listener(on_press=onPressCallback,
                          on_release=onReleaseCallback,
                          suppress=True)
 kbListener.start()
-print("Initiated")
-print("esc: quit")
-print("home, /, *, -, left, up, pgup, +, end, middle, right, enter: C-B")
-print("insert: clear all")
-print("1-6: move to octave")
-print("f1, f2: temporal octave up/down")
-print("f3: damp all")
-print("f4: hold all")
-print("[ / ]: volume up/down")
-print("numlock: toggle recording")
-print("f12: toggle cut")
+print("""Initiated
+
+Instruction:
+esc: quit
+home, /, *, -, left, up, pgup, +, end, middle, right, enter: C-B
+insert: clear all
+1-6: move to octave
+f1, f2: temporal octave up/down
+f3: damp all
+f4: hold all
+[, ]: volume up/down
+numlock: toggle recording
+f12: toggle cut
+""")
+
 currentTime = 0
 while not mainLoopIsKilled:
     # to avoid activeNotes changing when processing
@@ -352,9 +382,13 @@ while not mainLoopIsKilled:
             % len(recordedBuffer)
     activeNoteCount = len(activeNoteNames)
     if activeNoteCount != 0:
-        print(activeNoteNames)
+        print("playing", *map(toName, activeNoteNames))
         reportedEmpty = False
         if 0 != previousActiveNoteCount != activeNoteCount:
+            printDebugMsg("weight shifting",
+                          previousActiveNoteCount,
+                          "->",
+                          activeNoteCount)
             # fade in/out on averaging
             # NOTE
             # currently,
@@ -379,10 +413,10 @@ while not mainLoopIsKilled:
     else:
         activeNoteBuf = np.zeros(bufferSize)
         if not reportedEmpty:
-            print("empty")
+            print("no active note")
             reportedEmpty = True
     if manualDampingIsActive is True:
-        print("damping")
+        print("manual damping")
         activeNoteBuf *= damper(manualDampedFrameCount,
                                 manualDampingFactor)
         manualDampedFrameCount += bufferSize
@@ -401,7 +435,8 @@ while not mainLoopIsKilled:
     if args.debug:
         debugBuf = np.hstack((debugBuf, activeNoteBuf))
         currentTime += bufferSize / sampleRate
-        print(f"current time: {round(currentTime, 3)}")
+        print(f"timestamp: {round(currentTime, 3)}")
+        print("----------")
     previousActiveNoteCount = activeNoteCount
 kbListener.stop()
 if args.debug:

@@ -221,7 +221,7 @@ class MusicNote:
     def initDamping(self):
         if not self.isInEffect:
             return
-        printDebugMsg("start natural damping", toName(self.name))
+        print("start natural damping", toName(self.name))
         self.doNaturalDamping = True
         self.naturalDampedBufCount = 0
 
@@ -305,13 +305,16 @@ def onReleaseCallback(key):
     elif cmd in scaleNames:
         if doReleaseDampAll:
             for scale in range(1, 7):
-                if (cmd, scale) in activeNotes:
+                if (cmd, scale) in activeNotes \
+                        and not activeNotes[(cmd, scale)].doNaturalDamping:
                     activeNotes[(cmd, scale)].initDamping()
         else:
-            noteTriggered = (cmd, max(min(scaleOffset + scaleOffset_adjust,
-                                          6),
-                                      1))
-            if noteTriggered in activeNotes:
+            noteTriggered = (cmd,
+                             max(min(scaleOffset + scaleOffset_adjust,
+                                     6),
+                                 1))
+            if noteTriggered in activeNotes \
+                    and not activeNotes[noteTriggered].doNaturalDamping:
                 activeNotes[noteTriggered].initDamping()
     elif cmd == 'damp':
         manualDampingIsActive = None
@@ -364,6 +367,8 @@ f12: toggle cut
 
 currentTime = 0
 while not mainLoopIsKilled:
+    if args.debug:
+        print(f"timestamp: {round(currentTime, 3)}")
     # to avoid activeNotes changing when processing
     activeNotesCopy = activeNotes.copy()
     activeNoteNames = list(noteName

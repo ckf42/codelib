@@ -197,6 +197,57 @@ class AudioOutputSignal:
         else:
             return sigObj[0].join(*sigObj[1:])
 
+    def joinSmooth(self, *sigObj, mode='linear',
+                   transitDuration=1., sampleRate=48000):
+        if self._aoObj is not None:
+            sampleRate = self._aoObj.sampleRate
+        transitFrameCount = int(transitDuration * sampleRate)
+        if len(sigObj) == 0:
+            return self
+        elif len(sigObj) == 1:
+            lastBuf = _np.zeros(0)
+            while True:
+                buf = next(self._genObj, None)
+                if buf is None:
+                    break
+                yield buf
+                lastBuf = buf
+            newBuf = next(sigObj[0]._genObj, None)
+            if newBuf is not None:
+                interpolBuf = {
+                    'linear': (
+                        lambda buf1, buf2:
+                        _np.linspace(buf1[-1], buf2[0],
+                                     num=transitFrameCount)),
+                    'zero': (lambda buf1, buf2: _np.zeros(transitFrameCount)),
+                }.get(mode,
+                      lambda buf1, buf2: _np.zeros(0))(lastBuf, newBuf)
+                yield interpolBuf
+                yield newBuf
+                yield sigObj[0]._genObj
+        else:
+            return self.joinSmooth(
+                sigObj[0],
+                mode=mode,
+                transitDuration=transitDuration,
+                sampleRate=sampleRate).join(
+                *(sigObj[1:]),
+                mode=mode,
+                transitDuration=transitDuration,
+                sampleRate=sampleRate)
+
+    @classmethod
+    def joinSignalsSmooth(cls, *sigObj,
+                          mode='linear', transitDuration=1.,
+                          sampleRate=48000):
+        if len(sigObj) == 0:
+            return cls.silentSignal(duration=None)
+        else:
+            return sigObj[0].joinSmooth(*sigObj[1:],
+                                        mode=mode,
+                                        transitDuration=transitDuration,
+                                        sampleRate=sampleRate)
+
     def damping(self, dampingFactor=1, dampingMethod='exp',
                 tol=None, stopBelowTol=False,
                 sampleRate=48000, aoObj=None):

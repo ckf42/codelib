@@ -10,7 +10,21 @@ import argparse
 import personalPylib_audio as au
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--debug', action='store_true')
+parser.add_argument('--debug', action='store_true',
+                    help="Toggle debug mode")
+parser.add_argument('--length', type=float, default=1 / 30,
+                    help="Length of a time unit, in seconds. "
+                    "The shortest length of a signal, "
+                    "also the reaction time. "
+                    "Default: 1/30")
+parser.add_argument('--sr', type=int, default=48000,
+                    help="Sample rate, in Hz, "
+                    "or size of data processed per second for each note. "
+                    "Available sample rate varies on machines. "
+                    "Usually 22050, 32000, 44100, 48000 are supported. "
+                    "Use a higher value for better quality, "
+                    "use a lower value (e.g. 22050) if output is lagging. "
+                    "Default: 48000")
 args = parser.parse_args()
 
 
@@ -25,16 +39,19 @@ def printDebugMsg(*msg):
 def toName(name):
     if isinstance(name, str):
         return name
-    return name[0] + str(name[1])
+    return name[0] + str(name[1]) + '_' + str(name[2])
 
 
 plt = None
 if args.debug:
     import matplotlib.pyplot as plt
 
-unitTimeLength = 1. / 30
-sampleRate = 48000
+# unitTimeLength = 1. / 30
+unitTimeLength = args.length
+# sampleRate = 48000
+sampleRate = args.sr
 bufferSize = int(sampleRate * unitTimeLength)
+printDebugMsg(f"bufferSize: {bufferSize}")
 
 naturalDampingFactor = 9
 # kill below ~5%
@@ -44,6 +61,8 @@ naturalDampingCutoffCount = int(np.log(1 / 0.05)
 manualDampingIsActive = False
 manualDampingFactor = 3
 manualDampedFrameCount = 0
+
+printDebugMsg(f"naturalDampingCutoffCount: {naturalDampingCutoffCount}")
 
 scaleOffset = 3
 scaleOffset_adjust = 0
@@ -129,6 +148,9 @@ def getCommandFromKey(key):
             # kb.Key.f11: 'm3',
             kb.Key.num_lock: 'rec',
             kb.Key.f12: 'cut',
+            kb.Key.f9: 'm1',
+            kb.Key.f10: 'm2',
+            kb.Key.f11: 'm3',
         }.get(key, None)
     return returnCmd
 
@@ -144,13 +166,15 @@ def getSignal(freq, mode=1):
                             duration=None,
                             aoObj=ao)
     elif mode == 2:
-        return aos.fromFourier([4 / 7, 2 / 7, 1 / 7],
-                               [freq, freq / 4, freq * 2],
+        return aos.fromFourier([4, 2, 1],
+                               [freq, freq * 1.5, freq * 3],
+                               ampWeightNormalize=True,
                                duration=None,
                                aoObj=ao)
     elif mode == 3:
-        return aos.fromFourier([4 / 9, 2 / 9, 1 / 9, 2 / 9],
+        return aos.fromFourier([4, 2, 1, 2],
                                [freq, freq * 2, freq * 4, freq / 2],
+                               ampWeightNormalize=True,
                                duration=None,
                                aoObj=ao)
     else:
@@ -167,9 +191,9 @@ class MusicNote:
 
     def __init__(self, scaleName, octaveOffset, mode=1):
         self.aosObj = getSignal(freqDict[scaleName] * 2 ** (octaveOffset - 2),
-                                mode=1)
+                                mode=mode)
         # self.name = (scaleName, octaveOffset, mode)
-        self.name = (scaleName, octaveOffset)
+        self.name = (scaleName, octaveOffset, mode)
         self.isInEffect = True
         self.doNaturalDamping = False
         self.justStarted = True
@@ -237,7 +261,6 @@ def onPressCallback(key):
     global scaleOffset
     global scaleOffset_adjust
     global activeNotes
-    # global signalMode
     global manualDampingIsActive
     global globalVolume
     global doNotesHolding
@@ -251,14 +274,13 @@ def onPressCallback(key):
     elif cmd in scaleNames:
         clippedScaleOffset = max(min(scaleOffset + scaleOffset_adjust, 6), 1)
         # noteTriggered = (cmd, clippedScaleOffset, signalMode)
-        noteTriggered = (cmd, clippedScaleOffset)
+        noteTriggered = (cmd, clippedScaleOffset, signalMode)
         if noteTriggered in activeNotes:
             activeNotes[noteTriggered].reset()
         else:
             activeNotes[noteTriggered] = MusicNote(cmd,
                                                    clippedScaleOffset,
-                                                   #    signalMode
-                                                   )
+                                                   signalMode)
     elif cmd == 'dd':
         for note in activeNotes.values():
             if note.isInEffect and not note.doNaturalDamping:
@@ -266,9 +288,6 @@ def onPressCallback(key):
     elif cmd in ('o1', 'o2', 'o3', 'o4', 'o5', 'o6'):
         scaleOffset = int(cmd[1])
         print(f"offset : {scaleOffset}")
-    # elif cmd in ('m1', 'm2', 'm3'):
-    #     signalMode = int(cmd[1])
-    #     print(signalMode)
     elif cmd == 'damp':
         manualDampingIsActive = True
     elif cmd == 'vu':
@@ -294,7 +313,7 @@ def onReleaseCallback(key):
     global scaleOffset
     global scaleOffset_adjust
     global activeNotes
-    # global signalMode
+    global signalMode
     global manualDampingIsActive
     global doNotesHolding
     global doRecording
@@ -307,14 +326,16 @@ def onReleaseCallback(key):
     elif cmd in scaleNames:
         if doReleaseDampAll:
             for scale in range(1, 7):
-                if (cmd, scale) in activeNotes \
-                        and not activeNotes[(cmd, scale)].doNaturalDamping:
-                    activeNotes[(cmd, scale)].initDamping()
+                testNoteName = (cmd, scale, signalMode)
+                if testNoteName in activeNotes \
+                        and not activeNotes[testNoteName].doNaturalDamping:
+                    activeNotes[testNoteName].initDamping()
         else:
             noteTriggered = (cmd,
                              max(min(scaleOffset + scaleOffset_adjust,
                                      6),
-                                 1))
+                                 1),
+                             signalMode)
             if noteTriggered in activeNotes \
                     and not activeNotes[noteTriggered].doNaturalDamping:
                 activeNotes[noteTriggered].initDamping()
@@ -342,6 +363,9 @@ def onReleaseCallback(key):
         doReleaseDampAll = not doReleaseDampAll
         print("release mode: "
               + ("all" if doReleaseDampAll else "current only"))
+    elif cmd in ('m1', 'm2', 'm3'):
+        signalMode = int(cmd[1])
+        print(f"tone: {signalMode}")
 
 
 activeNoteBuf = np.zeros(bufferSize)
@@ -367,6 +391,7 @@ numlock: toggle recording
 f12: toggle cut
 """)
 
+print(f"offset : {scaleOffset}")
 currentTime = 0
 while not mainLoopIsKilled:
     if args.debug:

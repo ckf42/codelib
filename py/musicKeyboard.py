@@ -38,7 +38,9 @@ bufferSize = int(sampleRate * unitTimeLength)
 
 naturalDampingFactor = 9
 # kill below ~5%
-naturalDampingCutoffCount = int(0.35 * sampleRate / bufferSize)
+naturalDampingCutoffCount = int(np.log(1 / 0.05)
+                                / naturalDampingFactor
+                                * sampleRate / bufferSize)
 manualDampingIsActive = False
 manualDampingFactor = 3
 manualDampedFrameCount = 0
@@ -131,9 +133,9 @@ def getCommandFromKey(key):
     return returnCmd
 
 
-def damper(initFrame, dampFactor):
+def damper(initFrame, dampFactor, outputSize=bufferSize):
     return np.exp(-dampFactor / sampleRate
-                  * np.arange(initFrame, initFrame + bufferSize))
+                  * np.arange(initFrame, initFrame + outputSize))
 
 
 def getSignal(freq, mode=1):

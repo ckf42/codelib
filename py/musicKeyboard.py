@@ -1,14 +1,15 @@
 # TODO different temperament
 # TODO different tone
 # TODO transpose in keys?
-# TODO no dependency on personalPylib_audio? may need naked portaudio
 # TODO check portability?
 
-from pynput import keyboard as kb
 import numpy as np
 import argparse
-import personalPylib_audio as au
+from pynput import keyboard as kb
+import pyaudio as pa
+import itertools as it
 
+# cli arguments with argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--debug', action='store_true',
                     help="Toggle debug mode")
@@ -39,63 +40,68 @@ def printDebugMsg(*msg):
 def toName(name):
     if isinstance(name, str):
         return name
-    return name[0] + str(name[1]) + '_' + str(name[2])
+    returnStr = name[0] + str(name[1])
+    if name[2] != 1:
+        returnStr += '_' + str(name[2])
+    return returnStr
 
 
+# for debugging amp plot
 plt = None
 if args.debug:
     import matplotlib.pyplot as plt
 
-# unitTimeLength = 1. / 30
+# pyaudio parameters
 unitTimeLength = args.length
-# sampleRate = 48000
 sampleRate = args.sr
 bufferSize = int(sampleRate * unitTimeLength)
 printDebugMsg(f"bufferSize: {bufferSize}")
-
+# damping, kill natural damping below ~5%
 naturalDampingFactor = 9
-# kill below ~5%
 naturalDampingCutoffCount = int(np.log(1 / 0.05)
                                 / naturalDampingFactor
                                 * sampleRate / bufferSize)
 manualDampingIsActive = False
 manualDampingFactor = 3
 manualDampedFrameCount = 0
-
 printDebugMsg(f"naturalDampingCutoffCount: {naturalDampingCutoffCount}")
-
+# octave scale parameter
 scaleOffset = 3
 scaleOffset_adjust = 0
+# tone parameter
 signalMode = 1
+# volume parameter
 globalVolume = 100
+# holding switch
 doNotesHolding = False
+# debug recording
 doRecording = None
 recordedBuffer = []
 recordedBufferPlayPtr = 0
+# release mode
 doReleaseDampAll = True
+# fundamental signals
+scaleNames = ["C", "Cs", "D", "Ds", "E", "F", "Fs", "G", "Af", "A", "Bf", "B"]
+# freq for second octave
+# equal temperament
+basicFreq = [round(110 * 2 ** (k / 12), 4) for k in range(-9, 3)]
+# Just intonation
+# basicFreq = list(map(lambda x: round(110 / 27 * 16 * x, 4),
+#                      [1, 256 / 243, 9 / 8, 32 / 27,
+#                       81 / 64, 4 / 3, 729 / 512, 3 / 2,
+#                       128 / 81, 27 / 16, 16 / 9, 243 / 128]))
+freqDict = {k: v for (k, v) in zip(scaleNames, basicFreq)}
 
-ao = au.AudioOutputInterface(bufferSize=bufferSize,
-                             channels=1,
-                             sampleRate=sampleRate)
-aos = au.AudioOutputSignal
 
-scaler = 2 ** (1 / 12)
-freqDict = {  # at C2-B2, equal temperament
-    "C": 110 * scaler ** -9,
-    "Cs": 110 * scaler ** -8,
-    "D": 110 * scaler ** -7,
-    "Ds": 110 * scaler ** -6,
-    "E": 110 * scaler ** -5,
-    "F": 110 * scaler ** -4,
-    "Fs": 110 * scaler ** -3,
-    "G": 110 * scaler ** -2,
-    "Af": 110 * scaler ** -1,
-    "A": 110,
-    "Bf": 110 * scaler ** 1,
-    "B": 110 * scaler ** 2,
-}
-freqDict = {k: round(v, 4) for (k, v) in freqDict.items()}
-scaleNames = freqDict.keys()
+def getFreq(scaleName, octaveOffset):
+    return freqDict[scaleName] * 2 ** (octaveOffset - 2)
+
+
+paObj = pa.PyAudio()
+streamObj = paObj.open(rate=sampleRate,
+                       channels=1,
+                       format=pa.paFloat32,
+                       output=True)
 
 
 def getCommandFromKey(key):
@@ -161,28 +167,30 @@ def damper(initFrame, dampFactor, outputSize=bufferSize):
 
 
 def getSignal(freq, mode=1):
+    ampList = None
+    freqList = None
     if mode == 1:
-        return aos.sineWave(freq,
-                            duration=None,
-                            aoObj=ao)
+        return (np.sin(2 * np.pi * freq / sampleRate
+                       * np.arange(bIdx * bufferSize, (bIdx + 1) * bufferSize))
+                for bIdx in it.count())
     elif mode == 2:
-        return aos.fromFourier([4, 2, 1],
-                               [freq, freq * 1.5, freq * 3],
-                               ampWeightNormalize=True,
-                               duration=None,
-                               aoObj=ao)
+        ampList = [4, 2, 1]
+        freqList = [freq, freq * 1.5, freq * 3]
     elif mode == 3:
-        return aos.fromFourier([4, 2, 1, 2],
-                               [freq, freq * 2, freq * 4, freq / 2],
-                               ampWeightNormalize=True,
-                               duration=None,
-                               aoObj=ao)
+        ampList = [4, 2, 1, 2]
+        freqList = [freq, freq * 2, freq * 4, freq / 2]
     else:
         raise ValueError("Unknown signal mode")
+    ampList = [i / np.sum(np.abs(ampList)) for i in ampList]
+    return (sum(amp * np.sin(2 * np.pi * freqEle / sampleRate
+                             * np.arange(bIdx * bufferSize,
+                                         (bIdx + 1) * bufferSize))
+                for (amp, freqEle) in zip(ampList, freqList))
+            for bIdx in it.count())
 
 
 class MusicNote:
-    aosObj = None
+    genObj = None
     name = None
     doNaturalDamping = False
     naturalDampedBufCount = 0
@@ -190,7 +198,7 @@ class MusicNote:
     justStarted = True
 
     def __init__(self, scaleName, octaveOffset, mode=1):
-        self.aosObj = getSignal(freqDict[scaleName] * 2 ** (octaveOffset - 2),
+        self.genObj = getSignal(getFreq(scaleName, octaveOffset),
                                 mode=mode)
         # self.name = (scaleName, octaveOffset, mode)
         self.name = (scaleName, octaveOffset, mode)
@@ -200,10 +208,10 @@ class MusicNote:
         self.naturalDampedBufCount = 0
 
     def __iter__(self):
-        return self.aosObj.__iter__()
+        return self.genObj
 
     def __next__(self):
-        res = next(self.aosObj, None)  # should not be None, gen is infinite
+        res = next(self.genObj, None)  # should not be None, gen is infinite
         if res is None or not self.isInEffect:
             self.isInEffect = False
             raise StopIteration
@@ -212,8 +220,9 @@ class MusicNote:
                 damp = None
                 if self.naturalDampedBufCount == 0:  # is new sound
                     print("starting", toName(self.name))
-                    damp = np.linspace(0, 1,
-                                       num=bufferSize, endpoint=False) ** 2
+                    # damp = np.linspace(0, 1,
+                    #                    num=bufferSize, endpoint=False) ** 2
+                    damp = (np.arange(bufferSize) / bufferSize) ** 2
                 else:  # renew from damp
                     print("renewing", toName(self.name))
                     damp = np.linspace(np.exp(-naturalDampingFactor
@@ -236,7 +245,8 @@ class MusicNote:
                     self.isInEffect = False
                     self.naturalDampedBufCount = 0
                     print(toName(self.name), "dying")
-                    res *= np.linspace(1, 0, num=bufferSize, endpoint=False)
+                    # res *= np.linspace(1, 0, num=bufferSize, endpoint=False)
+                    res *= np.arange(bufferSize - 1, -1, -1) / bufferSize
             return res
 
     def reset(self):
@@ -272,15 +282,15 @@ def onPressCallback(key):
         global mainLoopIsKilled
         mainLoopIsKilled = True
     elif cmd in scaleNames:
-        clippedScaleOffset = max(min(scaleOffset + scaleOffset_adjust, 6), 1)
-        # noteTriggered = (cmd, clippedScaleOffset, signalMode)
+        clippedScaleOffset = np.clip(scaleOffset + scaleOffset_adjust, 1, 6)
         noteTriggered = (cmd, clippedScaleOffset, signalMode)
         if noteTriggered in activeNotes:
             activeNotes[noteTriggered].reset()
         else:
-            activeNotes[noteTriggered] = MusicNote(cmd,
-                                                   clippedScaleOffset,
-                                                   signalMode)
+            activeNotes[noteTriggered] \
+                = MusicNote(scaleName=cmd,
+                            octaveOffset=clippedScaleOffset,
+                            mode=signalMode)
     elif cmd == 'dd':
         for note in activeNotes.values():
             if note.isInEffect and not note.doNaturalDamping:
@@ -291,19 +301,19 @@ def onPressCallback(key):
     elif cmd == 'damp':
         manualDampingIsActive = True
     elif cmd == 'vu':
-        globalVolume = min(globalVolume + 5, 100)
+        globalVolume = min(globalVolume + 1, 100)
         print(f"vol: {globalVolume}")
     elif cmd == 'vd':
-        globalVolume = max(globalVolume - 5, 0)
+        globalVolume = max(globalVolume - 1, 0)
         print(f"vol: {globalVolume}")
     elif cmd == 'su':
         scaleOffset_adjust = 1
         print("offset adjust: +1, "
-              f"current: {max(min(scaleOffset + scaleOffset_adjust, 6), 1)}")
+              f"current: {np.clip(scaleOffset + scaleOffset_adjust, 1, 6)}")
     elif cmd == 'sd':
         scaleOffset_adjust = -1
         print("offset adjust: -1, "
-              f"current: {max(min(scaleOffset + scaleOffset_adjust, 6), 1)}")
+              f"current: {np.clip(scaleOffset + scaleOffset_adjust, 1, 6)}")
     elif cmd == 'hold':
         doNotesHolding = True
 
@@ -368,6 +378,13 @@ def onReleaseCallback(key):
         print(f"tone: {signalMode}")
 
 
+def playBuffer(buffer):
+    buffer *= globalVolume / 100
+    streamObj.write(buffer.astype(np.float32,
+                                  casting='same_kind',
+                                  copy=False).tobytes())
+
+
 activeNoteBuf = np.zeros(bufferSize)
 debugBuf = np.zeros(0)
 reportedEmpty = False
@@ -393,6 +410,7 @@ f12: toggle cut
 
 print(f"offset : {scaleOffset}")
 currentTime = 0
+streamObj.start_stream()
 while not mainLoopIsKilled:
     if args.debug:
         print(f"timestamp: {round(currentTime, 3)}")
@@ -459,9 +477,7 @@ while not mainLoopIsKilled:
             num=bufferSize, endpoint=False)
         manualDampedFrameCount = 0
         manualDampingIsActive = False
-    ao.playNpArray(activeNoteBuf,
-                   volume=globalVolume / 100,
-                   keepActive=True)
+    playBuffer(activeNoteBuf)
     if doRecording is True:
         recordedBuffer.append(activeNoteBuf)
     if args.debug:
@@ -471,8 +487,13 @@ while not mainLoopIsKilled:
         print("----------")
     previousActiveNoteCount = activeNoteCount
 kbListener.stop()
+if streamObj.is_active():
+    streamObj.stop_stream()
+streamObj.close()
+paObj.terminate()
 if args.debug:
-    plt.plot(np.linspace(0, len(debugBuf) / sampleRate, len(debugBuf),
+    plt.plot(np.linspace(0, len(debugBuf) / sampleRate,
+                         num=len(debugBuf),
                          endpoint=False),
              debugBuf)
     plt.show()

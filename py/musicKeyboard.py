@@ -1,4 +1,4 @@
-# TODO different temperament
+# TODO simpler main loop
 # TODO different tone
 # TODO transpose in keys?
 # TODO check portability?
@@ -26,6 +26,17 @@ parser.add_argument('--sr', type=int, default=48000,
                     "Use a higher value for better quality, "
                     "use a lower value (e.g. 22050) if output is lagging. "
                     "Default: 48000")
+parser.add_argument('--nosuppress', action='store_true',
+                    help="Do not suppress keyboard event. "
+                    "By default, all keyboard events are captured and blocked "
+                    "from sending to the system until the program ends, "
+                    "including those that are not used. "
+                    "Specify this option to allow event pass-through. ")
+parser.add_argument('--just', action='store_true',
+                    help="Use just intonation instead of equal termpermant. "
+                    "By default, use equal termpermant "
+                    "(with each note differ by 2^(1/12)). "
+                    "Specify this option to use the just intonation. ")
 args = parser.parse_args()
 
 
@@ -82,19 +93,19 @@ recordedBufferPlayPtr = 0
 doReleaseDampAll = True
 # fundamental signals
 scaleNames = ["C", "Cs", "D", "Ds", "E", "F", "Fs", "G", "Af", "A", "Bf", "B"]
-# freq for second octave
+# freq for second octave, C2-B2
 # equal temperament
 basicFreq = [round(110 * 2 ** (k / 12), 4) for k in range(-9, 3)]
-# Just intonation
-# basicFreq = list(map(lambda x: round(110 / 27 * 16 * x, 4),
-#                      [1, 256 / 243, 9 / 8, 32 / 27,
-#                       81 / 64, 4 / 3, 729 / 512, 3 / 2,
-#                       128 / 81, 27 / 16, 16 / 9, 243 / 128]))
+if args.just:  # Just intonation
+    basicFreq = list(map(lambda x: round(110 / 27 * 16 * x, 4),
+                         [1, 256 / 243, 9 / 8, 32 / 27,
+                         81 / 64, 4 / 3, 729 / 512, 3 / 2,
+                         128 / 81, 27 / 16, 16 / 9, 243 / 128]))
 freqDict = {k: v for (k, v) in zip(scaleNames, basicFreq)}
 
 
 def getFreq(scaleName, octaveOffset):
-    return freqDict[scaleName] * 2 ** (octaveOffset - 2)
+    return freqDict[scaleName] * 2. ** (octaveOffset - 2)
 
 
 paObj = pa.PyAudio()
@@ -149,16 +160,17 @@ def getCommandFromKey(key):
             kb.Key.f2: 'sd',
             kb.Key.f3: 'damp',
             kb.Key.f4: 'hold',
-            # kb.Key.f9: 'm1',
-            # kb.Key.f10: 'm2',
-            # kb.Key.f11: 'm3',
             kb.Key.num_lock: 'rec',
-            kb.Key.f12: 'cut',
             kb.Key.f9: 'm1',
             kb.Key.f10: 'm2',
             kb.Key.f11: 'm3',
+            kb.Key.f12: 'cut',
         }.get(key, None)
     return returnCmd
+
+
+def linspace(s, e, num):  # seems faster than np.linspace
+    return np.arange(num) / num * (e - s) + s
 
 
 def damper(initFrame, dampFactor, outputSize=bufferSize):
@@ -171,7 +183,8 @@ def getSignal(freq, mode=1):
     freqList = None
     if mode == 1:
         return (np.sin(2 * np.pi * freq / sampleRate
-                       * np.arange(bIdx * bufferSize, (bIdx + 1) * bufferSize))
+                       * np.arange(bIdx * bufferSize,
+                                   (bIdx + 1) * bufferSize))
                 for bIdx in it.count())
     elif mode == 2:
         ampList = [4, 2, 1]
@@ -220,17 +233,13 @@ class MusicNote:
                 damp = None
                 if self.naturalDampedBufCount == 0:  # is new sound
                     print("starting", toName(self.name))
-                    # damp = np.linspace(0, 1,
-                    #                    num=bufferSize, endpoint=False) ** 2
-                    damp = (np.arange(bufferSize) / bufferSize) ** 2
+                    damp = linspace(0, 1, bufferSize) ** 2
                 else:  # renew from damp
                     print("renewing", toName(self.name))
-                    damp = np.linspace(np.exp(-naturalDampingFactor
-                                              * self.naturalDampedBufCount
-                                              * bufferSize / sampleRate),
-                                       1,
-                                       num=bufferSize,
-                                       endpoint=False)
+                    damp = linspace(np.exp(-naturalDampingFactor
+                                           * self.naturalDampedBufCount
+                                           * bufferSize / sampleRate),
+                                    1, bufferSize)
                 res *= damp
                 self.justStarted = False
             if self.doNaturalDamping:  # TODO check if can change to elif
@@ -245,7 +254,6 @@ class MusicNote:
                     self.isInEffect = False
                     self.naturalDampedBufCount = 0
                     print(toName(self.name), "dying")
-                    # res *= np.linspace(1, 0, num=bufferSize, endpoint=False)
                     res *= np.arange(bufferSize - 1, -1, -1) / bufferSize
             return res
 
@@ -391,7 +399,7 @@ reportedEmpty = False
 previousActiveNoteCount = 0
 kbListener = kb.Listener(on_press=onPressCallback,
                          on_release=onReleaseCallback,
-                         suppress=True)
+                         suppress=not args.nosuppress)
 kbListener.start()
 print("""Initiated
 
@@ -453,9 +461,9 @@ while not mainLoopIsKilled:
             # so should be fine
             # if activeNoteCount / previousActiveNoteCount - 1 is small
             activeNoteBuf = sum(activeNoteBufList) \
-                / np.linspace(previousActiveNoteCount,
-                              activeNoteCount,
-                              num=bufferSize, endpoint=False)
+                / linspace(previousActiveNoteCount,
+                           activeNoteCount,
+                           bufferSize)
             if args.debug and np.any(activeNoteBuf > 1):
                 mainLoopIsKilled = True
         else:
@@ -471,10 +479,11 @@ while not mainLoopIsKilled:
                                 manualDampingFactor)
         manualDampedFrameCount += bufferSize
     elif manualDampingIsActive is None:
-        activeNoteBuf *= np.linspace(
-            np.exp(-manualDampingFactor * manualDampedFrameCount / sampleRate),
-            1,
-            num=bufferSize, endpoint=False)
+        activeNoteBuf *= linspace(np.exp(-manualDampingFactor
+                                         * manualDampedFrameCount
+                                         / sampleRate),
+                                  1,
+                                  bufferSize)
         manualDampedFrameCount = 0
         manualDampingIsActive = False
     playBuffer(activeNoteBuf)

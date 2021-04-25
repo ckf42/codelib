@@ -156,11 +156,11 @@ def getCommandFromKey(key):
             kb.Key.right: 'Bf',
             kb.Key.end: 'Af',
             kb.Key.insert: 'dd',
-            kb.Key.f1: 'su',
-            kb.Key.f2: 'sd',
-            kb.Key.f3: 'damp',
-            kb.Key.f4: 'hold',
-            kb.Key.num_lock: 'rec',
+            kb.Key.f1: 'su2',
+            kb.Key.f2: 'su1',
+            kb.Key.f3: 'sd1',
+            kb.Key.f4: 'sd2',
+            kb.Key.num_lock: 'damp',
             kb.Key.f9: 'm1',
             kb.Key.f10: 'm2',
             kb.Key.f11: 'm3',
@@ -314,13 +314,13 @@ def onPressCallback(key):
     elif cmd == 'vd':
         globalVolume = max(globalVolume - 1, 0)
         print(f"vol: {globalVolume}")
-    elif cmd == 'su':
-        scaleOffset_adjust = 1
-        print("offset adjust: +1, "
+    elif cmd in ('su1', 'su2'):
+        scaleOffset_adjust = int(cmd[2])
+        print(f"offset adjust: +{scaleOffset_adjust}, "
               f"current: {np.clip(scaleOffset + scaleOffset_adjust, 1, 6)}")
-    elif cmd == 'sd':
-        scaleOffset_adjust = -1
-        print("offset adjust: -1, "
+    elif cmd in ('sd1', 'sd2'):
+        scaleOffset_adjust = -int(cmd[2])
+        print(f"offset adjust: {scaleOffset_adjust}, "
               f"current: {np.clip(scaleOffset + scaleOffset_adjust, 1, 6)}")
     elif cmd == 'hold':
         doNotesHolding = True
@@ -359,7 +359,7 @@ def onReleaseCallback(key):
                 activeNotes[noteTriggered].initDamping()
     elif cmd == 'damp':
         manualDampingIsActive = None
-    elif cmd in ('su', 'sd'):
+    elif cmd in ('su1', 'su2', 'sd1', 'sd2'):
         scaleOffset_adjust = 0
         print(f"offset adjust: 0, current: {scaleOffset}")
     elif cmd == 'hold':
@@ -408,11 +408,9 @@ esc: quit
 home, /, *, -, left, up, pgup, +, end, middle, right, enter: C-B
 insert: clear all
 1-6: move to octave
-f1, f2: temporal octave up/down
-f3: damp all
-f4: hold all
+f1-f4: temporally change octave
+numlock: damp all
 [, ]: volume up/down
-numlock: toggle recording
 f12: toggle cut
 """)
 

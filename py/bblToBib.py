@@ -10,14 +10,13 @@ args = parser.parse_args()
 
 bblPath = (args.bbl
            if args.bbl is not None
-           else input("Enter path to generated .bbl file:\n").strip('\'\" '))
+           else input("Enter path to generated .bbl file:\n")).strip('\'\" ')
 if not path.isfile(bblPath) or path.splitext(bblPath)[1] != '.bbl':
     print("not valid path")
     exit()
 refBibPath = (args.ref
               if args.ref is not None
-              else input("Enter path to global bib database:\n")
-                  .strip('\'\" '))
+              else input("Enter path to global bib db:\n")).strip('\'\" ')
 if not path.isfile(refBibPath) or path.splitext(refBibPath)[1] != '.bib':
     print("not valid path")
     exit()

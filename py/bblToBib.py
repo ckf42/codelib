@@ -16,20 +16,22 @@ bblPath = (args.bbl
            if args.bbl is not None
            else input("Enter path to generated .bbl file:\n")).strip('\'\" ')
 if not path.isfile(bblPath) or path.splitext(bblPath)[1] != '.bbl':
-    print("not valid path")
+    input("bbl is not a valid path")
     exit()
 refBibPath = (args.ref
               if args.ref is not None
               else input("Enter path to global bib db:\n")).strip('\'\" ')
 if not path.isfile(refBibPath) or path.splitext(refBibPath)[1] != '.bib':
-    print("not valid path")
+    input("ref bib is not a valid path")
     exit()
 outputBibPath = (args.out.strip('\'\" ')
                  if args.out is not None
                  else path.splitext(bblPath)[0] + '.bib')
+printToStdOut = False
 if path.isfile(outputBibPath):
-    print(f"\"{outputBibPath}\" already exists. \n"
-          "Please delete the file first before generating a new one")
+    input(f"\"{outputBibPath}\" already exists. \n"
+          "Will print to stdout instead")
+    printToStdOut = True
 
 print("parsing bbl file")
 citedKeyList = []
@@ -40,7 +42,7 @@ with open(bblPath, 'rt', encoding='UTF-8') as bblFile:
             citedKeyList.append(re.split('{|}', line, maxsplit=2)[1])
 
 print("parsing reference bib file")
-citedEntryList = []
+citedEntryList = [r'% Encoding: UTF-8']
 doCollecting = False
 with open(refBibPath, 'rt', encoding='UTF-8') as bibFile:
     for line in bibFile:
@@ -59,13 +61,24 @@ with open(refBibPath, 'rt', encoding='UTF-8') as bibFile:
                 doCollecting = True
                 citedEntryList.append(line.rstrip())
 
-print(f"writing to {outputBibPath}")
+print(f"writing to {outputBibPath if not printToStdOut else 'stdout'}")
 try:
+    if printToStdOut:
+        raise FileNotFoundError
     with open(outputBibPath, 'xt', encoding='UTF-8') as outputFile:
         for line in citedEntryList:
             print(line, file=outputFile)
     print("Done")
-except FileExistsError:
-    print("ERROR\n"
-          f"\"{outputBibPath}\" already exists. \n"
-          "Please delete the file first before generating a new one")
+except (FileExistsError, FileNotFoundError):
+    if not printToStdOut:
+        input("ERROR\n"
+              f"\"{outputBibPath}\" already exists or cannot be open. \n"
+              "Please check if path is valid and delete the old file. \n"
+              "Printing output to stdout")
+    print("-------------------- copy after this line --------------------")
+    for line in citedEntryList:
+        print(line)
+    print("-------------------- copy before this line --------------------")
+    input("Done")
+except Exception as e:
+    input("ERROR\nunknown exception: ", e)

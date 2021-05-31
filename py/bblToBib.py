@@ -3,6 +3,7 @@
 import re
 import argparse
 import os.path as path
+from sys import stdout as stdout
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--bbl', type=str, help="Path to generated bbl file")
@@ -62,23 +63,27 @@ with open(refBibPath, 'rt', encoding='UTF-8') as bibFile:
                 citedEntryList.append(line.rstrip())
 
 print(f"writing to {outputBibPath if not printToStdOut else 'stdout'}")
+f = None
 try:
     if printToStdOut:
-        raise FileNotFoundError
-    with open(outputBibPath, 'xt', encoding='UTF-8') as outputFile:
-        for line in citedEntryList:
-            print(line, file=outputFile)
-    print("Done")
-except (FileExistsError, FileNotFoundError):
-    if not printToStdOut:
-        input("ERROR\n"
-              f"\"{outputBibPath}\" already exists or cannot be open. \n"
-              "Please check if path is valid and delete the old file. \n"
-              "Printing output to stdout")
-    print("-------------------- copy after this line --------------------")
-    for line in citedEntryList:
-        print(line)
-    print("-------------------- copy before this line --------------------")
-    input("Done")
+        f = stdout
+    else:
+        f = open(outputBibPath, 'xt', encoding='UTF-8')
+except FileExistsError:
+    print(f"File \"{outputBibPath}\" already exists. \n"
+          "Please check if path is valid and delete the old file. \n"
+          "Will fallback to stdout")
+    f = stdout
 except Exception as e:
-    input("ERROR\nunknown exception: ", e)
+    print("ERROR:\nUnknown error occurred", e, "Fallback to stdout")
+    f = stdout
+finally:
+    if f is stdout:
+        print("-------------------- copy after this line --------------------")
+    for line in citedEntryList:
+        print(line, file=f)
+    if f is stdout:
+        print("------------------ copy before this line ------------------")
+    else:
+        f.close()
+input("Done")

@@ -1,11 +1,14 @@
 import re
 import argparse
 import os.path as path
+import subprocess
 from sys import stdout as stdout
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--tex', type=str, help="Path to target tex file")
-parser.add_argument('--sty', type=str, help="Path to reference sty file")
+parser.add_argument('--sty', type=str,
+                    help="Path to reference sty file. "
+                    "By default determined by kpsewhich")
 parser.add_argument('--out', type=str,
                     help="Path to output cmd tex file. "
                     "Default to umm.tex in tex path")
@@ -19,9 +22,13 @@ if not path.isfile(texPath) or path.splitext(texPath)[1] != '.tex':
     exit()
 styPath = (args.sty
            if args.sty is not None
-           else input("Enter path to ref sty file:\n")).strip('\'\" ')
+           else subprocess.run('kpsewhich usefulmathmacro.sty',
+                               stdout=subprocess.PIPE,
+                               shell=True,
+                               universal_newlines=True).stdout
+           ).strip('\'\" \r\n')
 if not path.isfile(styPath) or path.splitext(styPath)[1] != '.sty':
-    input("ref sty is not a valid path")
+    input(f"ref sty \"{styPath}\" is not a valid path")
     exit()
 outputPath = (args.out.strip('\'\" ')
               if args.out is not None

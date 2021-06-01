@@ -33,14 +33,21 @@ if path.isfile(outputPath):
 
 print("Parsing tex file")
 usedCmd = set()
+packageFound = False
 with open(texPath, 'rt', encoding='UTF-8') as f:
     for line in f:
+        if not packageFound \
+                and line.strip() == r'\usepackage{usefulmathmacro}':
+            packageFound = True
         for match in (re.findall(r'(\\[a-zA-Z]+?)\b', line), ):
             if len(match) != 0:
                 usedCmd.update(match)
         for match in (re.match(r'\\begin\{([a-zA-Z]+?)\}', line.lstrip()), ):
             if match is not None:
                 usedCmd.update(match.groups())
+
+if not packageFound:
+    input("UMM not used")
 
 print("Parsing sty file")
 outputBuffer = [
@@ -82,4 +89,5 @@ finally:
         print("------------------ copy before this line ------------------")
     else:
         f.close()
+        print(f"File written at {outputPath}")
 input("Done")

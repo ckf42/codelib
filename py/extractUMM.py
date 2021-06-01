@@ -79,7 +79,10 @@ with open(styPath, 'rt', encoding='UTF-8') as f:
 
 f = None
 try:
-    f = open(outputPath, 'xt', encoding='UTF-8')
+    if printToStdOut:
+        f = stdout
+    else:
+        f = open(outputPath, 'xt', encoding='UTF-8')
 except FileExistsError:
     print(f"\"{outputPath}\" already exists. \n"
           "Fallback to stdout")

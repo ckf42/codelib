@@ -25,7 +25,7 @@ if not path.isfile(styPath) or path.splitext(styPath)[1] != '.sty':
     exit()
 outputPath = (args.out.strip('\'\" ')
               if args.out is not None
-              else path.join(path.dirname(texPath), 'umm.tex'))
+              else path.splitext(texPath)[0] + '_umm.tex')
 printToStdOut = False
 if path.isfile(outputPath):
     print(f"\"{outputPath}\" already exists. Will write to stdout instead")

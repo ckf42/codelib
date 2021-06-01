@@ -12,7 +12,8 @@ args = parser.parse_args()
 
 texPath = path.Path(args.tex
                     if args.tex is not None
-                    else input("Enter path to target .tex file:\n").strip('\'\" '))
+                    else input("Enter path to target .tex file:\n"
+                               ).strip('\'\" '))
 if not texPath.is_file():
     input(f"\"{str(texPath)}\" is not a valid path")
     exit()
@@ -73,15 +74,15 @@ if len(citedKeyList) != 0:
         print('\t', citedKey)
     input("enter to generate bib anyways")
 
-print(f"writing to {outputBibPath if not printToStdOut else 'stdout'}")
+print(f"writing to {str(outputBibPath) if not printToStdOut else 'stdout'}")
 f = None
 try:
     if printToStdOut:
         f = stdout
     else:
-        f = open(outputBibPath, 'xt', encoding='UTF-8')
+        f = outputBibPath.open('xt', encoding='UTF-8')
 except FileExistsError:
-    print(f"File \"{outputBibPath}\" already exists. \n"
+    print(f"File \"{str(outputBibPath)}\" already exists. \n"
           "Please check if path is valid and delete the old file. \n"
           "Will fallback to stdout")
     f = stdout

@@ -1,6 +1,6 @@
 import re
 import argparse
-import os.path as path
+import pathlib as path
 import subprocess
 from sys import stdout as stdout
 
@@ -14,34 +14,36 @@ parser.add_argument('--out', type=str,
                     "Default to umm.tex in tex path")
 args = parser.parse_args()
 
-texPath = (args.tex
-           if args.tex is not None
-           else input("Enter path to target .tex file:\n")).strip('\'\" ')
-if not path.isfile(texPath) or path.splitext(texPath)[1] != '.tex':
+texPath = path.Path((args.tex
+                     if args.tex is not None
+                     else input("Enter path to target .tex file:\n")
+                     ).strip('\'\" '))
+if not texPath.is_file() or texPath.suffix != '.tex':
     input("tex is not a valid path")
     exit()
-styPath = (args.sty
-           if args.sty is not None
-           else subprocess.run('kpsewhich usefulmathmacro.sty',
-                               stdout=subprocess.PIPE,
-                               shell=True,
-                               universal_newlines=True).stdout
-           ).strip('\'\" \r\n')
-if not path.isfile(styPath) or path.splitext(styPath)[1] != '.sty':
-    input(f"ref sty \"{styPath}\" is not a valid path")
+styPath = path.Path(args.sty.strip('\'\" ')
+                    if args.sty is not None
+                    else subprocess.run('kpsewhich usefulmathmacro.sty',
+                                        stdout=subprocess.PIPE,
+                                        shell=True,
+                                        universal_newlines=True
+                                        ).stdout.strip('\r\n'))
+if not styPath.is_file() or styPath.suffix != '.sty':
+    input(f"ref sty \"{str(styPath)}\" is not a valid path")
     exit()
-outputPath = (args.out.strip('\'\" ')
-              if args.out is not None
-              else path.splitext(texPath)[0] + '_umm.tex')
+outputPath = path.Path(args.out.strip('\'\" ')
+                       if args.out is not None
+                       else texPath.with_name(texPath.stem + '_umm.tex'))
 printToStdOut = False
-if path.isfile(outputPath):
-    print(f"\"{outputPath}\" already exists. Will write to stdout instead")
+if outputPath.is_file():
+    print(f"\"{str(outputPath)}\" already exists. "
+          "Will write to stdout instead")
     printToStdOut = True
 
 print("Parsing tex file")
 usedCmd = set()
 packageFound = False
-with open(texPath, 'rt', encoding='UTF-8') as f:
+with texPath.open('rt', encoding='UTF-8') as f:
     for line in f:
         if not packageFound \
                 and line.strip() == r'\usepackage{usefulmathmacro}':
@@ -55,6 +57,7 @@ with open(texPath, 'rt', encoding='UTF-8') as f:
 
 if not packageFound:
     input("UMM not used")
+    exit()
 
 print("Parsing sty file")
 outputBuffer = [
@@ -64,7 +67,7 @@ outputBuffer = [
     r'\usepackage{xparse}',
 ]
 doCollecting = False
-with open(styPath, 'rt', encoding='UTF-8') as f:
+with styPath.open('rt', encoding='UTF-8') as f:
     for line in f:
         line = line.rstrip()
         if doCollecting:
@@ -82,9 +85,9 @@ try:
     if printToStdOut:
         f = stdout
     else:
-        f = open(outputPath, 'xt', encoding='UTF-8')
+        f = outputPath.open('xt', encoding='UTF-8')
 except FileExistsError:
-    print(f"\"{outputPath}\" already exists. \n"
+    print(f"\"{str(outputPath)}\" already exists. \n"
           "Fallback to stdout")
     f = stdout
 except Exception as e:
@@ -99,5 +102,5 @@ finally:
         print("------------------ copy before this line ------------------")
     else:
         f.close()
-        print(f"File written at {outputPath}")
+        print(f"File written at {str(outputPath)}")
 input("Done")

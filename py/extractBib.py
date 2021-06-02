@@ -10,6 +10,9 @@ parser.add_argument('--bib', type=str, nargs='*',
 parser.add_argument('--out', type=str,
                     help="Path to output bib file. "
                     "Default to bib in tex path")
+parser.add_argument('--frag', action='store_true',
+                    help="Output as filecontents fragment. "
+                    "Implies output to stdout")
 args = parser.parse_args()
 
 ignoredBibLineHead = ('%', 'readstatus', 'groups', 'abstract', 'comment')
@@ -29,10 +32,13 @@ for bibPath in (args.bib if args.bib is not None else tuple()):
     else:
         print(f"\"{str(bibPath)}\" is not a valid path to a bib file. "
               "Disposed. ")
+printToStdOut = False
+if args.frag:
+    args.out = ''
+    printToStdOut = True
 outputBibPath = path.Path(args.out.strip('\'\" ')
                           if args.out is not None
                           else texPath.with_suffix('.bib'))
-printToStdOut = False
 if outputBibPath.is_file():
     input(f"\"{str(outputBibPath)}\" already exists. \n"
           "Will print to stdout instead")
@@ -102,8 +108,15 @@ except Exception as e:
 finally:
     if f is stdout:
         print("-------------------- copy after this line --------------------")
+    if args.frag:
+        print('\\begin{filecontents}'
+              f'{{{str(texPath.with_suffix(".bib").name)}}}')
     for line in citedEntryList:
+        if args.frag:
+            print('    ', end='')
         print(line, file=f)
+    if args.frag:
+        print('\\end{filecontents}')
     if f is stdout:
         print("------------------ copy before this line ------------------")
     else:

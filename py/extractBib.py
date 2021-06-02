@@ -5,6 +5,8 @@ from sys import stdout as stdout
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--tex', type=str, help="Path to target tex file")
+parser.add_argument('--bib', type=str, nargs='*',
+                    help="Path to target tex file")
 parser.add_argument('--out', type=str,
                     help="Path to output bib file. "
                     "Default to bib in tex path")
@@ -17,6 +19,14 @@ texPath = path.Path(args.tex
 if not texPath.is_file():
     input(f"\"{str(texPath)}\" is not a valid path")
     exit()
+usedBib = []
+for bibPath in args.bib:
+    bibPath = path.Path(bibPath.strip('\'\" '))
+    if bibPath.is_file() and bibPath.suffix == '.bib':
+        usedBib.append(bibPath)
+    else:
+        print(f"\"{str(bibPath)}\" is not a valid path to a bib file. "
+              "Disposed. ")
 outputBibPath = path.Path(args.out.strip('\'\" ')
                           if args.out is not None
                           else texPath.with_suffix('.bib'))
@@ -29,7 +39,6 @@ if outputBibPath.is_file():
 print("reading tex file")
 fileContent = []
 citedKeyList = set()
-usedBib = []
 with texPath.open('rt', encoding='utf-8') as f:
     for line in f:
         fileContent.append(line)

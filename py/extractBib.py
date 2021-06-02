@@ -12,6 +12,8 @@ parser.add_argument('--out', type=str,
                     "Default to bib in tex path")
 args = parser.parse_args()
 
+ignoredBibLineHead = ('%', 'readstatus', 'groups', 'abstract', 'comment')
+
 texPath = path.Path(args.tex
                     if args.tex is not None
                     else input("Enter path to target .tex file:\n"
@@ -20,7 +22,7 @@ if not texPath.is_file():
     input(f"\"{str(texPath)}\" is not a valid path")
     exit()
 usedBib = []
-for bibPath in args.bib:
+for bibPath in (args.bib if args.bib is not None else tuple()):
     bibPath = path.Path(bibPath.strip('\'\" '))
     if bibPath.is_file() and bibPath.suffix == '.bib':
         usedBib.append(bibPath)
@@ -63,7 +65,7 @@ for bib in usedBib:
         for line in bibFile:
             linelstrip = line.lstrip()
             if linelstrip == '' \
-                    or linelstrip.startswith(('%', 'readstatus', 'groups')):
+                    or linelstrip.startswith(ignoredBibLineHead):
                 continue
             if doCollecting:
                 citedEntryList.append(line.rstrip())

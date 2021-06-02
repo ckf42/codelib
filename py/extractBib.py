@@ -60,6 +60,7 @@ for bib in usedBib:
     bibPath = basePath / bib
     if not bibPath.is_file():
         print(f"\"{bibPath}\" is not a valid file")
+        continue
     print(f"parsing {str(bibPath)}")
     with bibPath.open('rt', encoding='utf-8') as bibFile:
         for line in bibFile:
@@ -86,11 +87,9 @@ if len(citedKeyList) != 0:
     input("enter to generate bib anyways")
 
 print(f"writing to {str(outputBibPath) if not printToStdOut else 'stdout'}")
-f = None
+f = stdout
 try:
-    if printToStdOut:
-        f = stdout
-    else:
+    if not printToStdOut:
         f = outputBibPath.open('xt', encoding='UTF-8')
 except FileExistsError:
     print(f"File \"{str(outputBibPath)}\" already exists. \n"

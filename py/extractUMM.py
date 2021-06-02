@@ -80,11 +80,9 @@ with styPath.open('rt', encoding='UTF-8') as f:
                 doCollecting = True
                 outputBuffer.append(line)
 
-f = None
+f = stdout
 try:
-    if printToStdOut:
-        f = stdout
-    else:
+    if not printToStdOut:
         f = outputPath.open('xt', encoding='UTF-8')
 except FileExistsError:
     print(f"\"{str(outputPath)}\" already exists. \n"

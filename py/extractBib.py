@@ -9,6 +9,7 @@ parser.add_argument('--bib', type=str, nargs='*',
                     help="Path to target tex file")
 parser.add_argument('--out', type=str,
                     help="Path to output bib file. "
+                    "Put \"stdout\" to output to stdout. "
                     "Default to bib in tex path")
 parser.add_argument('--frag', action='store_true',
                     help="Output as filecontents fragment. "
@@ -39,7 +40,9 @@ if args.frag:
 outputBibPath = path.Path(args.out.strip('\'\" ')
                           if args.out is not None
                           else texPath.with_suffix('.bib'))
-if outputBibPath.is_file():
+if str(outputBibPath).lower() == 'stdout':
+    printToStdOut = True
+elif outputBibPath.is_file():
     input(f"\"{str(outputBibPath)}\" already exists. \n"
           "Will print to stdout instead")
     printToStdOut = True

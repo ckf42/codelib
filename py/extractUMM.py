@@ -60,25 +60,45 @@ if not packageFound:
     exit()
 
 print("Parsing sty file")
+macroDefDict = dict()
+aliasDict = dict()
+collectedMacroLines = list()
+currentMacroName = ''
+doCollecting = False
+with styPath.open('rt', encoding='UTF-8') as f:
+    for line in f:
+        line = line.rstrip()
+        if doCollecting:
+            collectedMacroLines.append(line)
+            if len(line) > 0 and line[0] == '}':
+                doCollecting = False
+                macroDefDict[currentMacroName] = collectedMacroLines[:]
+        else:
+            match = re.match(r'\\ProvideDocument[a-zA-Z]+\{([^}]+?)\}', line)
+            if match is not None:
+                collectedMacroLines.clear()
+                currentMacroName = match.group(1)
+                doCollecting = True
+                collectedMacroLines.append(line)
+            else:
+                match = re.match(r'\\providecommand\{(\\[^}]+?)\}\{(\\.+?)\} '
+                                 '%alias',
+                                 line)
+                if match is not None:
+                    macroDefDict[match.group(1)] \
+                        = macroDefDict[match.group(2)] + [line, ]
+                    aliasDict[match.group(1)] = match.group(2)
+for (aliasName, realName) in aliasDict.items():
+    if aliasName in usedCmd:
+        usedCmd.discard(realName)
 outputBuffer = [
     r'\usepackage{amsmath}',
     r'\usepackage{amssymb}',
     r'\usepackage{amsthm}',
     r'\usepackage{xparse}',
 ]
-doCollecting = False
-with styPath.open('rt', encoding='UTF-8') as f:
-    for line in f:
-        line = line.rstrip()
-        if doCollecting:
-            outputBuffer.append(line)
-            if len(line) > 0 and line[0] == '}':
-                doCollecting = False
-        else:
-            match = re.match(r'\\ProvideDocument[a-zA-Z]+\{([^}]+?)\}', line)
-            if match is not None and match.group(1) in usedCmd:
-                doCollecting = True
-                outputBuffer.append(line)
+for cmdName in usedCmd:
+    outputBuffer.extend(macroDefDict.get(cmdName, []))
 
 f = stdout
 try:

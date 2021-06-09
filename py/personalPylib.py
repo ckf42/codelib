@@ -309,9 +309,7 @@ def overwriteThenDelete(filePath, passes=3, blockSize=4096, randomModule='os'):
 
 def sqrtByBinom(x, approxSqrtx, n=2):
     from scipy.special import binom as binom
-    y = approxSqrtx ** 2
+    r = x / (approxSqrtx ** 2)
     return approxSqrtx \
-        * sum(binom(n, 2 * k) * x**k * y**(n // 2 - k)
-              for k in range(0, n // 2 + 1)) \
-        / sum(binom(n, 2 * k + 1) * x**k * y**(n // 2 - k)
-              for k in range(0, (n - 1) // 2 + 1))
+        * sum(binom(n, 2 * k) * r**k for k in range(0, n // 2 + 1)) \
+        / sum(binom(n, 2 * k + 1) * r**k for k in range(0, (n - 1) // 2 + 1))

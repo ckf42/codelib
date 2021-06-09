@@ -52,3 +52,13 @@ def ssim(arr1, arr2, channelLast=True, bitPerPixel=8):
 def tanPlotHelper(f, interval=(-np.inf, np.inf), nPts=1000):
     pts = np.linspace(np.arctan(interval[0]), np.arctan(interval[1]), nPts)
     return (pts, f(np.tan(pts)))
+
+
+def sqrtByBinom(x, approxSqrtx, n=2):
+    from scipy.special import binom as binom
+    y = approxSqrtx ** 2
+    return approxSqrtx \
+        * sum(binom(n, 2 * k) * x**k * y**(n // 2 - k)
+              for k in range(0, n // 2 + 1)) \
+        / sum(binom(n, 2 * k + 1) * x**k * y**(n // 2 - k)
+              for k in range(0, (n - 1) // 2 + 1))

@@ -322,9 +322,9 @@ def sqrtByBinom(x, approxSqrtx, n=2):
         / sum(binom(n, 2 * k + 1) * r**k for k in range(0, (n - 1) // 2 + 1))
 
 
-def findMatchBrackets(inputStr,
-                      acceptBracket="()[]{}",
-                      escapeChar='\\'):
+def findAllMatchBrackets(inputStr,
+                         acceptBracket="()[]{}",
+                         escapeChar='\\'):
     if len(acceptBracket) % 2 != 0:
         raise ValueError("AcceptBracket is not a string of even length")
     bracketMemStack = list()
@@ -356,3 +356,29 @@ def findMatchBrackets(inputStr,
                     bracketMemStack.pop()
         prevChar = currChar
     return outputRes
+
+
+def findThisMatchBracket(inputStr, startPos=0,
+                         bracketPair='{}', escapeChar='\\'):
+    if inputStr[startPos] != bracketPair[0]:
+        raise ValueError("startPos does not match bracketPair")
+    if len(bracketPair) != 2:
+        raise ValueError("bracketPair is not a string of length 2")
+    bracketCounter = 0
+    prevChar = (None if startPos == 0 else inputStr[startPos - 1])
+    for idx in range(startPos, len(inputStr)):
+        currChar = inputStr[idx]
+        isEscaped = False
+        if prevChar == escapeChar:
+            for char in inputStr[idx - 1::-1]:
+                if char != escapeChar:
+                    break
+                isEscaped = not isEscaped
+        if not isEscaped:
+            if currChar == bracketPair[0]:
+                bracketCounter += 1
+            elif currChar == bracketPair[1]:
+                bracketCounter -= 1
+                if bracketCounter == 0:
+                    return idx
+    raise ValueError("No matching close bracket")

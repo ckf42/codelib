@@ -277,24 +277,31 @@ def listMatrix(val, *args):
     from numbers import Number
     valF = val
     if isinstance(val, Number):
-        valF = lambda *args: val
+        valF = (lambda *args: val)
     if len(args) == 1:
         return [valF(idx) for idx in range(args[0])]
     else:
-        return [listMatrix(lambda *x: valF(idx, *x), *(args[1:])) for idx in range(args[0])]
+        return [listMatrix(lambda *x: valF(idx, *x), *(args[1:]))
+                for idx in range(args[0])]
 
 
 def overwriteThenDelete(filePath, passes=3, blockSize=4096, randomModule='os'):
     randomBitGen = None
     if randomModule == 'random':
         from random import getrandbits
-        randomBitGen = lambda k: bytes(getrandbits(8) for i in range(k))
+
+        def randomBitGen(k):
+            return bytes(getrandbits(8) for i in range(k))
     elif randomModule == 'secrets':
         from secrets import randbits
-        randomBitGen = lambda k: bytes(randbits(8) for i in range(k))
+
+        def randomBitGen(k):
+            return bytes(randbits(8) for i in range(k))
     else:
         from os import urandom
-        randomBitGen = lambda k: urandom(k)
+
+        def randomBitGen(k):
+            return urandom(k)
     from os import fstat, remove
     with open(filePath, 'rb+') as f:
         fileSize = fstat(f.fileno()).st_size
@@ -313,3 +320,39 @@ def sqrtByBinom(x, approxSqrtx, n=2):
     return approxSqrtx \
         * sum(binom(n, 2 * k) * r**k for k in range(0, n // 2 + 1)) \
         / sum(binom(n, 2 * k + 1) * r**k for k in range(0, (n - 1) // 2 + 1))
+
+
+def findMatchBrackets(inputStr,
+                      acceptBracket="()[]{}",
+                      escapeChar='\\'):
+    if len(acceptBracket) % 2 != 0:
+        raise ValueError("AcceptBracket is not a string of even length")
+    bracketMemStack = list()
+    outputRes = list()
+    openBracket = acceptBracket[::2]
+    closeBracket = acceptBracket[1::2]
+    matchingOpen = dict(zip(closeBracket, openBracket))
+    prevChar = None
+    for idx in range(len(inputStr)):
+        currChar = inputStr[idx]
+        isEscaped = False
+        if prevChar == escapeChar:
+            for char in inputStr[idx - 1::-1]:
+                if char != escapeChar:
+                    break
+                isEscaped = not isEscaped
+        if not isEscaped:
+            # not escaping escape
+            if currChar in openBracket:
+                bracketMemStack.append((currChar, idx))
+            elif currChar in closeBracket:
+                if len(bracketMemStack) == 0 \
+                        or bracketMemStack[-1][0] != matchingOpen[currChar]:
+                    raise ValueError(
+                        f"inputStr has an unmatched bracket at index {idx}"
+                    )
+                else:
+                    outputRes.append(bracketMemStack[-1] + (idx, ))
+                    bracketMemStack.pop()
+        prevChar = currChar
+    return outputRes

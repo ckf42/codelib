@@ -93,8 +93,8 @@ while len(macroQueue) != 0:
         keyIdxList = tuple(match.start()
                            for match
                            in re.finditer(key.replace('\\', r'\\') + '\\b',
-                                          fileContent))
-        for startIdx in keyIdxList[::-1]:
+                                          fileContent))[::-1]
+        for startIdx in keyIdxList:
             replacementCmd = cmdInfo[0]
             paraDict = dict()
             startPos = startIdx + keyLen
@@ -109,7 +109,7 @@ while len(macroQueue) != 0:
                 + replacementCmd \
                 + fileContent[endPos + 1:]
 
-print(f"Writing result ...")
+print("Writing result ...")
 if outputPath.is_file():
     print(f"{str(outputPath)} already exists")
     input("Press Enter to overwrite file\n")

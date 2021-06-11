@@ -1,6 +1,7 @@
 import argparse
 import re
 import pathlib as path
+import subprocess
 from collections import deque
 from personalPylib import findThisMatchBracket as findBracket
 
@@ -8,14 +9,29 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--md', type=str, help="Path to target md file")
 parser.add_argument('--json', type=str, help="Path to KaTeX macro json file")
 parser.add_argument('--out', type=str, help="Path to output file")
+parser.add_argument('--ipynb', action='store_true',
+                    help="Output as ipynb with pandoc. "
+                    "Ignored if pandoc cannot be found")
 args = parser.parse_args()
+
+if args.ipynb \
+    and subprocess.run(['pandoc', '--version'],
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL,
+                       shell=True).returncode != 0:
+    print("Unable to call pandoc")
+    print("Please check if pandoc is installed correctly "
+          "and is in environment path")
+    print("--ipynb is ignored")
+    args.ipynb = False
+
 
 filePath = path.Path((args.md
                       if args.md is not None
                       else input("Enter target path to markdown file:\n")
                       ).strip('\'\" '))
 if not filePath.is_file() or filePath.suffix != '.md':
-    input("md is not a vaild path to a markdown file")
+    input("md is not a valid path to a markdown file")
     exit()
 
 jsonPath = path.Path((args.json
@@ -23,19 +39,23 @@ jsonPath = path.Path((args.json
                       else input("Enter path to ref json file:\n")
                       ).strip('\'\" '))
 if not jsonPath.is_file() or jsonPath.suffix != '.json':
-    input("json is not a vaild path to a json file")
+    input("json is not a valid path to a json file")
     exit()
 
 outputPath = (path.Path(args.out.strip('\'\" '))
               if args.out is not None
               else filePath.parent.joinpath(filePath.stem
                                             + '_portable'
-                                            + filePath.suffix))
+                                            + ('.ipynb'
+                                               if args.ipynb
+                                               else '.md')))
 
+print("Reading target file ...")
 fileContent = None
 with filePath.open('rt', encoding='utf-8') as f:
     fileContent = f.read()
 
+print("Reading macro json file ...")
 macroDict = dict()
 with jsonPath.open('rt', encoding='utf-8') as f:
     for line in f:
@@ -55,6 +75,7 @@ for cmd in macroList:
         + (list(m for m in macroList if m in macroDict[cmd][0]), )
     # content, paraCount, [depKeys]
 
+print("Processing ...")
 macroQueue = deque(macroList)
 while len(macroQueue) != 0:
     key = macroQueue[0]
@@ -88,9 +109,19 @@ while len(macroQueue) != 0:
                 + replacementCmd \
                 + fileContent[endPos + 1:]
 
-print(f"Writing to {str(outputPath)}")
+print(f"Writing result ...")
 if outputPath.is_file():
     print(f"{str(outputPath)} already exists")
     input("Press Enter to overwrite file\n")
-with outputPath.open('wt', encoding='UTF-8') as f:
-    print(fileContent, file=f)
+if args.ipynb:
+    print("Pandoc return code: ",
+          subprocess.run(['pandoc',
+                          '-f', 'markdown',
+                          '-t', 'ipynb',
+                          '-o', str(outputPath)],
+                         input=fileContent,
+                         shell=True,
+                         encoding='utf-8').returncode)
+else:
+    with outputPath.open('wt', encoding='UTF-8') as f:
+        print(fileContent, file=f)

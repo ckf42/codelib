@@ -323,62 +323,71 @@ def sqrtByBinom(x, approxSqrtx, n=2):
 
 
 def findAllMatchBrackets(inputStr,
-                         acceptBracket="()[]{}",
+                         acceptBrackets="()[]{}",
                          escapeChar='\\'):
-    if len(acceptBracket) % 2 != 0:
-        raise ValueError("AcceptBracket is not a string of even length")
-    bracketMemStack = list()
+    if len(acceptBrackets) % 2 != 0:
+        raise ValueError("acceptBrackets is not a string of even length")
+    bracketStack = list()
     outputRes = list()
-    openBracket = acceptBracket[::2]
-    closeBracket = acceptBracket[1::2]
+    openBracket = acceptBrackets[::2]
+    closeBracket = acceptBrackets[1::2]
     matchingOpen = dict(zip(closeBracket, openBracket))
-    prevChar = None
-    for idx in range(len(inputStr)):
-        currChar = inputStr[idx]
-        isEscaped = False
-        if prevChar == escapeChar:
-            for char in inputStr[idx - 1::-1]:
-                if char != escapeChar:
-                    break
-                isEscaped = not isEscaped
-        if not isEscaped:
-            # not escaping escape
-            if currChar in openBracket:
-                bracketMemStack.append((currChar, idx))
-            elif currChar in closeBracket:
-                if len(bracketMemStack) == 0 \
-                        or bracketMemStack[-1][0] != matchingOpen[currChar]:
-                    raise ValueError(
-                        f"inputStr has an unmatched bracket at index {idx}"
-                    )
-                else:
-                    outputRes.append(bracketMemStack[-1] + (idx, ))
-                    bracketMemStack.pop()
-        prevChar = currChar
+    charIdx = 0
+    inputLen = len(inputStr)
+    isEscaped = False
+    while charIdx < inputLen:
+        thisChar = inputStr[charIdx]
+        if thisChar == escapeChar:
+            isEscaped = not isEscaped
+        else:
+            if not isEscaped:
+                if thisChar in openBracket:
+                    bracketStack.append((thisChar, charIdx))
+                elif thisChar in closeBracket:
+                    if len(bracketStack) == 0 \
+                            or bracketStack[-1][0] != matchingOpen[thisChar]:
+                        raise ValueError(f"Unmatched {thisChar} "
+                                         f"at index {charIdx}")
+                    else:
+                        outputRes.append(bracketStack[-1] + (charIdx, ))
+                        bracketStack.pop()
+            isEscaped = False
+        charIdx += 1
+    if len(bracketStack) != 0:
+        thisChar, charIdx = bracketStack[-1]
+        raise ValueError(f"Unmatched {thisChar} "
+                         f"at index {charIdx}")
     return outputRes
 
 
 def findThisMatchBracket(inputStr, startPos=0,
                          bracketPair='{}', escapeChar='\\'):
-    if inputStr[startPos] != bracketPair[0]:
-        raise ValueError("startPos does not match bracketPair")
     if len(bracketPair) != 2:
         raise ValueError("bracketPair is not a string of length 2")
+    if inputStr[startPos] != bracketPair[0]:
+        raise ValueError("character at startPos is not an opening bracket")
+    isEscaped = False
+    charIdx = startPos - 1
+    while charIdx >= 0 and inputStr[charIdx] == escapeChar:
+        isEscaped = not isEscaped
+        charIdx -= 1
+    if isEscaped:
+        raise ValueError("bracket at startPos is escaped")
+    charIdx = startPos
+    inputLen = len(inputStr)
     bracketCounter = 0
-    prevChar = (None if startPos == 0 else inputStr[startPos - 1])
-    for idx in range(startPos, len(inputStr)):
-        currChar = inputStr[idx]
-        isEscaped = False
-        if prevChar == escapeChar:
-            for char in inputStr[idx - 1::-1]:
-                if char != escapeChar:
-                    break
-                isEscaped = not isEscaped
-        if not isEscaped:
-            if currChar == bracketPair[0]:
-                bracketCounter += 1
-            elif currChar == bracketPair[1]:
-                bracketCounter -= 1
-                if bracketCounter == 0:
-                    return idx
+    while charIdx < inputLen:
+        thisChar = inputStr[charIdx]
+        if thisChar == escapeChar:
+            isEscaped = not escapeChar
+        else:
+            if not isEscaped:
+                if thisChar == bracketPair[0]:
+                    bracketCounter += 1
+                elif thisChar == bracketPair[1]:
+                    bracketCounter -= 1
+                    if bracketCounter == 0:
+                        return charIdx
+            isEscaped = False
+        charIdx += 1
     raise ValueError("No matching close bracket")

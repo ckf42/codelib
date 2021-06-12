@@ -314,8 +314,20 @@ def overwriteThenDelete(filePath, passes=3, blockSize=4096, randomModule='os'):
     remove(filePath)
 
 
-def sqrtByBinom(x, approxSqrtx, n=2):
-    from scipy.special import binom as binom
+def binom(n, r):
+    from math import log1p, exp
+    r = min(r, n - r)
+    return exp(sum(log1p((n - r) / i) for i in range(1, r + 1)))
+
+
+def sqrtByBinom(x, approxSqrtx=None, n=2, iterTime=1):
+    if approxSqrtx is None:
+        approxSqrtx = x / 2
+    if iterTime != 1:
+        return sqrtByBinom(x,
+                           sqrtByBinom(x, approxSqrtx, n, 1),
+                           n,
+                           iterTime - 1)
     r = x / (approxSqrtx ** 2)
     return approxSqrtx \
         * sum(binom(n, 2 * k) * r**k for k in range(0, n // 2 + 1)) \
@@ -355,8 +367,7 @@ def findAllMatchBrackets(inputStr,
         charIdx += 1
     if len(bracketStack) != 0:
         thisChar, charIdx = bracketStack[-1]
-        raise ValueError(f"Unmatched {thisChar} "
-                         f"at index {charIdx}")
+        raise ValueError(f"Unmatched {thisChar} at index {charIdx}")
     return outputRes
 
 

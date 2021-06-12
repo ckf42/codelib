@@ -1,3 +1,4 @@
+import decimal
 if __name__ == '__main__':
     exit()
 
@@ -99,7 +100,7 @@ def viewList(lst, itemPerPage,
                 showOrdinal = not showOrdinal
 
 
-def genStr(charList, minLen, maxLen) -> str:
+def genStr(charList: str, minLen: int, maxLen: int) -> str:
     # O(length+0.5*length) per yield
     for outputLen in range(max(minLen, 1), maxLen + 1):
         selectCharIdx = [0] * outputLen
@@ -117,7 +118,9 @@ def genStr(charList, minLen, maxLen) -> str:
                     break
 
 
-def userConfirm(message, charYStr='y', charNStr='n', defaultChar=None,
+def userConfirm(message: str,
+                charYStr='y', charNStr='n',
+                defaultChar=None,
                 caseInsensitive=True) -> bool:
     s = ''
     if caseInsensitive:
@@ -154,7 +157,7 @@ def floydCycleDetect(f: callable, x0) -> (int, int):
     return (c, d)
 
 
-def strSimRatio(s1: str, s2: str, substrWeight=.6) -> float:
+def strSimRatio(s1: str, s2: str, substrWeight: float = .6) -> float:
     l1, l2 = len(s1), len(s2)
     if l1 == 0 or l2 == 0:
         invLevRatio, substrRatio = 0, 1
@@ -187,7 +190,9 @@ def strSimRatio(s1: str, s2: str, substrWeight=.6) -> float:
         + (1 - substrWeight) * invLevRatio * invLevRatio
 
 
-def inputPath(displayStr, forFile=True, defaultPath=None) -> str:
+def inputPath(displayStr: str,
+              forFile: bool = True,
+              defaultPath: str = None) -> str:
     import os.path
     s = ''
     while not (os.path.isfile if forFile else os.path.isdir)(s):
@@ -206,7 +211,7 @@ class textColoring:
         'bright cyan': 96, 'bright white': 97,
     }
 
-    def __new__(cls, text: str, color="white") -> str:
+    def __new__(cls, text: str, color: str = "white") -> str:
         color = color.lower().strip()
         try:
             rHex, gHex, bHex = \
@@ -217,7 +222,9 @@ class textColoring:
         return f'\x1b[{color}m{text}\x1b[0m'
 
 
-def FareyApprox(x: float, tol=1e-8, maxIter=1000) -> (int, int):
+def FareyApprox(x: float,
+                tol: float = 1e-8,
+                maxIter: int = 1000) -> (int, int):
     isNeg = False
     if x < 0:
         isNeg = True
@@ -241,8 +248,8 @@ def FareyApprox(x: float, tol=1e-8, maxIter=1000) -> (int, int):
     return ((-1) ** isNeg * (medPtr[0] + intPart * medPtr[1]), medPtr[1])
 
 
-def GaussLegendreAlgorithm(iterTime=5, prec=53):
-    import decimal
+def GaussLegendreAlgorithm(iterTime: int = 5, prec: int = 53) \
+        -> decimal.Decimal:
     decimal.getcontext().prec = prec
     a = decimal.Decimal('1')
     b = decimal.Decimal('0.5').sqrt()
@@ -269,11 +276,11 @@ class stringToPhoneNum:
         **dict.fromkeys(list('wxyz'), '9'),
     }
 
-    def __new__(cls, s):
+    def __new__(cls, s: str) -> str:
         return ''.join([cls._internaldict.get(i, i) for i in s])
 
 
-def listMatrix(val, *args):
+def listMatrix(val, *args) -> list:
     from numbers import Number
     valF = val
     if isinstance(val, Number):
@@ -285,7 +292,9 @@ def listMatrix(val, *args):
                 for idx in range(args[0])]
 
 
-def overwriteThenDelete(filePath, passes=3, blockSize=4096, randomModule='os'):
+def overwriteThenDelete(filePath: str,
+                        passes: int = 3, blockSize: int = 4096,
+                        randomModule: str = 'os') -> None:
     randomBitGen = None
     if randomModule == 'random':
         from random import getrandbits
@@ -314,29 +323,30 @@ def overwriteThenDelete(filePath, passes=3, blockSize=4096, randomModule='os'):
     remove(filePath)
 
 
-def binom(n, r):
+def binom(n: int, r: int) -> float:
     from math import log1p, exp
     r = min(r, n - r)
     return exp(sum(log1p((n - r) / i) for i in range(1, r + 1)))
 
 
-def sqrtByBinom(x, approxSqrtx=None, n=2, iterTime=1):
-    if approxSqrtx is None:
-        approxSqrtx = x / 2
+def sqrtByBinom(x: float, approxSqrtX: float = None,
+                n: int = 2, iterTime: int = 1) -> float:
+    if approxSqrtX is None:
+        approxSqrtX = x / 2
     if iterTime != 1:
         return sqrtByBinom(x,
-                           sqrtByBinom(x, approxSqrtx, n, 1),
+                           sqrtByBinom(x, approxSqrtX, n, 1),
                            n,
                            iterTime - 1)
-    r = x / (approxSqrtx ** 2)
-    return approxSqrtx \
+    r = x / (approxSqrtX ** 2)
+    return approxSqrtX \
         * sum(binom(n, 2 * k) * r**k for k in range(0, n // 2 + 1)) \
         / sum(binom(n, 2 * k + 1) * r**k for k in range(0, (n - 1) // 2 + 1))
 
 
-def findAllMatchBrackets(inputStr,
-                         acceptBrackets="()[]{}",
-                         escapeChar='\\'):
+def findAllMatchBrackets(inputStr: str,
+                         acceptBrackets: str = "()[]{}",
+                         escapeChar: str = '\\') -> list:
     if len(acceptBrackets) % 2 != 0:
         raise ValueError("acceptBrackets is not a string of even length")
     bracketStack = list()
@@ -371,8 +381,9 @@ def findAllMatchBrackets(inputStr,
     return outputRes
 
 
-def findThisMatchBracket(inputStr, startPos=0,
-                         bracketPair='{}', escapeChar='\\'):
+def findThisMatchBracket(inputStr: str, startPos: int = 0,
+                         bracketPair: str = '{}',
+                         escapeChar: str = '\\') -> int:
     if len(bracketPair) != 2:
         raise ValueError("bracketPair is not a string of length 2")
     if inputStr[startPos] != bracketPair[0]:

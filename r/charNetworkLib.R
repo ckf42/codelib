@@ -70,7 +70,7 @@ planar_maximally_filtered_graph = function(similarityMatrix, forceLibrary = NULL
         }
     } else {
         # san check user requested lib
-        if (!eval(supportLibCheckAndRequire[match(forceLibrary, supportLibList)])){
+        if (!eval(supportLibCheckAndRequire[[match(forceLibrary, supportLibList)]])){
             stop(paste("Request library", forceLibrary, "is not available"))
         }
     }

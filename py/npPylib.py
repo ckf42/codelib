@@ -4,9 +4,12 @@ if __name__ == '__main__':
 import numpy as np
 
 
-def dynamicTimeWarp(s1, s2, windowSize=None, dist=None):  # 90-45-90 mode
+def dynamicTimeWarp(s1: np.ndarray, s2: np.ndarray,
+                    windowSize: int = None,
+                    dist: callable = None) -> np.ndarray:  # 90-45-90 mode
     if dist is None:
-        def dist(a, b): return (ord(a) - ord(b))**2
+        def dist(a, b):
+            return (ord(a) - ord(b))**2
     if windowSize is None:
         windowSize = np.inf
     n, m = len(s1), len(s2)
@@ -26,7 +29,8 @@ def dynamicTimeWarp(s1, s2, windowSize=None, dist=None):  # 90-45-90 mode
     return arr
 
 
-def ssim(arr1, arr2, channelLast=True, bitPerPixel=8):
+def ssim(arr1: np.ndarray, arr2: np.ndarray,
+         channelLast: bool = True, bitPerPixel: int = 8) -> float:
     if arr1.shape != arr2.shape:
         return 0
     if len(arr1.shape) == 3:
@@ -49,6 +53,8 @@ def ssim(arr1, arr2, channelLast=True, bitPerPixel=8):
         / (sigma2x + sigma2y + c2)
 
 
-def tanPlotHelper(f, interval=(-np.inf, np.inf), nPts=1000):
+def tanPlotHelper(f: callable,
+                  interval: tuple = (-np.inf, np.inf),
+                  nPts: int = 1000) -> tuple:
     pts = np.linspace(np.arctan(interval[0]), np.arctan(interval[1]), nPts)
     return (pts, f(np.tan(pts)))

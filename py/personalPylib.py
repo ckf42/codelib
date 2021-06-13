@@ -3,14 +3,14 @@ if __name__ == '__main__':
     exit()
 
 
-def viewList(lst, itemPerPage,
-             displayMethod=print, showOrdinal=False, useIndex=False,
-             headMessageStrFunc=lambda lstLen: f"{lstLen} item(s) in total"):
+def viewList(lst: list, itemPerPage: int = 20,
+             displayMethod: callable = print,
+             showOrdinal: bool = False, useIndex: bool = False,
+             headMessageStrFunc: callable
+             = lambda lstLen: f"{lstLen} item(s) in total"):
     if headMessageStrFunc is not None:
         print(headMessageStrFunc(len(lst)))
-    if len(lst) == 0:
-        return
-    elif itemPerPage <= 0 or len(lst) <= itemPerPage:
+    if itemPerPage <= 0 or len(lst) <= itemPerPage:
         # for item in lst: displayMethod(item)
         for i in range(len(lst)):
             if showOrdinal:
@@ -19,85 +19,87 @@ def viewList(lst, itemPerPage,
                 displayMethod(lst[i], i)
             else:
                 displayMethod(lst[i])
-    else:
-        import msvcrt
-        n = int((len(lst) + itemPerPage - 1) / itemPerPage)
-        index = 0
+        return None
+    import msvcrt
+    n = int((len(lst) + itemPerPage - 1) / itemPerPage)
+    index = 0
+    command = '.'
+    while index < n:
+        print(f"---- Page {index+1} / {n} ----")
+        for itemIndex in range(index * itemPerPage,
+                               min((index + 1) * itemPerPage,
+                                   len(lst))):
+            if showOrdinal:
+                print(f"#{itemIndex+1}:    ", end='')
+            # displayMethod(lst[itemIndex])
+            if useIndex:
+                displayMethod(lst[itemIndex], itemIndex)
+            else:
+                displayMethod(lst[itemIndex])
+        if index == n - 1:
+            print("---- End of list, forward to quit ----")
+        print("[F]orward, "
+              + ("[B]ackward, " if index != 0 else "")
+              + "[J]ump or [Q]uit: ",
+              end='', flush=True)
         command = '.'
-        while index < n:
-            print(f"---- Page {index+1} / {n} ----")
-            for itemIndex in range(index * itemPerPage,
-                                   min((index + 1) * itemPerPage, len(lst))):
-                if showOrdinal:
-                    print(f"#{itemIndex+1}:    ", end='')
-                # displayMethod(lst[itemIndex])
-                if useIndex:
-                    displayMethod(lst[itemIndex], itemIndex)
+        while len(command) != 1 or command not in 'fbqjhc':
+            try:
+                command = msvcrt.getche().decode('utf8').lower()
+            except Exception:
+                command = '.'
+            if command == 'b' and index == 0:
+                command = '.'
+        print('')  # newline
+        if command == 'q':  # quit
+            return
+        elif command == 'h':  # help
+            print("Help Message")
+            print("h    show this help message")
+            print("f    go to next page")
+            print("b    go to last page")
+            print("j    jump to some page, or to some item")
+            print("c    toggle ordinal number display")
+            print("q    quit")
+            input("Press [Enter] to quit this message")
+        elif command in 'fb':  # next/previous page
+            index += (1 if command == 'f' else -1)
+        elif command == 'j':  # jump
+            print(f"Total pages: {n}, "
+                  f"total items: {len(lst)}, "
+                  f"current page: {index+1}")
+            isItem = False
+            while not isinstance(command, int):
+                command = input("Enter [page number], "
+                                "i[item number] "
+                                "or [q] to cancel: ")
+                if len(command) == 0:
+                    continue
+                if command.lower() == 'q':
+                    isItem = False
+                    command = index + 1
+                    break
+                if command[0] == 'i':
+                    isItem = True
+                    command = command[1:]
                 else:
-                    displayMethod(lst[itemIndex])
-            if index == n - 1:
-                print("---- End of list, forward to quit ----")
-            print(f"[F]orward{', [B]ackward' if index!=0 else ''}, "
-                  "[J]ump or [Q]uit: ",
-                  end='', flush=True)
-            command = '.'
-            while len(command) != 1 or command not in 'fbqjhc':
+                    isItem = False
+                invalidNum = False
                 try:
-                    command = msvcrt.getche().decode('utf8').lower()
-                except Exception:
-                    command = '.'
-                if command == 'b' and index == 0:
-                    command = '.'
-            print('')  # newline
-            if command == 'q':
-                return
-            elif command == 'h':
-                print("Help Message")
-                print("h    show this help message")
-                print("f    go to next page")
-                print("b    go to last page")
-                print("j    jump to some page, or to some item")
-                print("c    toggle ordinal number display")
-                print("q    quit")
-                input("Press [Enter] to quit this message")
-            elif command in 'fb':
-                index += (1 if command == 'f' else -1)
-            elif command == 'j':
-                print(f"Total pages: {n}, "
-                      f"total items: {len(lst)}, "
-                      f"current page: {index+1}")
-                isItem = False
-                while not isinstance(command, int):
-                    command = input("Enter [page number], "
-                                    "i[item number] "
-                                    "or [q] to cancel: ")
-                    if len(command) == 0:
-                        continue
-                    if command.lower() == 'q':
-                        isItem = False
-                        command = index + 1
-                        break
-                    if command[0] == 'i':
-                        isItem = True
-                        command = command[1:]
-                    else:
-                        isItem = False
-                    invalidNum = False
-                    try:
-                        command = int(command)
-                        if command <= 0 \
-                                or command > (len(lst) if isItem else n):
-                            invalidNum = True
-                    except Exception:
+                    command = int(command)
+                    if command <= 0 \
+                            or command > (len(lst) if isItem else n):
                         invalidNum = True
-                    if invalidNum:
-                        print("Please enter a valid number. "
-                              f"Total pages: {n}, total items: {len(lst)}")
-                        command = '.'
-                index = (int((command - 1) / itemPerPage)
-                         if isItem else command - 1)
-            elif command == 'c':
-                showOrdinal = not showOrdinal
+                except Exception:
+                    invalidNum = True
+                if invalidNum:
+                    print("Please enter a valid number. "
+                          f"Total pages: {n}, total items: {len(lst)}")
+                    command = '.'
+            index = ((command - 1) // itemPerPage
+                     if isItem else command - 1)
+        elif command == 'c':  # toggle index
+            showOrdinal = not showOrdinal
 
 
 def genStr(charList: str, minLen: int, maxLen: int) -> str:

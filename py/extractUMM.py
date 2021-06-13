@@ -2,7 +2,7 @@ import re
 import argparse
 import pathlib as path
 import subprocess
-from sys import stdout as stdout
+from sys import stdout
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--tex', type=str, help="Path to target tex file")

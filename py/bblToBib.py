@@ -3,7 +3,7 @@
 import re
 import argparse
 import os.path as path
-from sys import stdout as stdout
+from sys import stdout
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--bbl', type=str, help="Path to generated bbl file")

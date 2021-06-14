@@ -1,21 +1,21 @@
 # this script provides the following functions:
-# 
+#
 # planar_maximally_filtered_graph
 # proportional_degree_network
-# 
+#
 # Please goto the corresponding function definition for detail description
 
 if (!require(igraph)){
     stop('these functions requires igraph')
 }
 
-#' 
+#'
 #' @description constructing the Planar Maximally Filtered Graph (PMFG)
-#' 
-#' @param similarityMatrix numeric matrix. similarity between items. 
+#'
+#' @param similarityMatrix numeric matrix. similarity between items.
 #'                         assumed symmetric and has nonnegative entries
-#' 
-#' @param forceLibrary NULL, or one of the following string: 
+#'
+#' @param forceLibrary NULL, or one of the following string:
 #'                         'MEGENA', 'RBGL', 'IMPLEMENTED'
 #'                     affect which routine to use for planarity testing
 #'                     'MEGENA':      MEGENA::planaritytest
@@ -23,16 +23,16 @@ if (!require(igraph)){
 #'                     'IMPLEMENTED': is_planar_graph_DMP implemented above (\~60 times slower than 'RBGL')
 #'                     if NULL or not any of above, will use the first available in the list
 #'                     default: NULL
-#' 
-#' @param isSimilarity boolean. indicate if similarityMatrix denote similarity 
+#'
+#' @param isSimilarity boolean. indicate if similarityMatrix denote similarity
 #'                     (TRUE) or dissimilarity (FALSE)
 #'                     default: TRUE
-#' 
-#' @return igraph graph object of the PMFG constructed from the 
+#'
+#' @return igraph graph object of the PMFG constructed from the
 #'         similarity matrix
-#' 
-#' @references 
-#' 
+#'
+#' @references
+#'
 # TODO speed up
 planar_maximally_filtered_graph = function(similarityMatrix, forceLibrary = NULL, isSimilarity = TRUE){
     # if (is.null(forceLibrary)){
@@ -51,19 +51,19 @@ planar_maximally_filtered_graph = function(similarityMatrix, forceLibrary = NULL
     #     stop("Request library RBGL is not available")
     # }
     supportLibList = c('MEGENA', 'RBGL', 'IMPLEMENTED')
-    supportLibCheckAndRequire = c(quote(requireNamespace("MEGENA", quietly = TRUE)), 
+    supportLibCheckAndRequire = c(quote(requireNamespace("MEGENA", quietly = TRUE)),
                                   quote(requireNamespace("RBGL", quietly = TRUE)),
                                   quote(if (file.exists("DMPLib.r")){
                                       source("DMPLib.r", echo = FALSE); TRUE
                                   } else FALSE))
     # process default
     if (is.null(forceLibrary) || !(forceLibrary %in% supportLibList)){
-        forceLibrary = supportLibList[Position(eval, 
-                                               supportLibCheckAndRequire, 
+        forceLibrary = supportLibList[Position(eval,
+                                               supportLibCheckAndRequire,
                                                nomatch = NULL)]
         if (length(forceLibrary) == 0){
-            stop(paste("No library available.", 
-                       "Please check if the supported libraries are installed,", 
+            stop(paste("No library available.",
+                       "Please check if the supported libraries are installed,",
                        "or if DMPLib.r is in the same directory as this file"))
         } else {
             warning(paste("Library", forceLibrary, "automatically selected"))
@@ -75,18 +75,18 @@ planar_maximally_filtered_graph = function(similarityMatrix, forceLibrary = NULL
         }
     }
     n = nrow(similarityMatrix)
-    planarity_test_routine = switch(forceLibrary, 
+    planarity_test_routine = switch(forceLibrary,
                                     MEGENA = function(g){
                                         gEdgeList = as_edgelist(g, FALSE)
                                         return(MEGENA::planaritytest(n, gEdgeList[, 1], gEdgeList[, 2]))
-                                    }, 
-                                    RBGL = function(g)RBGL::boyerMyrvoldPlanarityTest(as_graphnel(g)), 
-                                    IMPLEMENTED = is_planar_graph_DMP, 
+                                    },
+                                    RBGL = function(g)RBGL::boyerMyrvoldPlanarityTest(as_graphnel(g)),
+                                    IMPLEMENTED = is_planar_graph_DMP,
                                     NULL)
     # requested routine not available
     # if (is.null(planarity_test_routine)){
-    #     stop(paste0('In planar_maximally_filtered_graph, forceLibrary = ', 
-    #                  forceLibrary, 
+    #     stop(paste0('In planar_maximally_filtered_graph, forceLibrary = ',
+    #                  forceLibrary,
     #                  ' is not available. '))
     # }
     # refer from lower trig
@@ -109,26 +109,26 @@ planar_maximally_filtered_graph = function(similarityMatrix, forceLibrary = NULL
 }
 
 
-#' 
+#'
 #' @description constructing simplified network with Proportional Degree
 #'              (PD) algorithm
-#' 
-#' @param similarityMatrix numeric matrix. similarity between items. 
+#'
+#' @param similarityMatrix numeric matrix. similarity between items.
 #'                         assumed symmetric and has nonnegative entries
-#' 
-#' @param M NULL, or number of edges in the output graph. 
+#'
+#' @param M NULL, or number of edges in the output graph.
 #'          if NULL, 3|V|-6 (number of edges in the PMFG) will be used
 #'          default: NULL
-#' 
-#' @param isSimilarity boolean. indicate if similarityMatrix denote similarity 
+#'
+#' @param isSimilarity boolean. indicate if similarityMatrix denote similarity
 #'                     (TRUE) or dissimilarity (FALSE)
 #'                     default: TRUE
-#' 
-#' @return igraph graph object of the network constructed from the 
+#'
+#' @return igraph graph object of the network constructed from the
 #'         similarity matrix with the PD algorithm
-#' 
-#' @references 
-#' 
+#'
+#' @references
+#'
 proportional_degree_network = function(similarityMatrix, M = NULL, isSimilarity = TRUE){
     n = nrow(similarityMatrix)
     sw = colSums(similarityMatrix) - diag(similarityMatrix)
@@ -140,7 +140,7 @@ proportional_degree_network = function(similarityMatrix, M = NULL, isSimilarity 
     d = rep(0, n)
     d[1] = dPrimeCumSumRounded[1]
     dCumSum = 0
-    for (i in 2:n){ # vectorize? 
+    for (i in 2:n){ # vectorize?
         dCumSum = dCumSum + d[i - 1]
         d[i] = dPrimeCumSumRounded[i] - dCumSum
     }
@@ -157,41 +157,41 @@ proportional_degree_network = function(similarityMatrix, M = NULL, isSimilarity 
         }
     }
     similarityMatrix[is.na(similarityMatrix)] = 0 # remove NA
-    return(graph_from_adjacency_matrix(similarityMatrix, 
-                                       mode = 'upper', 
+    return(graph_from_adjacency_matrix(similarityMatrix,
+                                       mode = 'upper',
                                        weighted = TRUE))
 }
 
-#' 
+#'
 #' @description find the threshold network
-#' 
-#' @param g igraph graph object, or a numeric matrix. 
+#'
+#' @param g igraph graph object, or a numeric matrix.
 #'          the original graph
-#'          if it is numeric matrix, it should be the (weighted) adjacency matrix. 
+#'          if it is numeric matrix, it should be the (weighted) adjacency matrix.
 #'          assumed to be undirected
-#' 
-#' @param h numeric, or Inf. step parameter. 
+#'
+#' @param h numeric, or Inf. step parameter.
 #'          if numeric, 1/h is the step size
 #'          if Inf, edges are added one by one
-#' 
-#' @param useEigen boolean. 
+#'
+#' @param useEigen boolean.
 #'                 determine if algebraic connectivity should be used to determined connectness
 #'                 default: FALSE
-#' 
+#'
 #' @param useNormalizedLaplacian boolean. determine if normalized Laplacian should be used
 #'                               ignored if useEigen is FALSE
 #'                               default: FALSE
-#' 
+#'
 #' @param printThresholdMsg boolean. determine if the threshold should be printed out at the end
 #'                          if TRUE, the threshold will be printed
 #'                          default: TRUE
-#' 
+#'
 #' @return igraph graph object. the threshold network
-#' 
+#'
 #' @references M. A. Balci , O. Akguller, S. C. Guzel
 #'             Hierarchies in communities of UK stock market from the perspective of Brexit
 #'             doi: 10.1080/02664763.2020.1796942
-#' 
+#'
 threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE, printThresholdMsg = TRUE){
     if (is.matrix(g)){
         g = graph_from_adjacency_matrix(g, weighted = TRUE, mode = 'undirected')
@@ -206,10 +206,10 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
     loopRoutine = is_connected
     if (useEigen){
         loopRoutine = function(targetG){
-            tail(eigen(graph.laplacian(targetG, 
-                                       normalized = useNormalizedLaplacian, 
-                                       weights = NA), 
-                       only.values = TRUE, 
+            tail(eigen(graph.laplacian(targetG,
+                                       normalized = useNormalizedLaplacian,
+                                       weights = NA),
+                       only.values = TRUE,
                        symmetric = TRUE)$values, 2)[1] > .Machine$double.eps
         }
     }
@@ -228,8 +228,8 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
         }
         # print(tau)
         edgeMask = (edgeWeights <= tau)
-        newG = add_edges(emptyG, 
-                         as.vector(endpts[, edgeMask]), 
+        newG = add_edges(emptyG,
+                         as.vector(endpts[, edgeMask]),
                          weight = edgeWeights[edgeMask])
     }
     if (printThresholdMsg){
@@ -238,26 +238,26 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
     return(newG)
 }
 
-#' 
+#'
 #' @description generate a network from the adjacency matrix
-#' 
+#'
 #' @param isDirected boolean. Determine if the graph should be directed
 #'                   if FALSE, the matrix is first symmetrized
 #'                   default: FALSE
-#' 
+#'
 #' @param isWeighted boolean. Determine if the graph should be weighted
 #'                   if FALSE, all nonzero entries (after symmetrized) will be taken as 1
 #'                   default: TRUE
-#' 
+#'
 #' @param adjacencyMatrix numeric matrix. similarity between items
-#' 
-#' @return igraph graph object of the graph constructed from the 
+#'
+#' @return igraph graph object of the graph constructed from the
 #'         adjacency matrix
-#' 
+#'
 #' @note wrapper of igraph::graph_from_adjacency_matrix
-#' 
+#'
 # TODO speed up
-# 
+#
 complete_network = function(adjacencyMatrix, isDirected = FALSE, isWeighted = TRUE){
     if (!isDirected){
         adjacencyMatrix = (adjacencyMatrix + t(adjacencyMatrix)) / 2
@@ -265,8 +265,196 @@ complete_network = function(adjacencyMatrix, isDirected = FALSE, isWeighted = TR
     if (!isWeighted){
         adjacencyMatrix[adjacencyMatrix != 0] = 1
     }
-    return(graph_from_adjacency_matrix(adjacencyMatrix, 
-                                       mode = (if (isDirected) "directed" else "undirected"), 
-                                       weighted = (if (isWeighted) TRUE else NULL), 
+    return(graph_from_adjacency_matrix(adjacencyMatrix,
+                                       mode = (if (isDirected) "directed" else "undirected"),
+                                       weighted = (if (isWeighted) TRUE else NULL),
                                        diag = FALSE))
+}
+
+#'
+#' @description compute the long-run correlation between time series
+#'
+#' @param list.of.time.series a list of numeric vectors.
+#'                            all vectors are assumed to have the same length
+#'
+#' @param B numeric. the band width. assumed to be nonzero
+#'
+#' @param kernelFunction function. the function used in Andrew's estimate
+#'                       assumed to be even function and has value 1 at x = 0
+#'
+#' @return a symmetric matrix of dimension n*n with diagonal 1,
+#'             where n is the number of series in list.of.time.series
+#'         Each entry is a number in [0, 1], higher implies stronger correlation
+#'
+#' @references T. Vyrosta, S. Lyocsab, E. Baumohl. Network-Based Asset Allocation Strategies
+#'
+#' @references D. W. K. Andrews. Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation
+#'
+#' @note not sure about implementation. could/likely be wrong
+#'       assuming [Z_t Z_{t-m}] means outer product
+#'
+#' @note current complexity: n^2 T^2
+#'       can be optimize with e.g. a priori knowledge of kernelFunction / discrete Fourier?
+#'
+longRunCorrelation = function(list.of.time.series, B, kernelFunction) {
+    n = length(list.of.time.series)
+    TSize = length(list.of.time.series[[1]])
+    omegaDiag = sapply(list.of.time.series,
+                       function(timeSeries) {
+                           mean(timeSeries ^ 2) +
+                               2 / TSize *
+                               sum(sapply(seq_len(TSize - 1),
+                                          function(m)
+                                              kernelFunction(m / B) *
+                                              sum(timeSeries[1:(TSize - m)] *
+                                                      timeSeries[(m + 1):TSize])))
+                       })
+    res = matrix(0, nrow = n, ncol = n)
+    for (i in 2:n) {
+        for (j in 1:(i - 1)) {
+            omega = sum(sapply((1 - TSize):(TSize - 1),
+                               function(m)
+                                   kernelFunction(m / B) / TSize *
+                                   sum(list.of.time.series[[i]][max(1, 1 - m):min(TSize, TSize - m)] *
+                                           list.of.time.series[[j]][max(1, 1 + m):min(TSize, TSize + m)])))
+            res[i, j] = omega / sqrt(omegaDiag[i] * omegaDiag[j])
+        }
+    }
+    res  = res + t(res)
+    diag(res) = 1
+    return(res)
+}
+
+#'
+#' @description kernel function for Andrew's estimate
+#'
+#' @param x numeric vector
+#'
+#' @return numeric vector. the values from the Quadratic Spectral kernel function
+#'
+#' @note this function is one of the common function used in computing Andrew's estimate
+#'           (and also in longRunCorrelation)
+#'       this function is an even function on real number,
+#'           k(0) = 1
+#'           continuous at x = 0,
+#'           has at most finite discontinuous points,
+#'           and is L^2
+#'
+#' @references D. W. K. Andrews. Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation
+#'
+quadraticSpectralKernel = function(x) {
+    k = 6 * pi * x / 5
+    return(ifelse(k == 0, 1, 3 / k ^ 2 * (sin(k) / k - cos(k))))
+}
+
+#'
+#' @description kernel function for Andrew's estimate
+#'
+#' @param x numeric vector
+#'
+#' @return numeric vector. the values from the truncated kernel function
+#'
+#' @note this function is one of the common function used in computing Andrew's estimate
+#'           (and also in longRunCorrelation)
+#'       this function is an even function on real number,
+#'           k(0) = 1
+#'           continuous at x = 0,
+#'           has at most finite discontinuous points,
+#'           and is L^2
+#'
+#' @references D. W. K. Andrews. Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation
+#'
+truncatedKernel = function(x) {
+    return(ifelse(abs(x) <= 1, 1, 0))
+}
+
+#'
+#' @description kernel function for Andrew's estimate
+#'
+#' @param x numeric vector
+#'
+#' @return numeric vector. the values from the Bartlett kernel function
+#'
+#' @note this function is one of the common function used in computing Andrew's estimate
+#'           (and also in longRunCorrelation)
+#'       this function is an even function on real number,
+#'           k(0) = 1
+#'           continuous at x = 0,
+#'           has at most finite discontinuous points,
+#'           and is L^2
+#'
+#' @references D. W. K. Andrews. Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation
+#'
+bartlettKernel = function(x) {
+    return(ifelse(abs(x) <= 1, 1 - abs(x), 0))
+}
+
+#'
+#' @description kernel function for Andrew's estimate
+#'
+#' @param x numeric vector
+#'
+#' @return numeric vector. the values from the Parzen kernel function
+#'
+#' @note this function is one of the common function used in computing Andrew's estimate
+#'           (and also in longRunCorrelation)
+#'       this function is an even function on real number,
+#'           k(0) = 1
+#'           continuous at x = 0,
+#'           has at most finite discontinuous points,
+#'           and is L^2
+#'
+#' @references D. W. K. Andrews. Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation
+#'
+parzenKernel = function(x) {
+    return(ifelse(abs(x) <= 1 / 2,
+                  1 - 6 * x ^ 2 + 6 * abs(x) ^ 3,
+                  ifelse(abs(x) <= 1,
+                         2 * (1 - abs(x)) ^ 3,
+                         0)
+                  )
+           )
+}
+
+#'
+#' @description kernel function for Andrew's estimate
+#'
+#' @param x numeric vector
+#'
+#' @return numeric vector. the values from the Tukey-Hanning kernel function
+#'
+#' @note this function is one of the common function used in computing Andrew's estimate
+#'           (and also in longRunCorrelation)
+#'       this function is an even function on real number,
+#'           k(0) = 1
+#'           continuous at x = 0,
+#'           has at most finite discontinuous points,
+#'           and is L^2
+#'
+#' @references D. W. K. Andrews. Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation
+#'
+tukeyHanningKernel = function(x) {
+    return(ifelse(abs(x) <= 1, (1 + cos(pi * x)) / 2, 0))
+}
+
+#'
+#' @description construct complete from long-run correlation
+#'
+#' @param list.of.time.series a list of numeric vectors.
+#'                            all vectors are assumed to have the same length
+#'
+#' @param B numeric. the band width. assumed to be nonzero
+#'
+#' @param kernelFunction function. the function used in Andrew's estimate
+#'                       assumed to be even function and has value 1 at x = 0
+#'
+#' @return igraph graph object of the graph constructed from the
+#'         long-run correlation matrix
+#'
+#' @note wrapper of complete_network and longRunCorrelation
+#'
+longRunCorrelationNetwork = function(list.of.time.series, B, kernelFunction){
+    return(complete_network(longRunCorrelation(list.of.time.series, B, kernelFunction),
+                            isDirected = FALSE,
+                            isWeighted = TRUE))
 }

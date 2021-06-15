@@ -239,6 +239,34 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
 }
 
 #'
+#' @description find the threshold significance graph
+#'
+#' @param g igraph::graph object. the original graph
+#'          assumed to be weighted
+#'
+#' @param significance numeric. the cutoff value
+#'
+#' @param weightName char. the name of edge attribute used
+#'                   default: 'weight'
+#'
+#' @return a igraph::graph object of the result threshold significance graph
+#'         the same graph but all edges with weight not exceeding significance removed
+#'
+#' @note miscFuncLib::graphEdgeCutOff but with fewer parameters
+#'
+#' @references T. Vyrosta, S. Lyocsab, E. Baumohl. Network-Based Asset Allocation Strategies
+#'
+#' @references C. K. Tse, J. Liu, F. C. M. Lau. A Network Perspective of the Stock Market
+#'
+thresholdSignificanceGraph = function(g, significance, weightName = 'weight'){
+    if (!is.weighted(g)){
+        stop("Input graph is unweighted")
+    }
+    return(delete.edges(g, E(g)[edge_attr(g, weightName) <= significance]))
+}
+
+
+#'
 #' @description generate a network from the adjacency matrix
 #'
 #' @param isDirected boolean. Determine if the graph should be directed
@@ -256,7 +284,7 @@ threshold_algo = function(g, h, useEigen = FALSE, useNormalizedLaplacian = TRUE,
 #'
 #' @note wrapper of igraph::graph_from_adjacency_matrix
 #'
-# TODO speed up
+# TODO speed up?
 #
 complete_network = function(adjacencyMatrix, isDirected = FALSE, isWeighted = TRUE){
     if (!isDirected){
@@ -277,10 +305,18 @@ complete_network = function(adjacencyMatrix, isDirected = FALSE, isWeighted = TR
 #' @param list.of.time.series a list of numeric vectors.
 #'                            all vectors are assumed to have the same length
 #'
-#' @param B numeric. the band width. assumed to be nonzero
+#' @param B numeric. the band width. assumed to be positive
 #'
 #' @param kernelFunction function. the function used in Andrew's estimate
-#'                       assumed to be even function and has value 1 at x = 0
+#'                       assumed to be even L^2 function and values 1 at x = 0
+#'
+#' @param considerRange numeric. the maximal shift of the window, in units of B
+#'                      also affect where the kernelFunction is evaluated
+#'                      (the effective domain is [-(considerRange - 1/B), considerRange - 1/B])
+#'                      assumed to be positive.
+#'                      if kernelFunction has a bounded support (or domain of significant),
+#'                          consider supplying the bound here for speed up
+#'                      default: Inf (consider all shift)
 #'
 #' @return a symmetric matrix of dimension n*n with diagonal 1,
 #'             where n is the number of series in list.of.time.series
@@ -294,16 +330,22 @@ complete_network = function(adjacencyMatrix, isDirected = FALSE, isWeighted = TR
 #'       assuming [Z_t Z_{t-m}] means outer product
 #'
 #' @note current complexity: n^2 T^2
-#'       can be optimize with e.g. a priori knowledge of kernelFunction / discrete Fourier?
+#'       can be optimize with e.g. discrete Fourier?
 #'
-longRunCorrelation = function(list.of.time.series, B, kernelFunction) {
+# TODO speed up
+#      current implementation is quite slow (~6 mins for 50 series of ~4000 pts, full range)
+#      on computing omegaDiag, same datasets, ~6 secs
+#
+longRunCorrelation = function(list.of.time.series, B, kernelFunction,
+                              considerRange=Inf) {
     n = length(list.of.time.series)
     TSize = length(list.of.time.series[[1]])
+    considerRange = min(abs(considerRange * B), TSize)
     omegaDiag = sapply(list.of.time.series,
                        function(timeSeries) {
                            mean(timeSeries ^ 2) +
                                2 / TSize *
-                               sum(sapply(seq_len(TSize - 1),
+                               sum(sapply(seq_len(considerRange - 1),
                                           function(m)
                                               kernelFunction(m / B) *
                                               sum(timeSeries[1:(TSize - m)] *
@@ -312,7 +354,7 @@ longRunCorrelation = function(list.of.time.series, B, kernelFunction) {
     res = matrix(0, nrow = n, ncol = n)
     for (i in 2:n) {
         for (j in 1:(i - 1)) {
-            omega = sum(sapply((1 - TSize):(TSize - 1),
+            omega = sum(sapply((1 - considerRange):(considerRange - 1),
                                function(m)
                                    kernelFunction(m / B) / TSize *
                                    sum(list.of.time.series[[i]][max(1, 1 - m):min(TSize, TSize - m)] *

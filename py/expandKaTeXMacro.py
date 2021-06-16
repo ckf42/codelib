@@ -42,10 +42,10 @@ if not jsonPath.is_file() or jsonPath.suffix != '.json':
     input("json is not a valid path to a json file")
     exit()
 
-outputPath = (path.Path(args.out.strip('\'\" '))
+outputPath = (filePath.parent.joinpath(args.out.strip('\'\" '))
               if args.out is not None
               else filePath.parent.joinpath(filePath.stem
-                                            + '_portable'
+                                            + '_export'
                                             + ('.ipynb'
                                                if args.ipynb
                                                else '.md')))
@@ -85,14 +85,16 @@ while len(macroQueue) != 0:
         continue
     macroQueue.extend(cmdInfo[2])
     if cmdInfo[1] == 0:
-        fileContent = re.sub(key.replace('\\', r'\\') + '\\b',
+        fileContent = re.sub(key.replace('\\', r'\\')
+                             + r'(?=\b|[^a-zA-Z])',
                              cmdInfo[0].replace('\\', r'\\'),
                              fileContent)
     else:
         keyLen = len(key)
         keyIdxList = tuple(match.start()
                            for match
-                           in re.finditer(key.replace('\\', r'\\') + '\\b',
+                           in re.finditer(key.replace('\\', r'\\')
+                                          + r'(?=\b|[^a-zA-Z])',
                                           fileContent))[::-1]
         for startIdx in keyIdxList:
             replacementCmd = cmdInfo[0]
@@ -109,13 +111,14 @@ while len(macroQueue) != 0:
                 + replacementCmd \
                 + fileContent[endPos + 1:]
 
-print("Writing result ...")
+print(f"Writing result {'with pandoc' if args.ipynb else ''}...")
 if outputPath.is_file():
-    print(f"{str(outputPath)} already exists")
+    print(f"{str(outputPath)} already exists!")
     input("Press Enter to overwrite file\n")
 if args.ipynb:
     print("Pandoc return code: ",
           subprocess.run(['pandoc',
+                          '-s',
                           '-f', 'markdown',
                           '-t', 'ipynb',
                           '-o', str(outputPath)],

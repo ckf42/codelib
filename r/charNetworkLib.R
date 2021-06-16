@@ -310,13 +310,15 @@ complete_network = function(adjacencyMatrix, isDirected = FALSE, isWeighted = TR
 #' @param kernelFunction function. the function used in Andrew's estimate
 #'                       assumed to be even L^2 function and values 1 at x = 0
 #'
-#' @param considerRange numeric. the maximal shift of the window, in units of B
+#' @param considerRange numeric, or NA. the maximal shift of the window, in units of B
 #'                      also affect where the kernelFunction is evaluated
 #'                      (the effective domain is [-(considerRange - 1/B), considerRange - 1/B])
-#'                      assumed to be positive.
-#'                      if kernelFunction has a bounded support (or domain of significant),
-#'                          consider supplying the bound here for speed up
-#'                      default: Inf (consider all shift)
+#'                      if NA, will be chosen automatically if kernelFunction is predefined
+#'                      if numeric, assumed to be positive.
+#'                      Inf is also accepted (consider all possible range)
+#'                      if kernelFunction has a bounded support (or domain of significant values),
+#'                          consider specifing the bound here for speed up
+#'                      default: NA
 #'
 #' @return a symmetric matrix of dimension n*n with diagonal 1,
 #'             where n is the number of series in list.of.time.series
@@ -336,33 +338,44 @@ complete_network = function(adjacencyMatrix, isDirected = FALSE, isWeighted = TR
 #      current implementation is quite slow (~6 mins for 50 series of ~4000 pts, full range)
 #      on computing omegaDiag, same datasets, ~6 secs
 #
-longRunCorrelation = function(list.of.time.series, B, kernelFunction,
-                              considerRange=Inf) {
+longRunCorrelation = function(list.of.time.series,
+                              B,
+                              kernelFunction,
+                              considerRange = NA) {
     n = length(list.of.time.series)
     TSize = length(list.of.time.series[[1]])
+    if (is.na(considerRange)) {
+        considerRange = switch(
+            as.character(substitute(kernelFunction))[1],
+            "quadraticSpectralKernel" = 30,
+            "truncatedKernel" = 1,
+            "bartlettKernel" = 1,
+            "parzenKernel" = 1,
+            "tukeyHanningKernel" = 1,
+            Inf
+        )
+        warning(paste("considerRange chosen as", considerRange))
+    }
     considerRange = min(abs(considerRange * B), TSize)
     omegaDiag = sapply(list.of.time.series,
                        function(timeSeries) {
                            mean(timeSeries ^ 2) +
-                               2 / TSize *
-                               sum(sapply(seq_len(considerRange - 1),
-                                          function(m)
-                                              kernelFunction(m / B) *
-                                              sum(timeSeries[1:(TSize - m)] *
-                                                      timeSeries[(m + 1):TSize])))
+                               sum(kernelFunction(seq_len(considerRange - 1) / B) * 2 / TSize *
+                                       sapply(seq_len(considerRange - 1),
+                                              function(m)
+                                                  sum(timeSeries[1:(TSize - m)] * timeSeries[(m + 1):TSize])))
                        })
     res = matrix(0, nrow = n, ncol = n)
     for (i in 2:n) {
         for (j in 1:(i - 1)) {
-            omega = sum(sapply((1 - considerRange):(considerRange - 1),
-                               function(m)
-                                   kernelFunction(m / B) / TSize *
-                                   sum(list.of.time.series[[i]][max(1, 1 - m):min(TSize, TSize - m)] *
-                                           list.of.time.series[[j]][max(1, 1 + m):min(TSize, TSize + m)])))
-            res[i, j] = omega / sqrt(omegaDiag[i] * omegaDiag[j])
+            omega = sum(kernelFunction((1 - considerRange):(considerRange - 1) / B) / TSize *
+                            sapply((1 - considerRange):(considerRange - 1),
+                                   function(m)
+                                       sum(list.of.time.series[[i]][max(1, 1 - m):min(TSize, TSize - m)] *
+                                               list.of.time.series[[j]][max(1, 1 + m):min(TSize, TSize + m)])))
+            res[i, j] = res[j, i] = omega / sqrt(omegaDiag[i] * omegaDiag[j])
         }
     }
-    res  = res + t(res)
     diag(res) = 1
     return(res)
 }

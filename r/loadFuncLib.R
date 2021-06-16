@@ -6,7 +6,7 @@
 #
 #         selectedLibs: vector of strings. the names of the lib to be loaded
 #                       the names should be one (or more) of: "misc", "mutualInfo", "charNet", "cluster", "DMP"
-#                       if not exist, default to c("misc", "mutualInfo", "charNet", "cluster")
+#                       if not exist or is NA, default to c("misc", "mutualInfo", "charNet", "cluster")
 #
 # this script writes the following variables (besides the ones in the loaded libraries):
 #
@@ -59,7 +59,7 @@ if (!exists("loadedFuncLibNames")){
     loadedFuncLibNames = NULL
 }
 tempVar_loadFuncLib$libsToLoad = tempVar_loadFuncLib$definedLibName[-5]
-if (exists('selectedLibs')) {
+if (exists('selectedLibs') && !is.na(get('selectedLibs'))) {
     tempVar_loadFuncLib$libsToLoad = na.exclude(tempVar_loadFuncLib$definedLibName[unique(selectedLibs)])
 }
 

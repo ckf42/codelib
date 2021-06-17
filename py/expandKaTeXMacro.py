@@ -1,3 +1,6 @@
+# TODO deal with double header for html output
+# TODO fix anchor when md title has dot in it
+
 import argparse
 import re
 import pathlib as path
@@ -9,12 +12,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--md', type=str, help="Path to target md file")
 parser.add_argument('--json', type=str, help="Path to KaTeX macro json file")
 parser.add_argument('--out', type=str, help="Path to output file")
-parser.add_argument('--ipynb', action='store_true',
-                    help="Output as ipynb with pandoc. "
-                    "Ignored if pandoc cannot be found")
+pandocOption = parser.add_mutually_exclusive_group(required=False)
+pandocOption.add_argument('--ipynb', action='store_true',
+                          help="Convert output md to ipynb using pandoc. "
+                          "Ignored if pandoc cannot be found")
+pandocOption.add_argument('--html', action='store_true',
+                          help="Convert output md to html5 "
+                          "with MathML using pandoc. "
+                          "Ignored if pandoc cannot be found")
+
 args = parser.parse_args()
 
-if args.ipynb \
+if (args.ipynb or args.html) \
     and subprocess.run(['pandoc', '--version'],
                        stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL,
@@ -22,8 +31,8 @@ if args.ipynb \
     print("Unable to call pandoc")
     print("Please check if pandoc is installed correctly "
           "and is in environment path")
-    print("--ipynb is ignored")
-    args.ipynb = False
+    print("--ipynb and --html are ignored")
+    args.ipynb = args.html = False
 
 
 filePath = path.Path((args.md
@@ -48,7 +57,9 @@ outputPath = (filePath.parent.joinpath(args.out.strip('\'\" '))
                                             + '_export'
                                             + ('.ipynb'
                                                if args.ipynb
-                                               else '.md')))
+                                               else ('.html'
+                                                     if args.html
+                                                     else '.md'))))
 
 print("Reading target file ...")
 fileContent = None
@@ -111,20 +122,26 @@ while len(macroQueue) != 0:
                 + replacementCmd \
                 + fileContent[endPos + 1:]
 
-print(f"Writing result {'with pandoc' if args.ipynb else ''}...")
+print(f"Writing result {'with pandoc' if args.ipynb or args.html else ''}...")
 if outputPath.is_file():
     print(f"{str(outputPath)} already exists!")
     input("Press Enter to overwrite file\n")
-if args.ipynb:
+if args.ipynb or args.html:
     print("Pandoc return code: ",
-          subprocess.run(['pandoc',
-                          '-s',
-                          '-f', 'markdown',
-                          '-t', 'ipynb',
-                          '-o', str(outputPath)],
-                         input=fileContent,
-                         shell=True,
-                         encoding='utf-8').returncode)
+          subprocess.run((
+              'pandoc',
+              '--standalone',
+              '-f', 'markdown',
+              '-t', ('ipynb' if args.ipynb else 'html5'),
+              '-o', str(outputPath),)
+              + (('--mathml',
+                  '--metadata=title:'
+                  + fileContent.split('\n', maxsplit=1)[0]
+                  .replace('#', '', 1).strip())
+                 if args.html else ('',)),
+              input=fileContent,
+              shell=True,
+              encoding='utf-8').returncode)
 else:
     with outputPath.open('wt', encoding='UTF-8') as f:
         print(fileContent, file=f)

@@ -343,7 +343,13 @@ longRunCorrelation = function(list.of.time.series,
                               kernelFunction,
                               considerRange = NA) {
     n = length(list.of.time.series)
+    if (n <= 1){
+        stop("Insufficient time series")
+    }
     TSize = length(list.of.time.series[[1]])
+    if (any(sapply(list.of.time.series, length) != TSize)){
+        stop("list.of.time.series contains series of unequal length")
+    }
     if (is.na(considerRange)) {
         considerRange = switch(
             as.character(substitute(kernelFunction))[1],

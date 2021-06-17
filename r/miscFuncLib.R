@@ -555,6 +555,23 @@ plot_cluster_evolution = function(evolutionTrack, fps = 4){
 #'
 #' @param g igraph::graph object. the graph in question
 #'
+#' @param clusterCommunities igraph::communities object. how the graph is clustered
+#'
+#' @param ... all other parameters are passed to plot
+#'
+#' @return no return
+#'
+#' @note wrapper for plot
+#'
+plot_cluster = function(g, clusterCommunities, ...){
+    plot(g, mark.groups=clusterCommunities, ...)
+}
+
+#'
+#' @description plot clustering result
+#'
+#' @param g igraph::graph object. the graph in question
+#'
 #' @param clusterFunc function. should takes only one parameter (the graph)
 #'                        and return a igraph::communities object
 #'
@@ -564,9 +581,9 @@ plot_cluster_evolution = function(evolutionTrack, fps = 4){
 #'
 #' @note wrapper for plot
 #'
-plot_cluster = function(g, clusterFunc, ...){
+plot_after_clustering = function(g, clusterFunc, ...){
     clusterRes = clusterFunc(g)
-    plot(g, mark.groups=clusterRes, ...)
+    plot_cluster(g, clusterRes, ...)
     return(clusterRes)
 }
 

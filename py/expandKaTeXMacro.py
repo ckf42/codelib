@@ -1,17 +1,30 @@
 # TODO deal with double header for html output
-# TODO fix anchor when md title has dot in it
+# TODO fix anchor in html and ipynb when md title has dot in it
 
 import argparse
 import re
 import pathlib as path
 import subprocess
 from collections import deque
+from urllib.parse import urlencode
 from personalPylib import findThisMatchBracket as findBracket
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--md', type=str, help="Path to target md file")
 parser.add_argument('--json', type=str, help="Path to KaTeX macro json file")
 parser.add_argument('--out', type=str, help="Path to output file")
+parser.add_argument('--webtex', action='store_true',
+                    help="Replace LaTeX with link to remotely rendered image")
+parser.add_argument('--webLinkInline', type=str,
+                    help="Path to remote server for inline TeX "
+                    "used by --webtex",
+                    default=r'https://render.githubusercontent.com/'
+                    r'render/math?mode=inline&math=')
+parser.add_argument('--webLinkDisplay', type=str,
+                    help="Path to remote server for display TeX "
+                    "used by --webtex",
+                    default=r'https://render.githubusercontent.com/'
+                    r'render/math?mode=display&math=')
 pandocOption = parser.add_mutually_exclusive_group(required=False)
 pandocOption.add_argument('--ipynb', action='store_true',
                           help="Convert output md to ipynb using pandoc. "
@@ -121,6 +134,31 @@ while len(macroQueue) != 0:
             fileContent = fileContent[:startIdx] \
                 + replacementCmd \
                 + fileContent[endPos + 1:]
+
+if args.webtex:
+    fileContent = re.sub(r'\n*\$\$([^$]+)\$\$\n*',
+                         lambda mObj: ('\n![Display: "'
+                                       + re.sub(r'(\[|\])',
+                                                r'\\\1',
+                                                mObj.group(1))
+                                       + '"]('
+                                       + args.webLinkDisplay + urlencode({
+                                           '': mObj.group(1)
+                                       })[1:]
+                                       + ')\n'),
+                         fileContent)
+    fileContent = re.sub(r'(?<!\$)\$([^$]+)\$(?!\$)',
+                         lambda mObj: (r'![Inline: "'
+                                       + re.sub(r'(\[|\])',
+                                                r'\\\1',
+                                                mObj.group(1))
+                                       + '"]('
+                                       + args.webLinkInline
+                                       + urlencode({
+                                           '': mObj.group(1)
+                                       })[1:]
+                                       + r')'),
+                         fileContent)
 
 print(f"Writing result {'with pandoc' if args.ipynb or args.html else ''}...")
 if outputPath.is_file():

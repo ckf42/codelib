@@ -164,22 +164,31 @@ print(f"Writing result {'with pandoc' if args.ipynb or args.html else ''}...")
 if outputPath.is_file():
     print(f"{str(outputPath)} already exists!")
     input("Press Enter to overwrite file\n")
-if args.ipynb or args.html:
-    print("Pandoc return code: ",
-          subprocess.run((
-              'pandoc',
-              '--standalone',
-              '-f', 'markdown',
-              '-t', ('ipynb' if args.ipynb else 'html5'),
-              '-o', str(outputPath),)
-              + (('--mathml',
-                  '--metadata=title:'
-                  + fileContent.split('\n', maxsplit=1)[0]
-                  .replace('#', '', 1).strip())
-                 if args.html else ('',)),
-              input=fileContent,
-              shell=True,
-              encoding='utf-8').returncode)
+if args.ipynb:
+    print("To ipynb, Pandoc return code: ",
+          subprocess.run(('pandoc',
+                          '--standalone',
+                          '-f', 'markdown',
+                          '-t', 'ipynb',
+                          '-o', str(outputPath)),
+                         input=fileContent,
+                         shell=True,
+                         encoding='utf-8').returncode)
+elif args.html:
+    fileSplit = fileContent.split('\n', maxsplit=1)
+    fileTitle = fileSplit[0].replace('#', '', 1).strip()
+    fileContent = fileSplit[1].lstrip()
+    print("To HTML, Pandoc return code: ",
+          subprocess.run(('pandoc',
+                          '--standalone',
+                          '-f', 'markdown',
+                          '-t', 'html5',
+                          '-o', str(outputPath),
+                          '--mathml',
+                          f'--metadata=title:\"{fileTitle}\"'),
+                         input=fileContent,
+                         shell=True,
+                         encoding='utf-8').returncode)
 else:
     with outputPath.open('wt', encoding='UTF-8') as f:
         print(fileContent, file=f)

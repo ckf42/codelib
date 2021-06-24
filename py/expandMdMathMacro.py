@@ -17,12 +17,14 @@ parser.add_argument('--webtex', action='store_true',
                     help="Replace LaTeX with link to remotely rendered image")
 parser.add_argument('--webLinkInline', type=str,
                     help="Path to remote server for inline TeX "
-                    "used by --webtex",
+                    "used by --webtex. "
+                    "Defaults to GitHub rendering server",
                     default=r'https://render.githubusercontent.com/'
                     r'render/math?mode=inline&math=')
 parser.add_argument('--webLinkDisplay', type=str,
                     help="Path to remote server for display TeX "
-                    "used by --webtex",
+                    "used by --webtex. "
+                    "Defaults to GitHub rendering server",
                     default=r'https://render.githubusercontent.com/'
                     r'render/math?mode=display&math=')
 pandocOption = parser.add_mutually_exclusive_group(required=False)
@@ -64,15 +66,15 @@ if not jsonPath.is_file() or jsonPath.suffix != '.json':
     input("json is not a valid path to a json file")
     exit()
 
-outputPath = (filePath.parent.joinpath(args.out.strip('\'\" '))
-              if args.out is not None
-              else filePath.parent.joinpath(filePath.stem
-                                            + '_export'
-                                            + ('.ipynb'
-                                               if args.ipynb
-                                               else ('.html'
-                                                     if args.html
-                                                     else '.md'))))
+outputPath = (
+    filePath.parent.joinpath(args.out.strip('\'\" '))
+    if args.out is not None
+    else filePath.parent.joinpath(
+        filePath.stem
+        + '_export'
+        + ('.ipynb' if args.ipynb else ('.html' if args.html else '.md'))
+    )
+)
 
 print("Reading target file ...")
 fileContent = None

@@ -27,6 +27,8 @@ parser.add_argument('--webLinkDisplay', type=str,
                     "Defaults to GitHub rendering server",
                     default=r'https://render.githubusercontent.com/'
                     r'render/math?mode=display&math=')
+parser.add_argument('--noConfirm', '-y', action='store_true',
+                    help="Do not ask for confirmation")
 pandocOption = parser.add_mutually_exclusive_group(required=False)
 pandocOption.add_argument('--ipynb', action='store_true',
                           help="Convert output md to ipynb using pandoc. "
@@ -37,6 +39,9 @@ pandocOption.add_argument('--html', action='store_true',
                           "Ignored if pandoc cannot be found")
 
 args = parser.parse_args()
+
+if args.noConfirm:
+    print("Will not ask for confirmation")
 
 if (args.ipynb or args.html) \
     and subprocess.run(['pandoc', '--version'],
@@ -55,7 +60,8 @@ filePath = path.Path((args.md
                       else input("Enter target path to markdown file:\n")
                       ).strip('\'\" '))
 if not filePath.is_file() or filePath.suffix != '.md':
-    input("md is not a valid path to a markdown file")
+    if not args.noConfirm:
+        input("md is not a valid path to a markdown file")
     exit()
 
 jsonPath = path.Path((args.json
@@ -63,7 +69,8 @@ jsonPath = path.Path((args.json
                       else input("Enter path to ref json file:\n")
                       ).strip('\'\" '))
 if not jsonPath.is_file() or jsonPath.suffix != '.json':
-    input("json is not a valid path to a json file")
+    if not args.noConfirm:
+        input("json is not a valid path to a json file")
     exit()
 
 outputPath = (
@@ -165,7 +172,8 @@ if args.webtex:
 print(f"Writing result {'with pandoc' if args.ipynb or args.html else ''}...")
 if outputPath.is_file():
     print(f"{str(outputPath)} already exists!")
-    input("Press Enter to overwrite file\n")
+    if not args.noConfirm:
+        input("Press Enter to overwrite file\n")
 if args.ipynb:
     print("To ipynb, Pandoc return code: ",
           subprocess.run(('pandoc',

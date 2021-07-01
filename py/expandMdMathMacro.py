@@ -1,5 +1,6 @@
 # TODO deal with double header for html output
 # TODO fix anchor in html and ipynb when md title has dot in it
+# TODO topo sort marco in dependency order first
 
 import argparse
 import re
@@ -174,6 +175,7 @@ if outputPath.is_file():
     print(f"{str(outputPath)} already exists!")
     if not args.noConfirm:
         input("Press Enter to overwrite file\n")
+    print("Overwriting ...")
 if args.ipynb:
     print("To ipynb, Pandoc return code: ",
           subprocess.run(('pandoc',

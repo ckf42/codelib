@@ -634,13 +634,10 @@ schieberNetworkDissimilarity = function(g1, g2, weightVect = c(0.45, 0.45, 0.1))
 }
 
 #'
-#' @description
+#' @description find the optimal value for cutting threshold network
 #'
 #' @param list.of.matrix a list of matrices. a time series of vertices correlations
 #'                       assumed all matrices have the same dimenion
-#'
-#' @param tau integer. the self-correlating period
-#'            assume positive
 #'
 #' @param nPts integer. the number of cutoff threshold to choose from
 #'             default: 1000
@@ -660,7 +657,7 @@ schieberNetworkDissimilarity = function(g1, g2, weightVect = c(0.45, 0.45, 0.1))
 #'
 #' @note require miscFuncLib::matrixCutOff
 #'
-optimalThresholdNetwork = function(list.of.matrix, tau, nPts = 1000, doRandom = FALSE) {
+optimalThresholdNetwork = function(list.of.matrix, nPts = 1000, doRandom = FALSE) {
     thetaList = NULL
     if (doRandom) {
         thetaList = runif(nPts, -1, 1)
@@ -669,17 +666,25 @@ optimalThresholdNetwork = function(list.of.matrix, tau, nPts = 1000, doRandom = 
     }
     totalTime = length(list.of.matrix)
     WSeries = sapply(
-        seq_len(totalTime - tau),
-        function(idx) Matrix::norm(list.of.matrix[[idx]] - list.of.matrix[[idx + tau]], '2')
+        seq_len(totalTime - 1),
+        function(idx) Matrix::norm(list.of.matrix[[idx]] - list.of.matrix[[idx + 1]], '2')
     )
     optimalTheta = NULL
     optimalNetworkList = NULL
     optimalConsistentVal = -Inf
     for (thisTheta in thetaList) {
-        thisNetworkList = lapply(list.of.matrix, function(m) complete_network(matrixCutOff(m, thisTheta, FALSE), isWeighted = FALSE))
+        thisNetworkList = lapply(
+            list.of.matrix,
+            function(m) complete_network(matrixCutOff(m, thisTheta, FALSE),
+                isWeighted = FALSE
+            )
+        )
         NSeries = sapply(
-            seq_len(totalTime - tau),
-            function(idx) schieberNetworkDissimilarity(thisNetworkList[[idx]], thisNetworkList[[idx + tau]])
+            seq_len(totalTime - 1),
+            function(idx) schieberNetworkDissimilarity(
+                thisNetworkList[[idx]],
+                thisNetworkList[[idx + 1]]
+            )
         )
         thisConsistentVal = cor(WSeries, NSeries)
         if (thisConsistentVal > optimalConsistentVal) {

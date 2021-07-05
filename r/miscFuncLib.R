@@ -23,15 +23,45 @@ distToCorr = function(distMatrix){
 #' @description Compute the Pearson correlation distance matrix
 #'
 #' @param listOfSeries a list of equal length numeric vectors.
-#'                      each vector is a time series on the same time interval
+#'                     each vector is a time series on the same time interval
 #'
-#' @return the Pearson correlation distance matrix
+#' @param tau integer, or Inf. The time length concerned
+#'            each matrix is computed with only tau data points
+#'            if tau <= 2, will return a full-1 matrix
+#'            default: Inf
 #'
-Pearson_correlation_matrix = function(listOfSeries){
-    corrMatrix = matrix(unlist(listOfSeries), ncol = length(listOfSeries), byrow = FALSE)
-    corrMatrix = cor(corrMatrix, use = 'all.obs', method = 'pearson')
-    colnames(corrMatrix) = rownames(corrMatrix) = names(listOfSeries)
-    return(corrMatrix)
+#' @return a list of Pearson correlation distance matrix
+#'         each matrix is named according to the names in listOfSeries
+#'         if tau is at least the length of the series, only one matrix is returned
+#'
+Pearson_correlation_matrix = function(listOfSeries, tau = Inf) {
+    n = length(listOfSeries)
+    timeLen = length(listOfSeries[[1]])
+    tau = min(tau, timeLen)
+    if (tau == timeLen) {
+        if (tau <= 2) {
+            return(matrix(1, n, n,
+                dimnames = replicate(2, names(listOfSeries), simplify = FALSE)
+            ))
+        } else {
+            corrMatrix = matrix(unlist(listOfSeries), ncol = length(listOfSeries), byrow = FALSE)
+            corrMatrix = cor(corrMatrix, use = 'all.obs', method = 'pearson')
+            colnames(corrMatrix) = rownames(corrMatrix) = names(listOfSeries)
+            return(corrMatrix)
+        }
+    } else {
+        resCount = (timeLen + tau - 1) %/% tau
+        res = replicate(resCount, NA, simplify = FALSE)
+        for (idx in seq_len(resCount)) {
+            res[[idx]] = Pearson_correlation_matrix(
+                lapply(
+                    listOfSeries,
+                    function(x) x[(1 + (idx - 1) * tau):min(idx * tau, timeLen)]
+                ), Inf
+            )
+        }
+        return(res)
+    }
 }
 
 #'

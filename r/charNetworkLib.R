@@ -508,14 +508,188 @@ tukeyHanningKernel = function(x) {
 #'
 #' @param kernelFunction function. the function used in Andrew's estimate
 #'                       assumed to be even function and has value 1 at x = 0
+#'                       default: quadraticSpectralKernel
+#'
+#' @param considerRange numeric, or NA. the maximal shift of the window, in units of B
+#'                      refer to the description in longRunCorrelation
 #'
 #' @return igraph graph object of the graph constructed from the
 #'         long-run correlation matrix
 #'
 #' @note wrapper of complete_network and longRunCorrelation
 #'
-longRunCorrelationNetwork = function(list.of.time.series, B, kernelFunction){
-    return(complete_network(longRunCorrelation(list.of.time.series, B, kernelFunction),
+longRunCorrelationNetwork = function(list.of.time.series, B, kernelFunction = quadraticSpectralKernel, considerRange = NA){
+    return(complete_network(longRunCorrelation(list.of.time.series, B, kernelFunction, considerRange),
                             isDirected = FALSE,
                             isWeighted = TRUE))
+}
+
+
+#'
+#' @description compute the network node dispersion (NND) via shortest paths
+#'
+#' @param g igraph::graph object. the graph in question
+#'          assumed undirected connected
+#'
+#' @return a numeric representing the dispersion
+#'
+#' @references T. Schieber, L. Carpi, A. Diaz-Guilera.
+#'             Quantification of Network Structural Dissimilarities
+#'             doi: 10.1038/ncomms13928
+#'
+#' @note require infoTheoryLib::jensenShannonDivergence
+#'
+networkNodeDispersion = function(g) {
+    n = vcount(g)
+    diam = diameter(g)
+    d = apply( # use table?
+        distances(g),
+        1,
+        function(distVect) sapply(seq_len(diam), function(x) sum(distVect == x) / (n - 1)),
+        simplify = FALSE
+    )
+    return(jensenShannonDivergence(d) / log2(1 + diam))
+}
+
+#'
+#' @description compute the network dissimilarity proposed by T. Schieber et al.
+#'
+#' @param g1 igraph::graph object. the graph in question
+#'           assumed undirected connected
+#'
+#' @param g2 igraph::graph object. the graph in question
+#'           assumed undirected connected
+#'           assumed to have same number of vertices as g1
+#'
+#' @param weightVect numeric vector containing 3 elements.
+#'                   assume nonnegative and sums to 1
+#'                   default: c(0.45, 0.45, 0.1)
+#'
+#' @return a numeric representing the dissimilarity
+#'
+#' @references T. Schieber, L. Carpi, A. Diaz-Guilera.
+#'             Quantification of Network Structural Dissimilarities
+#'             doi: 10.1038/ncomms13928
+#'
+#' @references https://github.com/tischieber/Quantifying-Network-Structural-Dissimilarities
+#'
+#' @note require infoTheoryLib::jensenShannonDivergence
+#'
+#' @note in the github code, during the computation of the last term,
+#'           alpha-centrality is computed with exo = degree(g) / (N - 1) and alpha = 1 / N,
+#'           which is then normalized by N^2, sorted and augmented
+#'       the proceeding computation is also weird
+#'       not sure why
+#'       in this implementation, only use the same exo and alpha
+#'
+schieberNetworkDissimilarity = function(g1, g2, weightVect = c(0.45, 0.45, 0.1)) {
+    res = 0
+    # basic var
+    diam1 = diameter(g1)
+    diam2 = diameter(g2)
+    n1 = vcount(g1)
+    n2 = vcount(g2)
+    # aux var
+    distDistri1 = apply( # use table?
+        distances(g1),
+        1,
+        function(distVect) sapply(seq_len(diam1), function(x) sum(distVect == x) / (n1 - 1)),
+        simplify = FALSE
+    )
+    distDistri2 = apply( # use table?
+        distances(g2),
+        1,
+        function(distVect) sapply(seq_len(diam2), function(x) sum(distVect == x) / (n2 - 1)),
+        simplify = FALSE
+    )
+    totalDistDistri1 = Reduce('+', distDistri1, accumulate = FALSE)
+    totalDistDistri2 = Reduce('+', distDistri2, accumulate = FALSE)
+    alphaCentralityRoutine = function(g) alpha.centrality(g, exo = degree(g) / (vcount(g) - 1), alpha = 1 / vcount(g))
+    # compute work
+    if (weightVect[1] != 0) {
+        res = weightVect[1] * sqrt(jensenShannonDivergence(list(totalDistDistri1, totalDistDistri2)))
+    }
+    if (weightVect[2] != 0) {
+        res = res + weightVect[2] * abs(
+            sqrt(jensenShannonDivergence(distDistri1) / log2(1 + diam1) * log2(exp(1))) -
+                sqrt(jensenShannonDivergence(distDistri2) / log2(1 + diam2) * log2(exp(1)))
+        )
+    }
+    if (weightVect[3] != 0) {
+        res = res + weightVect[3] * (
+            sqrt(
+                jensenShannonDivergence(list(
+                    alphaCentralityRoutine(g1),
+                    alphaCentralityRoutine(g2)
+                ))
+            ) + sqrt(
+                jensenShannonDivergence(list(
+                    alphaCentralityRoutine(complementer(g1)),
+                    alphaCentralityRoutine(complementer(g2))
+                ))
+            )
+        ) / 2
+    }
+    return(res)
+}
+
+#'
+#' @description
+#'
+#' @param list.of.matrix a list of matrices. a time series of vertices correlations
+#'                       assumed all matrices have the same dimenion
+#'
+#' @param tau integer. the self-correlating period
+#'            assume positive
+#'
+#' @param nPts integer. the number of cutoff threshold to choose from
+#'             default: 1000
+#'
+#' @param doRandom boolean. determine if should use random points instead of equally spaced points
+#'                 if TRUE, will use points from runif
+#'                 if FALSE, will use equally spaces points
+#'                 default: FALSE
+#'
+#' @return a named list containing:
+#'             theta: the optimal theta
+#'             networkList: a list of all (undirected unweighted) threshold networks
+#'
+#' @references X.-J. Xu, K. Wang, L. Zhu, L.-J. Zhang.
+#'             Efficient Construction of Threshold Networks of Stock Markets
+#'             doi: 10.1016/j.physa.2018.06.083
+#'
+#' @note require miscFuncLib::matrixCutOff
+#'
+optimalThresholdNetwork = function(list.of.matrix, tau, nPts = 1000, doRandom = FALSE) {
+    thetaList = NULL
+    if (doRandom) {
+        thetaList = runif(nPts, -1, 1)
+    } else {
+        thetaList = (-((nPts - 1) / 2):((nPts - 1) / 2)) / (nPts - 1) * 2
+    }
+    totalTime = length(list.of.matrix)
+    WSeries = sapply(
+        seq_len(totalTime - tau),
+        function(idx) Matrix::norm(list.of.matrix[[idx]] - list.of.matrix[[idx + tau]], '2')
+    )
+    optimalTheta = NULL
+    optimalNetworkList = NULL
+    optimalConsistentVal = -Inf
+    for (thisTheta in thetaList) {
+        thisNetworkList = lapply(list.of.matrix, function(m) complete_network(matrixCutOff(m, thisTheta, FALSE), isWeighted = FALSE))
+        NSeries = sapply(
+            seq_len(totalTime - tau),
+            function(idx) schieberNetworkDissimilarity(thisNetworkList[[idx]], thisNetworkList[[idx + tau]])
+        )
+        thisConsistentVal = cor(WSeries, NSeries)
+        if (thisConsistentVal > optimalConsistentVal) {
+            optimalTheta = thisTheta
+            optimalNetworkList = thisNetworkList
+            optimalConsistentVal = thisConsistentVal
+        }
+    }
+    return(list(
+        theta = optimalTheta,
+        networkList = optimalNetworkList
+    ))
 }

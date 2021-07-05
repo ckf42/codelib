@@ -5,8 +5,8 @@
 #                          if not exist, will ask to choose the parent directory
 #
 #         selectedLibs: vector of strings. the names of the lib to be loaded
-#                       the names should be one (or more) of: "misc", "mutualInfo", "charNet", "cluster", "DMP"
-#                       if not exist or is NA, default to c("misc", "mutualInfo", "charNet", "cluster")
+#                       the names should be one (or more) of: "misc", "mutualInfo", "charNet", "cluster", "DMP", "info"
+#                       if not exist or is NA, default to c("misc", "mutualInfo", "charNet", "cluster", "info")
 #
 # this script writes the following variables (besides the ones in the loaded libraries):
 #
@@ -49,6 +49,7 @@ if (!file.exists(file.path(tempVar_loadFuncLib$codefile_dir, "loadFuncLib.R"))) 
 
 tempVar_loadFuncLib$definedLibName = c(
     misc = "miscFuncLib.R",
+    info = "infoTheoryLib.R",
     mutualInfo = "mutualInfoLib.R",
     charNet = "charNetworkLib.R",
     cluster = "clusteringLib.R",
@@ -58,7 +59,7 @@ tempVar_loadFuncLib$definedLibName = c(
 if (!exists("loadedFuncLibNames")){
     loadedFuncLibNames = NULL
 }
-tempVar_loadFuncLib$libsToLoad = tempVar_loadFuncLib$definedLibName[-5]
+tempVar_loadFuncLib$libsToLoad = tempVar_loadFuncLib$definedLibName[names(tempVar_loadFuncLib$definedLibName) != "DMP"]
 if (exists('selectedLibs') && !is.na(get('selectedLibs'))) {
     tempVar_loadFuncLib$libsToLoad = na.exclude(tempVar_loadFuncLib$definedLibName[unique(selectedLibs)])
 }

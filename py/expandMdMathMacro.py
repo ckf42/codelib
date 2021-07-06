@@ -5,7 +5,7 @@ import argparse
 import re
 import pathlib as path
 import subprocess
-from collections import deque
+# from collections import deque
 from urllib.parse import urlencode
 from personalPylib import findThisMatchBracket as findBracket
 
@@ -88,7 +88,7 @@ fileContent = None
 with filePath.open('rt', encoding='utf-8') as f:
     fileContent = f.read()
 
-print("Reading macro json file ...")
+print("Parsing macro json file ...")
 macroDict = dict()
 with jsonPath.open('rt', encoding='utf-8') as f:
     for line in f:
@@ -108,15 +108,40 @@ for cmd in macroList:
         + (list(m for m in macroList if m in macroDict[cmd][0]), )
     # content, paraCount, [depKeys]
 
+# do topo sort on macros
+
+topoSortMarkDict = dict()
+topoSortOrdering = list()
+
+
+def topoSortVisit(macroName):
+    if macroName in topoSortMarkDict:
+        if not topoSortMarkDict[macroName]:
+            raise ValueError("Macro " + macroName
+                             + " has recursive dependency")
+        else:
+            return
+    topoSortMarkDict[macroName] = False
+    for depKey in macroDict[macroName][2]:
+        topoSortVisit(depKey)
+    topoSortMarkDict[macroName] = True
+    topoSortOrdering.append(macroName)
+
+
+for m in macroDict.keys():
+    if not topoSortMarkDict.get(m, False):
+        topoSortVisit(m)
+
 print("Processing ...")
-macroQueue = deque(macroList)
-while len(macroQueue) != 0:
-    key = macroQueue[0]
-    macroQueue.popleft()
+# macroQueue = deque(macroList)
+# while len(macroQueue) != 0:
+for key in topoSortOrdering[::-1]:
+    # key = macroQueue[0]
+    # macroQueue.popleft()
     cmdInfo = macroDict[key]
     if key not in fileContent:
         continue
-    macroQueue.extend(cmdInfo[2])
+    # macroQueue.extend(cmdInfo[2])
     if cmdInfo[1] == 0:
         fileContent = re.sub(key.replace('\\', r'\\')
                              + r'(?=\b|[^a-zA-Z])',

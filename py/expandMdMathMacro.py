@@ -1,5 +1,4 @@
-# TODO deal with double header for html output
-# TODO fix anchor in html and ipynb when md title has dot in it
+# TODO deal with emoji in title with gfm identifier rule (w/ emoji package?)
 # TODO topo sort marco in dependency order first
 
 import argparse
@@ -189,15 +188,19 @@ if args.ipynb:
 elif args.html:
     fileSplit = fileContent.split('\n', maxsplit=1)
     fileTitle = fileSplit[0].replace('#', '', 1).strip()
-    fileContent = fileSplit[1].lstrip()
+    fileTitleTag = fileTitle.lower().replace(' ', '-')
+    for c in '!"#$%&\'()*+,./:;<=>?@[\\]^`{|}~':
+        fileTitleTag = fileTitleTag.replace(c, '')
+    fileContent = fileSplit[1].lstrip().replace(f"#{fileTitleTag}",
+                                                "#title-block-header")
     print("To HTML, Pandoc return code: ",
           subprocess.run(('pandoc',
                           '--standalone',
-                          '-f', 'markdown',
+                          '-f', 'markdown+gfm_auto_identifiers',
                           '-t', 'html5',
                           '-o', str(outputPath),
                           '--mathml',
-                          f'--metadata=title:\"{fileTitle}\"'),
+                          f'--metadata=title:{fileTitle}'),
                          input=fileContent,
                          shell=True,
                          encoding='utf-8').returncode)

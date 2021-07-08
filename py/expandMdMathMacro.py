@@ -218,6 +218,15 @@ elif args.html:
         fileTitleTag = fileTitleTag.replace(c, '')
     fileContent = fileSplit[1].lstrip().replace(f"#{fileTitleTag}",
                                                 "#title-block-header")
+    targetInsertLoc = list(findBracket(fileContent,
+                                       matchObj.start(1),
+                                       '()') + 1
+                           for matchObj
+                           in re.finditer(r'\[.+\](\(https?)', fileContent))
+    fileContent = '{target="_blank"}'.join(fileContent[idxPair[0]:idxPair[1]]
+                                           for idxPair
+                                           in zip([None] + targetInsertLoc,
+                                                  targetInsertLoc + [None]))
     print("To HTML, Pandoc return code: ",
           subprocess.run(('pandoc',
                           '--standalone',

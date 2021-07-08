@@ -5,7 +5,6 @@ import argparse
 import re
 import pathlib as path
 import subprocess
-# from collections import deque
 from urllib.parse import urlencode
 from personalPylib import findThisMatchBracket as findBracket
 
@@ -43,11 +42,10 @@ args = parser.parse_args()
 if args.noConfirm:
     print("Will not ask for confirmation")
 
-if (args.ipynb or args.html) \
-    and subprocess.run(['pandoc', '--version'],
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL,
-                       shell=True).returncode != 0:
+if (args.ipynb or args.html) and subprocess.run(['pandoc', '--version'],
+                                                stdout=subprocess.DEVNULL,
+                                                stderr=subprocess.DEVNULL,
+                                                shell=True).returncode != 0:
     print("Unable to call pandoc")
     print("Please check if pandoc is installed correctly "
           "and is in environment path")
@@ -133,18 +131,12 @@ for m in macroDict.keys():
         topoSortVisit(m)
 
 print("Processing ...")
-# macroQueue = deque(macroList)
-# while len(macroQueue) != 0:
 for key in topoSortOrdering[::-1]:
-    # key = macroQueue[0]
-    # macroQueue.popleft()
     cmdInfo = macroDict[key]
     if key not in fileContent:
         continue
-    # macroQueue.extend(cmdInfo[2])
     if cmdInfo[1] == 0:
-        fileContent = re.sub(key.replace('\\', r'\\')
-                             + r'(?=\b|[^a-zA-Z])',
+        fileContent = re.sub(key.replace('\\', r'\\') + r'(?=\b|[^a-zA-Z])',
                              cmdInfo[0].replace('\\', r'\\'),
                              fileContent)
     else:
@@ -176,9 +168,8 @@ if args.webtex:
                                                 r'\\\1',
                                                 mObj.group(1))
                                        + '"]('
-                                       + args.webLinkDisplay + urlencode({
-                                           '': mObj.group(1)
-                                       })[1:]
+                                       + args.webLinkDisplay
+                                       + urlencode({'': mObj.group(1)})[1:]
                                        + ')\n'),
                          fileContent)
     fileContent = re.sub(r'(?<!\$)\$([^$]+)\$(?!\$)',
@@ -188,9 +179,7 @@ if args.webtex:
                                                 mObj.group(1))
                                        + '"]('
                                        + args.webLinkInline
-                                       + urlencode({
-                                           '': mObj.group(1)
-                                       })[1:]
+                                       + urlencode({'': mObj.group(1)})[1:]
                                        + r')'),
                          fileContent)
 

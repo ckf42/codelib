@@ -3,14 +3,11 @@
 # Please goto the corresponding function definition for detail description.
 
 if (!require(igraph)){
-    stop("GraphLib.R requires the igraph package")
+    stop("Graph.R requires the igraph package")
 }
 
-Graph.Dependency = c(
-    "MiscUtility", # MiscUtility.Statistics.longRunCorrMatrix, MiscUtility.Transform.matrixCutOff
-    "InfoTheory", # InfoTheory.Divergence.jensenShannonDivergence
-)
-
+# preprocess - dependency registering
+.LibImportTools.Global.Dependency = get0(".LibImportTools.Global.Dependency")
 
 #'
 #' @description determine if a graph is a tree
@@ -304,7 +301,7 @@ Graph.Characteristic.planarMaximallyFilteredGraph = function(relation.matrix, en
         quote(requireNamespace("MEGENA", quietly = TRUE)),
         quote(requireNamespace("RBGL", quietly = TRUE)),
         quote(if (file.exists("DMPLib.r")) {
-            source("DMPLib.r", echo = FALSE); TRUE
+            source("Graph.isPlanarGraphDMP.R", echo = FALSE); TRUE
         } else FALSE)
     )
     # process default
@@ -317,7 +314,7 @@ Graph.Characteristic.planarMaximallyFilteredGraph = function(relation.matrix, en
             stop(paste(
                 "No library available.",
                 "Please check if the supported libraries are installed,",
-                "or if DMPLib.r is in the same directory as this file"
+                "or if Graph.isPlanarGraphDMP.R is in the same directory as this file"
             ))
         } else {
             warning(paste("Library", enforce.library, "automatically selected"))
@@ -423,17 +420,17 @@ Graph.Characteristic.proportionalDegreeNetwork = function(relation.matrix, outpu
 #'                  if numeric, 1/h is the step size
 #'                  if Inf, edges are added one by one
 #'
-#' @param to.use.eigenvalue boolean.
-#'                          determine if algebraic connectivity should be used to determined connectness
-#'                          default: FALSE
+#' @param with.use.eigenvalue boolean.
+#'                            determine if algebraic connectivity should be used to determined connectivity
+#'                            default: FALSE
 #'
-#' @param to.use.normalized.laplacian boolean. determine if normalized Laplacian should be used
-#'                                    ignored if useEigen is FALSE
-#'                                    default: FALSE
+#' @param with.use.normalized.laplacian boolean. determine if normalized Laplacian should be used
+#'                                      ignored if with.use.eigenvalue is FALSE
+#'                                      default: FALSE
 #'
-#' @param to.print.threshold.msg boolean. determine if the threshold should be printed out at the end
-#'                               if TRUE, the threshold will be printed
-#'                               default: TRUE
+#' @param with.print.threshold.msg boolean. determine if the threshold should be printed out at the end
+#'                                 if TRUE, the threshold will be printed
+#'                                 default: TRUE
 #'
 #' @return igraph graph object. the threshold network
 #'
@@ -443,9 +440,9 @@ Graph.Characteristic.proportionalDegreeNetwork = function(relation.matrix, outpu
 #'
 Graph.Characteristic.balciThresholdNetwork = function(g,
                                                       step.para,
-                                                      to.use.eigenvalue = FALSE,
-                                                      to.use.normalized.laplacian = TRUE,
-                                                      to.print.threshold.msg = TRUE) {
+                                                      with.use.eigenvalue = FALSE,
+                                                      with.use.normalized.laplacian = TRUE,
+                                                      with.print.threshold.msg = TRUE) {
     if (is.matrix(g)) {
         g = graph_from_adjacency_matrix(g, weighted = TRUE, mode = 'undirected')
     }
@@ -457,10 +454,10 @@ Graph.Characteristic.balciThresholdNetwork = function(g,
     }
     endpts = t(ends(g, E(g)))
     loopRoutine = is_connected
-    if (to.use.eigenvalue) {
+    if (with.use.eigenvalue) {
         loopRoutine = function(targetG) {
             tail(eigen(graph.laplacian(targetG,
-                normalized = to.use.normalized.laplacian,
+                normalized = with.use.normalized.laplacian,
                 weights = NA
             ),
             only.values = TRUE,
@@ -488,7 +485,7 @@ Graph.Characteristic.balciThresholdNetwork = function(g,
             weight = edgeWeights[edgeMask]
         )
     }
-    if (to.print.threshold.msg) {
+    if (with.print.threshold.msg) {
         print(paste("threshold val:", tau))
     }
     return(newG)
@@ -595,7 +592,7 @@ Graph.Characteristic.longRunCorrNetwork = function(list.of.time.series,
         is.weighted.matrix = TRUE
     ))
 }
-
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "MiscUtility")
 
 #'
 #' @description compute the network node dispersion (NND) via shortest paths
@@ -622,7 +619,7 @@ Graph.Metric.networkNodeDispersion = function(g) {
     )
     return(InfoTheory.Divergence.jensenShannonDivergence(d) / log2(1 + diam))
 }
-
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "InfoTheory")
 
 #'
 #' @description compute the network dissimilarity proposed by T. Schieber et al.
@@ -705,7 +702,7 @@ Graph.Metric.schieberNetworkDissimilarity = function(g1, g2, weight.vect = c(0.4
     }
     return(res)
 }
-
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "InfoTheory")
 
 #'
 #' @description find the optimal value for cutting threshold network
@@ -716,10 +713,10 @@ Graph.Metric.schieberNetworkDissimilarity = function(g1, g2, weight.vect = c(0.4
 #' @param sample.pt.number integer. the number of cutoff threshold to choose from
 #'                         default: 1000
 #'
-#' @param to.random.sample boolean. determine if should use random points instead of equally spaced points
-#'                         if TRUE, will use points from runif
-#'                         if FALSE, will use equally spaces points
-#'                         default: FALSE
+#' @param with.random.sample boolean. determine if should use random points instead of equally spaced points
+#'                           if TRUE, will use points from runif
+#'                           if FALSE, will use equally spaces points
+#'                           default: FALSE
 #'
 #' @return a named list containing:
 #'             theta: the optimal theta
@@ -731,9 +728,9 @@ Graph.Metric.schieberNetworkDissimilarity = function(g1, g2, weight.vect = c(0.4
 #'
 #' @note depends on MiscUtility.Transform.matrixCutOff
 #'
-Graph.Characteristic.optimalThresholdNetwork = function(list.of.matrix.series, sample.pt.number = 1000, to.random.sample = FALSE) {
+Graph.Characteristic.optimalThresholdNetwork = function(list.of.matrix.series, sample.pt.number = 1000, with.random.sample = FALSE) {
     thetaList = NULL
-    if (to.random.sample) {
+    if (with.random.sample) {
         thetaList = runif(sample.pt.number, -1, 1)
     } else {
         thetaList = (-((sample.pt.number - 1) / 2):((sample.pt.number - 1) / 2)) / (sample.pt.number - 1) * 2
@@ -772,3 +769,4 @@ Graph.Characteristic.optimalThresholdNetwork = function(list.of.matrix.series, s
         networkList = optimalNetworkList
     ))
 }
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "MiscUtility")

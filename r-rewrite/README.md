@@ -57,9 +57,8 @@ The list should be ordered in dictionary order
 
 ## TODO
 
-* implementation
-    * dependency checker / auto import dependency?
-    * change `to.` to `with.` to some boolean parameters
+* migrate
+    * move old code to here
 * general
     * consider putting everything in a package?
 * documentation

@@ -1,6 +1,9 @@
 # This file contains utility functions.
 # Please goto the corresponding function definition for detail description.
 
+# preprocess - dependency registering
+.LibImportTools.Global.Dependency = get0(".LibImportTools.Global.Dependency")
+
 #'
 #' @description discretize the data
 #'
@@ -9,23 +12,23 @@
 #' @param bin.number the number of bins used to discretize the data
 #'
 #' @param to.remove.beyond.mean boolean, or a nonnegative numeric.
-#'                              if numeric, all data beyond [m - s * removeBeyondMean, m + s * removeBeyondMean]
+#'                              if numeric, all data beyond [m - s * to.remove.beyond.mean, m + s * to.remove.beyond.mean]
 #'                                  will be counted as the nearest endpoint
-#'                                  where m is the mean of dataSeq
-#'                                        s is the sample standard derivation of dataSeq
+#'                                  where m is the mean of data.seq
+#'                                        s is the sample standard derivation of data.seq
 #'                              if FALSE, the whole range is used
-#'                              TRUE is an alias of removeBeyondMean = 3
+#'                              TRUE is an alias of to.remove.beyond.mean = 3
 #'                              default: FALSE
 #'
 #' @param to.remove.outlier boolean. determine if outliers should be remove with the
-#'                          same method as removeBeyondMean
+#'                          same method as to.remove.beyond.mean
 #'                          outliers are data deyond range [Q1 - 1.5 * (Q3 - Q1), Q3 + 1.5 * (Q3 - Q1)]
-#'                          override removeBeyondMean
+#'                          higher precedence than to.remove.beyond.mean
 #'                          default: FALSE
 #'
-#' @return a integer vector of the same length as dataSeq where each element
+#' @return a integer vector of the same length as data.seq where each element
 #'         is replaced with the index of its bin
-#'         The range of the data are divided into binNumber bins of identical size
+#'         The range of the data are divided into bin.number bins of identical size
 #'
 MiscUtility.Transform.toHistogramBinIndices = function(data.seq, bin.number, to.remove.beyond.mean = FALSE, to.remove.outlier = FALSE) {
     maxDataRange = 0
@@ -56,23 +59,23 @@ MiscUtility.Transform.toHistogramBinIndices = function(data.seq, bin.number, to.
 #'
 #' @description discretize a list of data
 #'
-#' @param listOfData a list of numeric vectors
+#' @param list.of.data.seq a list of numeric vectors
 #'
-#' @param binNumber the number of bins used to discretize the data
+#' @param list.of.data.seq the number of bins used to discretize the data
 #'
-#' @param removeBeyondMean boolean, or a nonnegative numeric.
-#'                         if numeric, all data beyond [m - s * removeBeyondMean, m + s * removeBeyondMean]
+#' @param to.remove.beyond.mean boolean, or a nonnegative numeric.
+#'                         if numeric, all data beyond [m - s * to.remove.beyond.mean, m + s * to.remove.beyond.mean]
 #'                             will be counted as the nearest endpoint
 #'                             where m is the mean of dataSeq
 #'                                   s is the sample standard derivation of dataSeq
 #'                         if FALSE, the whole range is used
-#'                         TRUE is an alias of removeBeyondMean = 3
+#'                         TRUE is an alias of to.remove.beyond.mean = 3
 #'                         default: FALSE
 #'
-#' @param removeOutlier boolean. determine if outliers should be remove with the
-#'                      same method as removeBeyondMean
+#' @param to.remove.outlier boolean. determine if outliers should be remove with the
+#'                      same method as to.remove.beyond.mean
 #'                      outliers are data deyond range [Q1 - 1.5 * (Q3 - Q1), Q3 + 1.5 * (Q3 - Q1)]
-#'                      override removeBeyondMean
+#'                      higher precedence than to.remove.beyond.mean
 #'                      default: FALSE
 #'
 #' @return a list of numeric vectors, each vector is transformed with transform_to_bin_indices
@@ -441,17 +444,17 @@ MiscUtility.Statistics.cronbachAlpha = function(list.of.data.seq, to.compute.one
 #'                if a vector, there should be exactly one pad for every string, inclusing empty ones
 #'                default: " ", a space character
 #'
-#' @param to.strip.whitespace.first boolean. determine if leading and trailing white spaces shuold be trimmed first
-#'                                  if TRUE, strings are processed with trimws() before padding
-#'                                  if FALSE, strings are padded as inputed
-#'                                  default: TRUE
+#' @param with.strip.whitespace.first boolean. determine if leading and trailing white spaces shuold be trimmed first
+#'                                    if TRUE, strings are processed with trimws() before padding
+#'                                    if FALSE, strings are padded as inputed
+#'                                    default: TRUE
 #'
 #' @return the same vector of strings, but the strings are centered by padding on both sides
 #'         empty strings are not processed
 #'
-MiscUtility.Transform.certeringTextLines = function(vect.of.text.lines, padding = " ", to.strip.whitespace.first = TRUE) {
+MiscUtility.Transform.certeringTextLines = function(vect.of.text.lines, padding = " ", with.strip.whitespace.first = TRUE) {
     numLines = length(vect.of.text.lines)
-    if (to.strip.whitespace.first) {
+    if (with.strip.whitespace.first) {
         vect.of.text.lines = sapply(vect.of.text.lines, trimws)
     }
     if (any(sapply(padding, function(pad) nchar(pad) != 1))) {

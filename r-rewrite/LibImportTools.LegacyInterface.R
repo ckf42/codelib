@@ -3,7 +3,7 @@
 # must be included as the last file
 #
 #
-LegacyInterface.ReplacementDict = list(
+.LibImportTools.LegacyInterface.Const.ReplacementDict = list(
     # InfoTheory
     "InfoTheory.Divergence.jensenShannonDivergence" = "jensenShannonDivergence",
     "InfoTheory.Divergence.normalizedMIDistance" = "normalized_MI_distance",
@@ -90,10 +90,14 @@ LegacyInterface.ReplacementDict = list(
     "Graph.Clustering.Metric.Batch.similarity" = "batch_sim",
     "Graph.Clustering.Overlap.getCommunityInfo" = "overlapCommInfo",
     "Graph.Clustering.Overlap.Transform.belongMatrixToVectList" = "belongVectListFromMatrix",
-    "Graph.isPlanarGraphDMP" = "is_planar_graph_DMP",
+    "Graph.isPlanarGraphDMP" = "is_planar_graph_DMP"
 )
 
 sapply(
-    Filter(exists, names(LegacyInterface.ReplacementDict)),
-    function(newCmdName) assign(LegacyInterface.ReplacementDict[[newCmdName]], get(newCmdName))
+    Filter(exists, names(.LibImportTools.LegacyInterface.Const.ReplacementDict)),
+    function(newCmdName) assign(
+        .LibImportTools.LegacyInterface.Const.ReplacementDict[[newCmdName]],
+        get(newCmdName),
+        pos = .GlobalEnv
+    )
 )

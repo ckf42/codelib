@@ -1,10 +1,8 @@
 # This file contains functions that are related to information theory.
 # Please goto the corresponding function definition for detail description.
 
-#' list of dependency
-InfoTheory.Dependency = c(
-    "MiscUtility", # MiscUtility.Transform.Batch.toHistrogramBinIndices
-)
+# preprocess - dependency registering
+.LibImportTools.Global.Dependency = get0(".LibImportTools.Global.Dependency")
 
 #'
 #' @description compute Shannon entropy
@@ -111,6 +109,7 @@ InfoTheory.Entropy.jointEntropy = function(list.of.time.series, bin.number = 10,
     diag(returnMatrix) = sapply(list.of.time.series, function(dataSeq) InfoTheory.Entropy.shannon(table(dataSeq)))
     return(returnMatrix)
 }
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "MiscUtility")
 
 #'
 #' @description Compute similarity by Normalized Mutural Information (NMI)
@@ -156,6 +155,7 @@ InfoTheory.Similarity.normalizedMuturalInformation = function(list.of.time.serie
     diag(returnMatrix) = 1
     return(returnMatrix)
 }
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "MiscUtility")
 
 #'
 #' @description Compute the normalized mutural information distance matrix
@@ -210,6 +210,8 @@ InfoTheory.Divergence.normalizedMIDistance = function(list.of.time.series, bin.n
     # diag(returnMatrix) = 0
     return(returnMatrix)
 }
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "MiscUtility")
+
 
 #'
 #' @description convert NMI distance marix to NMI similarity matrix
@@ -294,3 +296,4 @@ InfoTheory.Similarity.spreadNormalizedMuturalInformation = function(list.of.time
     diag(returnMatrix) = 1
     return(returnMatrix)
 }
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "MiscUtility")

@@ -6,9 +6,9 @@ if (!require(igraph)){
     stop("GraphLib.R requires the igraph package")
 }
 
-Graph.Clustering.Dependency = c(
-    "Graph"
-)
+# preprocess - dependency registering
+.LibImportTools.Global.Dependency = get0(".LibImportTools.Global.Dependency")
+.LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "Graph") # sublib of Graph
 
 #'
 #' @description finding clusters of a graph with Normalized Spectral
@@ -194,13 +194,13 @@ Graph.Clustering.Metric.adjustedRandIndex = function(clustering1, clustering2){
 #'                    if it is a integer vector, it denotes the index of the cluster
 #'                        the item belongs to
 #'
-#' @param to.use.max.entropy boolean. determine if max entropy should be used to normalize
-#'                           by default the normalization routine is the arithmetic mean
-#'                           default: FALSE
+#' @param with.use.max.entropy boolean. determine if max entropy should be used to normalize
+#'                             by default the normalization routine is the arithmetic mean
+#'                             default: FALSE
 #'
 #' @return a numeric representing the similarity of the two clusterings
 #'
-Graph.Clustering.Metric.clusterNMISimilarity = function(clustering1, clustering2, to.use.max.entropy = FALSE){
+Graph.Clustering.Metric.clusterNMISimilarity = function(clustering1, clustering2, with.use.max.entropy = FALSE){
     clustering1 = Graph.Clustering.Transform.clusteringResultToCommunityList(clustering1)
     clustering2 = Graph.Clustering.Transform.clusteringResultToCommunityList(clustering2)
     n1 = sapply(clustering1, length)
@@ -213,7 +213,7 @@ Graph.Clustering.Metric.clusterNMISimilarity = function(clustering1, clustering2
                                      clustering2[[idx2]]))))
     nProd = outer(n1, n2)
     return(sum(ifelse(nij == 0, 0, nij * log2(n * nij / nProd))) /
-               (if(to.use.max.entropy) max else mean)(c(sum(n1 * log2(n / n1)), sum(n2 * log2(n / n2)))))
+               (if(with.use.max.entropy) max else mean)(c(sum(n1 * log2(n / n1)), sum(n2 * log2(n / n2)))))
 }
 
 
@@ -314,8 +314,8 @@ Graph.Clustering.Measure.noverScore = function(g, target.edges = igraph::E(g)){
 #'                            capped at the number of vertices of g
 #'                            default: Inf
 #'
-#' @param to.use.min.span.tree boolean. determine if Minimal Spanning Tree should be used instead of Maximal Spanning Tree
-#'                             default: FALSE
+#' @param with.use.min.span.tree boolean. determine if Minimal Spanning Tree should be used instead of Maximal Spanning Tree
+#'                               default: FALSE
 #'
 #' @return igraph::communities object with membership and modularity.
 #'         the modularity is computed as g is unweighted
@@ -326,7 +326,7 @@ Graph.Clustering.Measure.noverScore = function(g, target.edges = igraph::E(g)){
 #'
 #' @references https://github.com/ketkik22/Community-detection-on-social-network/blob/master/CommunityDetectionUsingKruskalsAlgorithm.py
 #'
-Graph.Clustering.Algo.noverSingleLinkClustering = function(g, trial.cut.test.time = Inf, to.use.min.span.tree = FALSE) {
+Graph.Clustering.Algo.noverSingleLinkClustering = function(g, trial.cut.test.time = Inf, with.use.min.span.tree = FALSE) {
     # compute NOVER score for all edges
     adjMatrix = igraph::as_adjacency_matrix(g)
     edgeEndPt = igraph::ends(g, igraph::E(g))
@@ -345,7 +345,7 @@ Graph.Clustering.Algo.noverSingleLinkClustering = function(g, trial.cut.test.tim
     #     v = edgeEndPt[eidx, 2]
     #     return(sum(adjMatrix[u, ]) + sum(adjMatrix[v, ]))
     # }
-    NOVERMST = igraph::mst(g, (if (to.use.min.span.tree) 1 else -1) * sapply(E(g), NOVERScore))
+    NOVERMST = igraph::mst(g, (if (with.use.min.span.tree) 1 else -1) * sapply(E(g), NOVERScore))
     edgeOrder = order(igraph::edge_betweenness(NOVERMST), decreasing = TRUE)
     numOfEdgeToRemove = sample.int(igraph::ecount(NOVERMST) + 1, min(igraph::ecount(NOVERMST) + 1, trial.cut.test.time)) - 1
     maxQ = -Inf
@@ -383,8 +383,8 @@ Graph.Clustering.Algo.noverSingleLinkClustering = function(g, trial.cut.test.tim
 #' @param patience integer, or Inf. The maximal number of continuous failure allowed
 #'                 default: Inf
 #'
-#' @param to.one.edge.at.a.time boolean. determine if only one edge should be add at a step
-#'                              default: TRUE
+#' @param with.one.edge.at.a.time boolean. determine if only one edge should be add at a step
+#'                                default: TRUE
 #'
 #' @return igraph::communities object with membership and modularity.
 #'         the modularity is computed as if g is unweighted
@@ -397,7 +397,7 @@ Graph.Clustering.Algo.noverSingleLinkClustering = function(g, trial.cut.test.tim
 #'
 #' @references https://github.com/ketkik22/Community-detection-on-social-network/blob/master/ModifiedLouvainAlgorithmWithOneEdgeAtATime.py
 #'
-Graph.Clustering.Algo.acuebClusteringWithMetaNetwork = function(g, patience = Inf, to.one.edge.at.a.time = TRUE) {
+Graph.Clustering.Algo.acuebClusteringWithMetaNetwork = function(g, patience = Inf, with.one.edge.at.a.time = TRUE) {
     if (is.null(igraph::E(g)$weight)) {
         igraph::E(g)$weight = 1
     }
@@ -429,7 +429,7 @@ Graph.Clustering.Algo.acuebClusteringWithMetaNetwork = function(g, patience = In
     while (patienceCounter > 0 && igraph::ecount(g) > 0) {
         ebList = igraph::edge_betweenness(g)
         minEBEdgeIdx = NULL
-        if (to.one.edge.at.a.time) {
+        if (with.one.edge.at.a.time) {
             minEBEdgeIdx = which.min(ebList)
         } else {
             minEBEdgeIdx = which(ebList == min(ebList))
@@ -872,8 +872,8 @@ Graph.Clustering.Algo.novelLouvainClustering = function(g, with.edge.weight.corr
 #'                       the computation is done via Graph.Clustering.Metric.clusterNMISimilarity
 #'                       default: FALSE
 #'
-#' @param to.print.debug.msg boolean. determine if debug message should be printed
-#'                           default: FALSE
+#' @param with.print.debug.msg boolean. determine if debug message should be printed
+#'                             default: FALSE
 #'
 #' @return a list containing
 #'             n, integer, the number of vertices
@@ -898,7 +898,7 @@ Graph.Clustering.Animation.evolutions = function(list.of.time.series,
                                                  layout.generate.method = igraph::layout.kamada.kawai,
                                                  to.compute.ARI = FALSE,
                                                  to.compute.NMI = FALSE,
-                                                 to.print.debug.msg = FALSE) {
+                                                 with.print.debug.msg = FALSE) {
     windowBegin = 1 # window: [windowBegin, windowBegin + windowSize - 1]
     n = length(list.of.time.series)
     nDays = length(list.of.time.series[[1]])
@@ -910,7 +910,7 @@ Graph.Clustering.Animation.evolutions = function(list.of.time.series,
         window.dist = window.size
     }
     while (windowBegin + window.size < nDays) {
-        if (to.print.debug.msg) {
+        if (with.print.debug.msg) {
             print(paste(
                 format(Sys.time(), '%T'),
                 "processing [",
@@ -952,13 +952,13 @@ Graph.Clustering.Animation.evolutions = function(list.of.time.series,
         graphs = graphList
     )
     if (to.compute.ARI) {
-        if (to.print.debug.msg) {
+        if (with.print.debug.msg) {
             print(paste(format(Sys.time(), '%T'), "compute ARI"))
         }
         returnAns$ARI = Graph.Clustering.Metric.Batch.similarity(commList, Graph.Clustering.Metric.adjustedRandIndex)
     }
     if (to.compute.NMI) {
-        if (to.print.debug.msg) {
+        if (with.print.debug.msg) {
             print(paste(format(Sys.time(), '%T'), "compute NMI"))
         }
         returnAns$NMI = Graph.Clustering.Metric.Batch.similarity(commList, Graph.Clustering.Metric.clusterNMISimilarity)

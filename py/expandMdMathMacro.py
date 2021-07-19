@@ -1,5 +1,6 @@
 # TODO deal with emoji in title with gfm identifier rule (w/ emoji package?)
 # TODO topo sort marco in dependency order first
+# TODO export in multiple formats in one pass
 
 import argparse
 import re

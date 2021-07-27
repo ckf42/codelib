@@ -354,7 +354,7 @@ MiscUtility.Norm.lInf = function(var.1, var.2 = 0) {
 #' @param weight.threshold numeric. the threshold value to transform values
 #'
 #' @param is.equal.or.below boolean. determine if entries same as threshold is counted as below threshold
-#'                          if TRUE, entries with the same value as threshold will be replaced as is.equal.or.below
+#'                          if TRUE, entries with the same value as threshold will be replaced as lower.cap.threshold
 #'                          if FALSE, entries with the same value as threshold will be replaced as upper.cap.threshold
 #'
 #' @param lower.cap.threshold numeric. what below-threshold values should be transformed to

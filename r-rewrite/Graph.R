@@ -2,7 +2,7 @@
 # Most functions depends on the igraph package
 # Please goto the corresponding function definition for detail description.
 
-if (!require(igraph)){
+if (!require(igraph)) {
     stop("Graph.R requires the igraph package")
 }
 
@@ -133,21 +133,36 @@ Graph.Plot.tree = function(g.forest, ...) {
 #'                         if TRUE, will also remove edges with same weight as threshold
 #'                         if FALSE, edges with same weight as threshold will be kept
 #'
+#' @param edge.rm.selector.func function, or NA. the function to select which edges to keep
+#'                              a function with one input and return a boolean
+#'                              if not NA, the selection will be decided with this function
+#'                                  only those edges with weight that gives FALSE are kept
+#'                              default: NA
+#'
 #' @return igraph graph object. the graph with targeted edges removed
 #'
 #' @note depends on igraph package
 #'
-Graph.Transform.edgeCutOff = function(g, weight.threshold, to.remove.below, to.include.equal) {
+Graph.Transform.edgeCutOff = function(g,
+                                      weight.threshold,
+                                      to.remove.below,
+                                      to.include.equal,
+                                      edge.rm.selector.func = NA) {
     edgesToCutMask = NULL
-    if (to.remove.below) {
-        edgesToCutMask = (igraph::E(g)$weight < weight.threshold)
+    Eg = igraph::E(g)
+    if (is.na(edge.rm.selector.func)){
+        if (to.remove.below) {
+            edgesToCutMask = (Eg$weight < weight.threshold)
+        } else {
+            edgesToCutMask = (Eg$weight > weight.threshold)
+        }
+        if (to.include.equal) {
+            edgesToCutMask = edgesToCutMask | (Eg$weight == weight.threshold)
+        }
     } else {
-        edgesToCutMask = (igraph::E(g)$weight > weight.threshold)
+        edgesToCutMask = sapply(Eg, function(x)edge.rm.selector.func(x$weight))
     }
-    if (to.include.equal) {
-        edgesToCutMask = edgesToCutMask | (igraph::E(g)$weight == weight.threshold)
-    }
-    return(igraph::delete_edges(g, igraph::E(g)[edgesToCutMask]))
+    return(igraph::delete_edges(g, Eg[edgesToCutMask]))
 }
 
 
@@ -232,7 +247,7 @@ Graph.Plot.overlapCommunity = function(g, overlap.communities, ...) {
 #'
 #' @note wrapper of Graph.Plot.overlapCommunity
 #'
-Graph.Plot.overlapCommunityFromAlgo = function(g, overlap.community.clustering.method, ...){
+Graph.Plot.overlapCommunityFromAlgo = function(g, overlap.community.clustering.method, ...) {
     res = overlap.community.clustering.method(g, ...)
     Graph.Plot.overlapCommunity(g, res)
     return(res)
@@ -248,7 +263,7 @@ Graph.Plot.overlapCommunityFromAlgo = function(g, overlap.community.clustering.m
 #'
 #' @return an integer vector representing the size of the component which vs belongs to
 #'
-Graph.getSubordinatedComponentSize = function(g, target.vertex.id){
+Graph.getSubordinatedComponentSize = function(g, target.vertex.id) {
     comp = igraph::components(g)
     return(comp$csize[comp$membership[target.vertex.id]])
 }
@@ -264,9 +279,9 @@ Graph.getSubordinatedComponentSize = function(g, target.vertex.id){
 #'             component
 #'         if vs has only one vertex, returns the integer vector
 #'
-Graph.getSubordinatedComponentMembers = function(g, target.vertex.seq){
+Graph.getSubordinatedComponentMembers = function(g, target.vertex.seq) {
     comp = igraph::components(g)$membership
-    return(sapply(target.vertex.seq, function(vid)which(comp == comp[vid]), simplify = "vector"))
+    return(sapply(target.vertex.seq, function(vid) which(comp == comp[vid]), simplify = "vector"))
 }
 
 
@@ -374,10 +389,10 @@ Graph.Characteristic.planarMaximallyFilteredGraph = function(relation.matrix, en
 #'
 #' @references
 #'
-Graph.Characteristic.proportionalDegreeNetwork = function(relation.matrix, output.edge.number = NULL, is.similar.matrix = TRUE){
+Graph.Characteristic.proportionalDegreeNetwork = function(relation.matrix, output.edge.number = NULL, is.similar.matrix = TRUE) {
     n = nrow(relation.matrix)
     sw = colSums(relation.matrix) - diag(relation.matrix)
-    if (is.null(output.edge.number)){
+    if (is.null(output.edge.number)) {
         output.edge.number = 3 * n - 6
     }
     dPrime = sw / sum(sw) * output.edge.number * 2
@@ -385,17 +400,17 @@ Graph.Characteristic.proportionalDegreeNetwork = function(relation.matrix, outpu
     d = rep(0, n)
     d[1] = dPrimeCumSumRounded[1]
     dCumSum = 0
-    for (i in 2:n){ # vectorize?
+    for (i in 2:n) { # vectorize?
         dCumSum = dCumSum + d[i - 1]
         d[i] = dPrimeCumSumRounded[i] - dCumSum
     }
     # refer to lower trig, write in upper trig
     relation.matrix[upper.tri(relation.matrix, diag = TRUE)] = NA
     simOrdering = order(relation.matrix, decreasing = is.similar.matrix, na.last = NA)
-    for (idx in simOrdering){
+    for (idx in simOrdering) {
         i = (idx - 1) %/% n + 1
-        j = (idx - 1) %% n + 1  # i < j
-        if (d[i] > 0 && d[j] > 0){
+        j = (idx - 1) %% n + 1 # i < j
+        if (d[i] > 0 && d[j] > 0) {
             relation.matrix[i, j] = relation.matrix[j, i]
             d[i] = d[i] - 1
             d[j] = d[j] - 1
@@ -403,13 +418,14 @@ Graph.Characteristic.proportionalDegreeNetwork = function(relation.matrix, outpu
     }
     relation.matrix[is.na(relation.matrix)] = 0 # remove NA
     return(graph_from_adjacency_matrix(relation.matrix,
-                                       mode = 'upper',
-                                       weighted = TRUE))
+        mode = 'upper',
+        weighted = TRUE
+    ))
 }
 
 
 #'
-#' @description find the threshold network
+#' @description find the threshold network via connectivity
 #'
 #' @param g igraph graph object, or a numeric matrix.
 #'          the original graph
@@ -419,14 +435,16 @@ Graph.Characteristic.proportionalDegreeNetwork = function(relation.matrix, outpu
 #' @param step.para numeric, or Inf. step parameter.
 #'                  if numeric, 1/h is the step size
 #'                  if Inf, edges are added one by one
+#'                  default: Inf
 #'
 #' @param with.use.eigenvalue boolean.
 #'                            determine if algebraic connectivity should be used to determined connectivity
+#'                            if FALSE, will use igraph::is_connected
 #'                            default: FALSE
 #'
 #' @param with.use.normalized.laplacian boolean. determine if normalized Laplacian should be used
 #'                                      ignored if with.use.eigenvalue is FALSE
-#'                                      default: FALSE
+#'                                      default: TRUE
 #'
 #' @param with.print.threshold.msg boolean. determine if the threshold should be printed out at the end
 #'                                 if TRUE, the threshold will be printed
@@ -438,8 +456,8 @@ Graph.Characteristic.proportionalDegreeNetwork = function(relation.matrix, outpu
 #'             Hierarchies in communities of UK stock market from the perspective of Brexit
 #'             doi: 10.1080/02664763.2020.1796942
 #'
-Graph.Characteristic.balciThresholdNetwork = function(g,
-                                                      step.para,
+Graph.Characteristic.connectivityThresholdNetwork = function(g,
+                                                      step.para = Inf,
                                                       with.use.eigenvalue = FALSE,
                                                       with.use.normalized.laplacian = TRUE,
                                                       with.print.threshold.msg = TRUE) {
@@ -502,20 +520,31 @@ Graph.Characteristic.balciThresholdNetwork = function(g,
 #' @param weight.attr.name char. the name of edge attribute used
 #'                         default: 'weight'
 #'
+#' @param with.abs boolean. determine if the absolute value of attr should be used
+#'                 if TRUE, the evaluation is done on the absolute values
+#'                 default: FALSE
+#'
 #' @return a igraph::graph object of the result threshold significance graph
 #'         the same graph but all edges with weight not exceeding significance removed
 #'
-#' @note miscFuncLib::graphEdgeCutOff but with fewer parameters
+#' @note Graph.Transform.edgeCutOff but with fewer parameters
 #'
 #' @references T. Vyrosta, S. Lyocsab, E. Baumohl. Network-Based Asset Allocation Strategies
 #'
 #' @references C. K. Tse, J. Liu, F. C. M. Lau. A Network Perspective of the Stock Market
 #'
-Graph.Characteristic.thresholdSignificanceGraph = function(g, significance.cutoff, weight.attr.name = 'weight') {
+Graph.Characteristic.thresholdSignificanceGraph = function(g,
+                                                           significance.cutoff,
+                                                           weight.attr.name = 'weight',
+                                                           with.abs = FALSE) {
     if (!is.weighted(g)) {
         stop("Input graph is unweighted")
     }
-    return(delete.edges(g, E(g)[edge_attr(g, weight.attr.name) <= significance.cutoff]))
+    evalRoutine = function(x)x
+    if (with.abs){
+        evalRoutine = abs
+    }
+    return(delete.edges(g, E(g)[evalRoutine(edge_attr(g, weight.attr.name)) <= significance.cutoff]))
 }
 
 
@@ -557,7 +586,6 @@ Graph.Characteristic.completeNetwork = function(relation.matrix, is.directed.mat
     ))
 }
 
-
 #'
 #' @description construct complete from long-run correlation
 #'
@@ -565,32 +593,36 @@ Graph.Characteristic.completeNetwork = function(relation.matrix, is.directed.mat
 #'                            all vectors are assumed to have the same length
 #'
 #' @param B numeric. the band width. assumed to be nonzero
+#'          passed directly to MiscUtility.Statistics.longRunCorrMatrix
 #'
 #' @param kernelFunction function. the function used in Andrew's estimate
-#'                       assumed to be even function and has value 1 at x = 0
-#'                       default: quadraticSpectralKernel
+#'                       passed directly to MiscUtility.Statistics.longRunCorrMatrix
+#'                       default: MiscUtility.Statistics.ParzenKernel.quadraticSpectral
 #'
 #' @param considerRange numeric, or NA. the maximal shift of the window, in units of B
-#'                      refer to the description in longRunCorrelation
+#'                      passed directly to MiscUtility.Statistics.longRunCorrMatrix
+#'                      default: NA
 #'
 #' @return igraph graph object of the graph constructed from the
 #'         long-run correlation matrix
 #'
-#' @note wrapper of complete_network and longRunCorrelation
+#' @note wrapper of Graph.Characteristic.completeNetwork and MiscUtility.Statistics.longRunCorrMatrix
 #'
-#' @note depends on MiscUtility.Statistics.longRunCorrMatrix
+#' @note depends on MiscUtility.Statistics.longRunCorrMatrix (and MiscUtility.Statistics.ParzenKernel.quadraticSpectral)
 #'
 Graph.Characteristic.longRunCorrNetwork = function(list.of.time.series,
                                                    band.width,
                                                    kernel.func = MiscUtility.Statistics.ParzenKernel.quadraticSpectral,
                                                    considered.range = NA) {
-    return(Graph.Characteristic.completeNetwork(
-        MiscUtility.Statistics.longRunCorrMatrix(
-            list.of.time.series, band.width, kernel.func, considered.range
-        ),
-        is.directed.matrix = FALSE,
-        is.weighted.matrix = TRUE
-    ))
+    return(
+        Graph.Characteristic.completeNetwork(
+            MiscUtility.Statistics.longRunCorrMatrix(
+                list.of.time.series, band.width, kernel.func, considered.range
+            ),
+            is.directed.matrix = FALSE,
+            is.weighted.matrix = TRUE
+        )
+    )
 }
 .LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "MiscUtility")
 
@@ -746,9 +778,11 @@ Graph.Characteristic.optimalThresholdNetwork = function(list.of.matrix.series, s
     for (thisTheta in thetaList) {
         thisNetworkList = lapply(
             list.of.matrix.series,
-            function(m) Graph.Characteristic.completeNetwork(MiscUtility.Transform.matrixCutOff(m, thisTheta, FALSE),
-                is.weighted.matrix = FALSE
-            )
+            function(m)
+                Graph.Characteristic.completeNetwork(
+                    MiscUtility.Transform.matrixCutOff(m, thisTheta, FALSE),
+                    is.weighted.matrix = FALSE
+                )
         )
         NSeries = sapply(
             seq_len(totalTime - 1),

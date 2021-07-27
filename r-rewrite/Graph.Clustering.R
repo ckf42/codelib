@@ -3,7 +3,7 @@
 # Please goto the corresponding function definition for detail description.
 
 if (!require(igraph)){
-    stop("GraphLib.R requires the igraph package")
+    stop("Graph.Clustering.R requires the igraph package")
 }
 
 # preprocess - dependency registering

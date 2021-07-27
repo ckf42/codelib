@@ -1,7 +1,7 @@
 # this lib provides somes functions on managing the codelib libraries
 # please go to the definitions for more detail
 #
-# several hidden variables are also defined here
+# several hidden variables (name starting with a dot) are also defined here
 
 # global var to be written by lib scripts, used to resolve dependency
 .LibImportTools.Global.Dependency = NULL
@@ -17,6 +17,27 @@
     # "LibImportTools", # not include itself
     "MiscUtility"
 )
+
+# directory of this file
+# TODO need a better way of finding where this file is
+.LibImportTools.Const.LibDir = getwd()
+
+#' @description internal routine used to import a library file
+#'
+#' @param lib.name char. name of the library file, without extension
+#'
+#' @param verbose.print.func function. the function used to print verbose message
+#'                           default: an empty function
+#'
+#' @return no return
+#'
+.LibImportTools.importLibFile = function(lib.name, verbose.print.func = function(x) NULL){
+    targetFilePath = file.path(.LibImportTools.Const.LibDir,
+                               paste0(lib.name, '.R'))
+    verbose.print.func(paste("sourcing file", targetFilePath))
+    source(targetFilePath, echo = FALSE, local = FALSE)
+}
+
 
 #'
 #' @description import requested libraries
@@ -35,6 +56,7 @@
 #'                           default: FALSE
 #'
 #' @param with.legacy.names boolean. determine if legacy alias should be added
+#'                          only use for compatibility
 #'                          default: FALSE
 #'
 #' @param with.verbose boolean. determine if verbose information should be printed
@@ -75,7 +97,10 @@ LibImportTools.import = function(requested.lib = c(
     currentImported = NULL
     for (libName in requested.lib) {
         verbosePrint(paste("Importing", libName))
-        source(paste0(libName, '.R'), echo = FALSE, local = FALSE)
+        # targetLibFilePath = paste0(libName, '.R')
+        # verbosePrint(paste("openning file", targetLibFilePath))
+        # source(targetLibFilePath, echo = FALSE, local = FALSE)
+        .LibImportTools.importLibFile(libName, verbosePrint)
         currentImported = append(currentImported, libName)
     }
     .LibImportTools.Global.Dependency <<- Filter(
@@ -91,19 +116,24 @@ LibImportTools.import = function(requested.lib = c(
         verbosePrint("Importing dependencies")
         for (libName in needToImport) {
             verbosePrint(paste("Importing", libName))
-            source(paste0(libName, '.R'), echo = FALSE, local = FALSE)
+            # source(paste0(libName, '.R'), echo = FALSE, local = FALSE)
+            .LibImportTools.importLibFile(libName, verbosePrint)
             currentImported = append(currentImported, libName)
         }
     }
     if (with.legacy.names){
         verbosePrint("Adding legacy names")
-        source("LibImportTools.LegacyInterface.R", echo = FALSE, local = FALSE)
+        # source("LibImportTools.LegacyInterface.R", echo = FALSE, local = FALSE)
+        .LibImportTools.importLibFile("LibImportTools.LegacyInterface", verbosePrint)
     }
     verbosePrint(paste(length(currentImported), "libraries imported"))
     .LibImportTools.Global.ImportedLibs <<- unique(append(.LibImportTools.Global.ImportedLibs,
                                                           currentImported))
     return(invisible(NULL))
 }
+
+# alias
+codelibImport = LibImportTools.import
 
 #'
 #' @description get what lib are imported
@@ -125,4 +155,10 @@ LibImportTools.getImportedLib = function(){
 #'
 LibImportTools.getKnownLib = function(){
     return(.LibImportTools.Const.KnownLibs)
+}
+
+# auto import when sourcing
+# a bit hacky
+if (exists(".LibImportTools.SourceArgs")) {
+    do.call(LibImportTools.import, get(".LibImportTools.SourceArgs"))
 }

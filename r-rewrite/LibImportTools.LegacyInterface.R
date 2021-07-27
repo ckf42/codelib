@@ -42,8 +42,8 @@
     "MiscUtility.Transform.toHistogramBinIndices" = "transform_to_bin_indices",
 
     # Graph
-    "Graph.Characteristic.balciThresholdNetwork" = "threshold_algo",
     "Graph.Characteristic.completeNetwork" = "complete_network",
+    "Graph.Characteristic.connectivityThresholdNetwork" = "threshold_algo",
     "Graph.Characteristic.longRunCorrNetwork" = "longRunCorrelationNetwork",
     "Graph.Characteristic.optimalThresholdNetwork" = "optimalThresholdNetwork",
     "Graph.Characteristic.planarMaximallyFilteredGraph" = "planar_maximally_filtered_graph",
@@ -91,6 +91,11 @@
     "Graph.Clustering.Overlap.getCommunityInfo" = "overlapCommInfo",
     "Graph.Clustering.Overlap.Transform.belongMatrixToVectList" = "belongVectListFromMatrix",
     "Graph.isPlanarGraphDMP" = "is_planar_graph_DMP"
+)
+
+.LibImportTools.LegacyInterface.Const.ReverseDict = setNames(
+    names(.LibImportTools.LegacyInterface.Const.ReplacementDict),
+    .LibImportTools.LegacyInterface.Const.ReplacementDict
 )
 
 sapply(

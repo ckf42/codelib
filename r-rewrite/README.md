@@ -6,7 +6,7 @@ This directory is for rewriting the old codelib/r with uniform format
 
 Source `LibImportTools.R` with `source(<path to LibImportTools.R>, echo = FALSE, chdir = TRUE)` for setup, then call `LibImportTools.import` (or its alias `codelibImport`) to import libraries
 
-Alternatively, define a named list `.LibImportTools.SourceArgs` with names being the parameter names of `LibImportTools` and values being the parameters before sourcing `LibImportTools.R` (equivalent to a `do.call` on `LibImportTools.import` after sourcing)
+Alternatively, define a named list `.LibImportTools.SourceArgs` with names being the argument names of `LibImportTools.import` and values being the parameters before sourcing `LibImportTools.R`. This is equivalent to a `do.call` on `LibImportTools.import` with `.LibImportTools.SourceArgs`
 
 To see what libraries are available, call `LibImportTools.getKnownLib`
 

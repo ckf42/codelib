@@ -7,6 +7,7 @@
 .LibImportTools.Global.Config = get0(
     ".LibImportTools.Global.Config",
     ifnotfound = list(
+        # default values
         "auto.import.dependent.func" = FALSE
     )
 )
@@ -251,24 +252,26 @@ LibImportTools.getConfig = function() {
 #' @note wrapper of exists and get
 #'
 .LibImportTools.getDependentFunc = function(func.name,
-                                            with.auto.import = .LibImportTools.Global.Config$auto.import.dependent.func) {
+                                            with.auto.import = LibImportTools.getConfig()$auto.import.dependent.func) {
     if (exists(func.name, where = .GlobalEnv)) {
         return(get(func.name, pos = .GlobalEnv))
     } else if (with.auto.import) {
         # resolve lib name
-        funcNameStruct = strsplit(func.name, ".", fixed = TRUE)[[1]]
         knownLib = LibImportTools.getKnownLib()
+        testLibName = func.name
         isImportSuccess = FALSE
-        for (i in rev(seq_len(length(funcNameStruct) - 1))) {
-            testLibName = paste(funcNameStruct[1:i], collapse = '.')
-            if (testLibName %in% knownLib) {
+        while (TRUE){
+            testLibName = sub('(^|\\.)[^.]+$', "", testLibName)
+            if (testLibName == ""){
+                break
+            } else if (testLibName %in% knownLib){
                 LibImportTools.import(testLibName)
                 isImportSuccess = TRUE
                 break
             }
         }
         if (isImportSuccess) {
-            .LibImportTools.getDependentFunc(func.name, with.auto.import = FALSE)
+            return(get(func.name, pos = .GlobalEnv))
         } else {
             stop(paste("Cannot find function", func.name))
         }

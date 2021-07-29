@@ -94,9 +94,10 @@ InfoTheory.Divergence.jensenShannonDivergence = function(list.of.prob.distri, di
 #' @note depends on MiscUtility.Transform.Batch.toHistrogramBinIndices
 #'
 InfoTheory.Entropy.jointEntropy = function(list.of.time.series, bin.number = 10, is.already.discretized = FALSE) {
+    toBinIdx = .LibImportTools.getDependentFunc("MiscUtility.Transform.Batch.toHistrogramBinIndices")
     n = length(list.of.time.series)
     if (!is.already.discretized) {
-        list.of.time.series = MiscUtility.Transform.Batch.toHistrogramBinIndices(list.of.time.series, bin.number)
+        list.of.time.series = toBinIdx(list.of.time.series, bin.number)
     }
     indexToCompute = combn(n, 2)
     returnMatrix = matrix(0, n, n)
@@ -134,9 +135,10 @@ InfoTheory.Entropy.jointEntropy = function(list.of.time.series, bin.number = 10,
 #' @note depends on MiscUtility.Transform.Batch.toHistrogramBinIndices
 #'
 InfoTheory.Similarity.normalizedMuturalInformation = function(list.of.time.series, bin.number = 10, is.already.discretized = FALSE) {
+    toBinIdx = .LibImportTools.getDependentFunc("MiscUtility.Transform.Batch.toHistrogramBinIndices")
     n = length(list.of.time.series)
     if (!is.already.discretized) {
-        list.of.time.series = MiscUtility.Transform.Batch.toHistrogramBinIndices(list.of.time.series, bin.number)
+        list.of.time.series = toBinIdx(list.of.time.series, bin.number)
     }
     # compute lower trig only
     entropyList = sapply(
@@ -181,6 +183,7 @@ InfoTheory.Similarity.normalizedMuturalInformation = function(list.of.time.serie
 #' @note 1 / (2 - normalized_MI_distance) = 1 - NMI_similarity / 2
 #'
 InfoTheory.Divergence.normalizedMIDistance = function(list.of.time.series, bin.number = 10, is.already.discretized = FALSE) {
+    toBinIdx = .LibImportTools.getDependentFunc("MiscUtility.Transform.Batch.toHistrogramBinIndices")
     n = length(list.of.time.series)
     # maxData = sapply(list.of.time.series, max)
     # minData = sapply(list.of.time.series, min)
@@ -191,7 +194,7 @@ InfoTheory.Divergence.normalizedMIDistance = function(list.of.time.series, bin.n
     #                                                  breakPoints[[seqIdx]],
     #                                                  all.inside = TRUE))
     if (!is.already.discretized) {
-        list.of.time.series = MiscUtility.Transform.Batch.toHistrogramBinIndices(list.of.time.series, bin.number)
+        list.of.time.series = toBinIdx(list.of.time.series, bin.number)
     }
     entropyList = sapply(
         seq_len(n),
@@ -266,9 +269,10 @@ InfoTheory.Similarity.spreadNormalizedMuturalInformation = function(list.of.time
                                                                     bin.number = 10,
                                                                     is.already.discretized = FALSE,
                                                                     leave.prob = 1 / 4) {
+    toBinIdx = .LibImportTools.getDependentFunc("MiscUtility.Transform.Batch.toHistrogramBinIndices")
     n = length(list.of.time.series)
     if (!is.already.discretized) {
-        list.of.time.series = MiscUtility.Transform.Batch.toHistrogramBinIndices(list.of.time.series, bin.number)
+        list.of.time.series = toBinIdx(list.of.time.series, bin.number)
     }
     kernelMatrix = c(leave.prob / 2, 1 - leave.prob, leave.prob / 2) %o% c(leave.prob / 2, 1 - leave.prob, leave.prob / 2)
     returnMatrix = matrix(0, n, n)

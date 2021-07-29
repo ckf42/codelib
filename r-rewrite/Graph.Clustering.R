@@ -989,3 +989,89 @@ Graph.Clustering.Animation.plotEvolution = function(evolution.track, fps = 4) {
         Sys.sleep(1 / fps)
     }
 }
+
+#'
+#' @description plot the overlapping communities on a graph
+#'
+#' @param g igraph graph object. assumed to be a undirected unweighted simple
+#'
+#' @param overlap.communities a numeric matrix representing the belonging coefficients,
+#'                               or a list containing the modularity and the matrix
+#'                           this input is passed directly to Graph.Clustering.Overlap.getCommunityInfo as belongingMatrix
+#'
+#' @param ... other argument passed to plot
+#'
+#' @return same as igraph::plot, which is NULL
+#'
+#' @note wrapper of igraph::plot function with mark.groups overridden
+#'
+Graph.Clustering.Plot.overlapCommunity = function(g, overlap.communities, ...) {
+    commInfo = Graph.Clustering.Overlap.getCommunityInfo(overlap.communities)
+    commMembers = commInfo$communityMembers
+    colorPal = rainbow(length(commMembers), alpha = NULL)
+    overlapCount = length(commInfo$overlappedVertex)
+    return(igraph::plot(g,
+                        mark.groups = commMembers,
+                        vertex.shape = if (overlapCount == 0) "circle" else "pie",
+                        vertex.pie = Graph.Clustering.Overlap.Transform.belongMatrixToVectList(commInfo$belongingMatrix),
+                        vertex.pie.color = list(colorPal),
+                        vertex.color = if (overlapCount == 0) colorPal[commInfo$vertexClass] else NULL,
+                        ...
+    ))
+}
+
+#'
+#' @description plot the overlapping communities on a graph directly with algorithms
+#'
+#' @param g igraph graph object. assumed to be a undirected unweighted simple
+#'
+#' @param overlap.community.clustering.method a function that takes a igraph graph object and return a numeric matrix
+#'
+#' @param ... other argument passed to algo
+#'
+#' @return the output of the clustering from algo
+#'
+#' @note wrapper of Graph.Clustering.Plot.overlapCommunity
+#'
+Graph.Clustering.Plot.overlapCommunityFromAlgo = function(g, overlap.community.clustering.method, ...) {
+    res = overlap.community.clustering.method(g, ...)
+    Graph.Clustering.Plot.overlapCommunity(g, res)
+    return(res)
+}
+
+#'
+#' @description plot clustering result
+#'
+#' @param g igraph::graph object. the graph in question
+#'
+#' @param clustered.community igraph::communities object. how the graph is clustered
+#'
+#' @param ... all other parameters are passed to igraph::plot
+#'
+#' @return no return
+#'
+#' @note wrapper for plot
+#'
+Graph.Clustering.Plot.clusterResult = function(g, clustered.community, ...) {
+    igraph::plot(g, mark.groups = clustered.community, ...)
+}
+
+#'
+#' @description plot clustering result
+#'
+#' @param g igraph::graph object. the graph in question
+#'
+#' @param clusterFunc function. should takes only one parameter (the graph)
+#'                        and return a igraph::communities object
+#'
+#' @param ... all other parameters are passed to igraph::plot
+#'
+#' @return the return from clusterFunc
+#'
+#' @note wrapper for Graph.Clustering.Plot.clusterResult
+#'
+Graph.Clustering.Plot.plotAfterClustering = function(g, clustering.func, ...) {
+    clusterRes = clustering.func(g)
+    Graph.Clustering.Plot.clusterResult(g, clusterRes, ...)
+    return(clusterRes)
+}

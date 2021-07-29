@@ -104,7 +104,7 @@ Graph.Layout.asRootCenteredTree = function(g.tree) {
 #'
 Graph.Plot.tree = function(g.forest, ...) {
     if (!Graph.isForest(g.forest)) {
-        stop("In plot_tree, the input graph is not a forest")
+        stop("In Graph.Plot.tree, the input graph is not a forest")
     }
     chosenLayoutFunc = igraph::layout_as_tree
     if (Graph.isTree(g.forest)) {
@@ -164,95 +164,6 @@ Graph.Transform.edgeCutOff = function(g,
     }
     return(igraph::delete_edges(g, Eg[edgesToCutMask]))
 }
-
-
-#'
-#' @description plot clustering result
-#'
-#' @param g igraph::graph object. the graph in question
-#'
-#' @param clustered.community igraph::communities object. how the graph is clustered
-#'
-#' @param ... all other parameters are passed to plot
-#'
-#' @return no return
-#'
-#' @note wrapper for plot
-#'
-Graph.Plot.clusterResult = function(g, clustered.community, ...) {
-    igraph::plot(g, mark.groups = clustered.community, ...)
-}
-
-#'
-#' @description plot clustering result
-#'
-#' @param g igraph::graph object. the graph in question
-#'
-#' @param clusterFunc function. should takes only one parameter (the graph)
-#'                        and return a igraph::communities object
-#'
-#' @param ... all other parameters are passed to plot
-#'
-#' @return the return from clusterFunc
-#'
-#' @note wrapper for plot
-#'
-Graph.Plot.plotAfterClustering = function(g, clustering.func, ...) {
-    clusterRes = clustering.func(g)
-    Graph.Plot.clusterResult(g, clusterRes, ...)
-    return(clusterRes)
-}
-
-
-#'
-#' @description plot the overlapping communities on a graph
-#'
-#' @param g igraph graph object. assumed to be a undirected unweighted simple
-#'
-#' @param overlap.communities a numeric matrix representing the belonging coefficients,
-#'                               or a list containing the modularity and the matrix
-#'                           this input is passed directly to Graph.Clustering.Overlap.getCommunityInfo as belongingMatrix
-#'
-#' @param ... other argument passed to plot
-#'
-#' @return same as igraph::plot, which is NULL
-#'
-#' @note wrapper of igraph::plot function with mark.groups overridden
-#'
-Graph.Plot.overlapCommunity = function(g, overlap.communities, ...) {
-    commInfo = Graph.Clustering.Overlap.getCommunityInfo(overlap.communities)
-    commMembers = commInfo$communityMembers
-    colorPal = rainbow(length(commMembers), alpha = NULL)
-    overlapCount = length(commInfo$overlappedVertex)
-    return(igraph::plot(g,
-        mark.groups = commMembers,
-        vertex.shape = if (overlapCount == 0) "circle" else "pie",
-        vertex.pie = Graph.Clustering.Overlap.Transform.belongMatrixToVectList(commInfo$belongingMatrix),
-        vertex.pie.color = list(colorPal),
-        vertex.color = if (overlapCount == 0) colorPal[commInfo$vertexClass] else NULL,
-        ...
-    ))
-}
-
-#'
-#' @description plot the overlapping communities on a graph directly with algorithms
-#'
-#' @param g igraph graph object. assumed to be a undirected unweighted simple
-#'
-#' @param overlap.community.clustering.method a function that takes a igraph graph object and return a numeric matrix
-#'
-#' @param ... other argument passed to algo
-#'
-#' @return the output of the clustering from algo
-#'
-#' @note wrapper of Graph.Plot.overlapCommunity
-#'
-Graph.Plot.overlapCommunityFromAlgo = function(g, overlap.community.clustering.method, ...) {
-    res = overlap.community.clustering.method(g, ...)
-    Graph.Plot.overlapCommunity(g, res)
-    return(res)
-}
-
 
 #'
 #' @description compute the size of the component of a vertex
@@ -612,11 +523,12 @@ Graph.Characteristic.completeNetwork = function(relation.matrix, is.directed.mat
 #'
 Graph.Characteristic.longRunCorrNetwork = function(list.of.time.series,
                                                    band.width,
-                                                   kernel.func = MiscUtility.Statistics.ParzenKernel.quadraticSpectral,
+                                                   kernel.func = .LibImportTools.getDependentFunc("MiscUtility.Statistics.ParzenKernel.quadraticSpectral"),
                                                    considered.range = NA) {
+    longRunCorr = .LibImportTools.getDependentFunc("MiscUtility.Statistics.longRunCorrMatrix")
     return(
         Graph.Characteristic.completeNetwork(
-            MiscUtility.Statistics.longRunCorrMatrix(
+            longRunCorr(
                 list.of.time.series, band.width, kernel.func, considered.range
             ),
             is.directed.matrix = FALSE,
@@ -641,6 +553,7 @@ Graph.Characteristic.longRunCorrNetwork = function(list.of.time.series,
 #' @note depends on InfoTheory.Divergence.jensenShannonDivergence
 #'
 Graph.Metric.networkNodeDispersion = function(g) {
+    jsDivergence = .LibImportTools.getDependentFunc("InfoTheory.Divergence.jensenShannonDivergence")
     n = vcount(g)
     diam = diameter(g)
     d = apply( # use table?
@@ -649,7 +562,7 @@ Graph.Metric.networkNodeDispersion = function(g) {
         function(distVect) sapply(seq_len(diam), function(x) sum(distVect == x) / (n - 1)),
         simplify = FALSE
     )
-    return(InfoTheory.Divergence.jensenShannonDivergence(d) / log2(1 + diam))
+    return(jsDivergence(d) / log2(1 + diam))
 }
 .LibImportTools.Global.Dependency = append(.LibImportTools.Global.Dependency, "InfoTheory")
 
@@ -685,6 +598,7 @@ Graph.Metric.networkNodeDispersion = function(g) {
 #'       in this implementation, only use the same exo and alpha
 #'
 Graph.Metric.schieberNetworkDissimilarity = function(g1, g2, weight.vect = c(0.45, 0.45, 0.1)) {
+    jsDivergence = .LibImportTools.getDependentFunc("InfoTheory.Divergence.jensenShannonDivergence")
     res = 0
     # basic var
     diam1 = diameter(g1)
@@ -709,23 +623,23 @@ Graph.Metric.schieberNetworkDissimilarity = function(g1, g2, weight.vect = c(0.4
     alphaCentralityRoutine = function(g) alpha.centrality(g, exo = degree(g) / (vcount(g) - 1), alpha = 1 / vcount(g))
     # compute work
     if (weight.vect[1] != 0) {
-        res = weight.vect[1] * sqrt(InfoTheory.Divergence.jensenShannonDivergence(list(totalDistDistri1, totalDistDistri2)))
+        res = weight.vect[1] * sqrt(jsDivergence(list(totalDistDistri1, totalDistDistri2)))
     }
     if (weight.vect[2] != 0) {
         res = res + weight.vect[2] * abs(
-            sqrt(InfoTheory.Divergence.jensenShannonDivergence(distDistri1) / log2(1 + diam1) * log2(exp(1))) -
-                sqrt(InfoTheory.Divergence.jensenShannonDivergence(distDistri2) / log2(1 + diam2) * log2(exp(1)))
+            sqrt(jsDivergence(distDistri1) / log2(1 + diam1) * log2(exp(1))) -
+                sqrt(jsDivergence(distDistri2) / log2(1 + diam2) * log2(exp(1)))
         )
     }
     if (weight.vect[3] != 0) {
         res = res + weight.vect[3] * (
             sqrt(
-                InfoTheory.Divergence.jensenShannonDivergence(list(
+                jsDivergence(list(
                     alphaCentralityRoutine(g1),
                     alphaCentralityRoutine(g2)
                 ))
             ) + sqrt(
-                InfoTheory.Divergence.jensenShannonDivergence(list(
+                jsDivergence(list(
                     alphaCentralityRoutine(complementer(g1)),
                     alphaCentralityRoutine(complementer(g2))
                 ))
@@ -761,6 +675,7 @@ Graph.Metric.schieberNetworkDissimilarity = function(g1, g2, weight.vect = c(0.4
 #' @note depends on MiscUtility.Transform.matrixCutOff
 #'
 Graph.Characteristic.optimalThresholdNetwork = function(list.of.matrix.series, sample.pt.number = 1000, with.random.sample = FALSE) {
+    matrixCutoffFunc = .LibImportTools.getDependentFunc("MiscUtility.Transform.matrixCutOff")
     thetaList = NULL
     if (with.random.sample) {
         thetaList = runif(sample.pt.number, -1, 1)
@@ -780,7 +695,7 @@ Graph.Characteristic.optimalThresholdNetwork = function(list.of.matrix.series, s
             list.of.matrix.series,
             function(m)
                 Graph.Characteristic.completeNetwork(
-                    MiscUtility.Transform.matrixCutOff(m, thisTheta, FALSE),
+                    matrixCutoffFunc(m, thisTheta, FALSE),
                     is.weighted.matrix = FALSE
                 )
         )

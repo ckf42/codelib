@@ -10,6 +10,8 @@ Alternatively, define a named list `.LibImportTools.SourceArgs` with names being
 
 To see what libraries are available, call `LibImportTools.getKnownLib`
 
+Use `LibImportTools.getConfig` and `LibImportTools.setConfig` to control some behavior of Codelib
+
 For detailed information, check the corresponding doc
 
 ## Documentation conventions

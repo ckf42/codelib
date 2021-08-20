@@ -1,5 +1,5 @@
 import re
-from unicodedata import normalize as ucNormalize
+import unicodedata as ud
 
 
 # extract from shdl
@@ -50,13 +50,14 @@ def transformToTitle(s: str) -> str:
 
 
 def sanitizeFilename(s: str) -> str:
-    # TODO use unidecode.unidecode instead?
-    return ucNormalize(
+    return ' '.join(ud.normalize(
         'NFKD',
         s
-        .translate(str.maketrans({k: '' for k in '/<>:\"\\|?*'}))
-        .translate(str.maketrans({'’': '\''}))
-    ).encode('ASCII', 'ignore').decode()
+        .translate(str.maketrans({k: ' ' for k in '/<>:\"\\|?*'}))
+        .translate(str.maketrans({
+            '’': '\''
+        }))  # unicode non Sm category replacement
+    ).encode('ASCII', 'ignore').decode().split(None))
 
 
 authorStr = input("Enter author list, separated by comma: \n")

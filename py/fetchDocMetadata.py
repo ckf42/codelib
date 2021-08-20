@@ -1,5 +1,9 @@
 import requests as rq
 import re
+from html import unescape
+
+import unicodedata as ud
+
 from xml.etree import ElementTree as eTree
 
 queryType = input("Enter query type (doi/arxiv): \n")
@@ -28,13 +32,20 @@ docIden = re.sub(reDOISanitizePattern,
 metaQueryRes = rq.get(metaQueryURL.format(id=docIden),
                       headers=reqHeader)
 
-
 if queryType == 'doi':
     metaDict = metaQueryRes.json()
+    for k, v in metaDict.items():
+        print(k, v)
     print(tuple((aDict['given'], aDict['family'])
                 for aDict in metaDict['author']))
-    print(re.sub('</?mml.+?>', '', metaDict['title']))
+    # print(re.sub('</?mml.+?>', '', metaDict['title']))
+    print(''.join((f' {ud.name(c).title()}'
+                   if not c.isascii() and ud.category(c) == 'Sm'
+                   else c)
+                  for c
+                  in re.sub('</?.+?>', '', unescape(metaDict['title']))))
 elif queryType == 'arxiv':
+    print(metaQueryRes.text.splitlines())
     aStr = '{http://www.w3.org/2005/Atom}'
     xmlEntryRoot = eTree.fromstring(metaQueryRes.text).find(f'{aStr}entry')
     print(tuple(tuple(ele.text.rsplit(' ', 1))

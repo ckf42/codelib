@@ -6,7 +6,7 @@ import unicodedata as ud
 
 from xml.etree import ElementTree as eTree
 
-queryType = input("Enter query type (doi/arxiv): \n")
+queryType = input("Enter query type (doi/arxiv/jstor): \n")
 
 reDOISanitizePattern, metaQueryURL, reqHeader = {
     'doi': (
@@ -18,6 +18,12 @@ reDOISanitizePattern, metaQueryURL, reqHeader = {
         '^(https?://)?arxiv(\\.org/abs/|:)?\\s*',
         'http://export.arxiv.org/api/query?id_list={id}',
         None
+    ),
+    'jstor': (
+        '^(https://)?(www.)?jstor(.org/stable/|:\\s*)',
+        'https://www.jstor.org/citation/ris/{id}',
+        {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:88.0) "
+         "Gecko/20100101 Firefox/88.0"}
     )
 }.get(queryType.lower(), (None, None, None))
 
@@ -54,5 +60,7 @@ elif queryType == 'arxiv':
     print(re.sub('\\s+',
                  ' ',
                  xmlEntryRoot.find(f'{aStr}title').text.replace('\n', '')))
+elif queryType == 'jstor':
+    print(metaQueryRes.text.splitlines())
 else:
     raise ValueError(f"Unknown metaType {queryType}")

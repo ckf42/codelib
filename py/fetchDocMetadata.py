@@ -40,8 +40,8 @@ metaQueryRes = rq.get(metaQueryURL.format(id=docIden),
 
 if queryType == 'doi':
     metaDict = metaQueryRes.json()
-    for k, v in metaDict.items():
-        print(k, v)
+    for k in sorted(metaDict.keys()):
+        print(k, metaDict[k])
     print(tuple((aDict['given'], aDict['family'])
                 for aDict in metaDict['author']))
     # print(re.sub('</?mml.+?>', '', metaDict['title']))

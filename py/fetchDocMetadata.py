@@ -45,6 +45,7 @@ if queryType == 'doi':
     metaDict = metaQueryRes.json()
     for k in sorted(metaDict.keys()):
         print(k, metaDict[k])
+    print(metaDict['published-print'].get('date-parts', [['']])[0][0])
     print(tuple((aDict['given'], aDict['family'])
                 for aDict in metaDict['author']))
     # print(re.sub('</?mml.+?>', '', metaDict['title']))
@@ -54,7 +55,8 @@ if queryType == 'doi':
                   for c
                   in re.sub('</?.+?>', '', unescape(metaDict['title']))))
 elif queryType == 'arxiv':
-    print(metaQueryRes.text.splitlines())
+    for line in metaQueryRes.text.splitlines():
+        print(line)
     aStr = '{http://www.w3.org/2005/Atom}'
     xmlEntryRoot = eTree.fromstring(metaQueryRes.text).find(f'{aStr}entry')
     print(tuple(tuple(ele.text.rsplit(' ', 1))
@@ -64,6 +66,7 @@ elif queryType == 'arxiv':
                  ' ',
                  xmlEntryRoot.find(f'{aStr}title').text.replace('\n', '')))
 elif queryType == 'jstor':
-    print(metaQueryRes.text.splitlines())
+    for line in metaQueryRes.text.splitlines():
+        print(line)
 else:
     raise ValueError(f"Unknown metaType {queryType}")

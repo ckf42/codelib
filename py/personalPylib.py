@@ -389,7 +389,11 @@ def findThisMatchBracket(inputStr: str, startPos: int = 0,
     if len(bracketPair) != 2:
         raise ValueError("bracketPair is not a string of length 2")
     if inputStr[startPos] != bracketPair[0]:
-        raise ValueError("character at startPos is not an opening bracket")
+        raise ValueError("character at startPos "
+                         f"({startPos}) is not an opening bracket. "
+                         "Context: "
+                         + inputStr[max(0, startPos - 10):
+                                    min(len(inputStr), startPos + 10)])
     isEscaped = False
     charIdx = startPos - 1
     while charIdx >= 0 and inputStr[charIdx] == escapeChar:

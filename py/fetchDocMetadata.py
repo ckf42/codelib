@@ -38,6 +38,9 @@ docIden = re.sub(reDOISanitizePattern,
 metaQueryRes = rq.get(metaQueryURL.format(id=docIden),
                       headers=reqHeader)
 
+print(f"id: {docIden}")
+print(f"URL: {metaQueryRes.url}")
+
 if queryType == 'doi':
     metaDict = metaQueryRes.json()
     for k in sorted(metaDict.keys()):

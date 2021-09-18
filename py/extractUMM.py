@@ -12,6 +12,10 @@ parser.add_argument('--sty', type=str,
 parser.add_argument('--out', type=str,
                     help="Path to output cmd tex file. "
                     "Default to umm.tex in tex path")
+parser.add_argument('--embed',
+                    action='store_true',
+                    help="Insert umm directly into tex file. "
+                    "Ignores --out")
 args = parser.parse_args()
 
 texPath = path.Path((args.tex
@@ -35,7 +39,7 @@ outputPath = path.Path(args.out.strip('\'\" ')
                        if args.out is not None
                        else texPath.with_name(texPath.stem + '_umm.tex'))
 printToStdOut = False
-if outputPath.is_file():
+if not args.embed and outputPath.is_file():
     print(f"\"{str(outputPath)}\" already exists. "
           "Will write to stdout instead")
     printToStdOut = True
@@ -100,25 +104,40 @@ outputBuffer = [
 for cmdName in usedCmd:
     outputBuffer.extend(macroDefDict.get(cmdName, []))
 
-f = stdout
-try:
-    if not printToStdOut:
-        f = outputPath.open('xt', encoding='UTF-8')
-except FileExistsError:
-    print(f"\"{str(outputPath)}\" already exists. \n"
-          "Fallback to stdout")
+if args.embed:
+    fileLines = texPath.open('r', encoding='utf-8').readlines()
+    lineLoc = next((idx
+                    for idx in range(len(fileLines))
+                    if fileLines[idx].strip()
+                    == '\\usepackage{usefulmathmacro}'),
+                   None)
+    with texPath.open('w', encoding='utf-8') as f:
+        for line in (
+            outputBuffer + fileLines
+            if lineLoc is None
+            else fileLines[:lineLoc] + outputBuffer + fileLines[lineLoc + 1:]
+        ):
+            print(line, file=f)
+else:
     f = stdout
-except Exception as e:
-    print("ERROR:\nUnknown error occurred", e, "Fallback to stdout")
-    f = stdout
-finally:
-    if f is stdout:
-        print("-------------------- copy after this line --------------------")
-    for line in outputBuffer:
-        print(line, file=f)
-    if f is stdout:
-        print("------------------ copy before this line ------------------")
-    else:
-        f.close()
-        print(f"File written at {str(outputPath)}")
+    try:
+        if not printToStdOut:
+            f = outputPath.open('xt', encoding='UTF-8')
+    except FileExistsError:
+        print(f"\"{str(outputPath)}\" already exists. \n"
+              "Fallback to stdout")
+        f = stdout
+    except Exception as e:
+        print("ERROR:\nUnknown error occurred", e, "Fallback to stdout")
+        f = stdout
+    finally:
+        if f is stdout:
+            print("------------------ copy after this line ------------------")
+        for line in outputBuffer:
+            print(line, file=f)
+        if f is stdout:
+            print("---------------- copy before this line ----------------")
+        else:
+            f.close()
+            print(f"File written at {str(outputPath)}")
 input("Done")

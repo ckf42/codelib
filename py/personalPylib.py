@@ -390,7 +390,7 @@ def findThisMatchBracket(inputStr: str, startPos: int = 0,
         raise ValueError("bracketPair is not a string of length 2")
     if inputStr[startPos] != bracketPair[0]:
         raise ValueError("character at startPos "
-                         f"({startPos}) is not an opening bracket. "
+                         f"({startPos}) is not an opening bracket. \n"
                          "Context: "
                          + inputStr[max(0, startPos - 10):
                                     min(len(inputStr), startPos + 10)])

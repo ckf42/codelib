@@ -16,6 +16,9 @@ parser.add_argument('--embed',
                     action='store_true',
                     help="Insert umm directly into tex file. "
                     "Ignores --out")
+parser.add_argument('--stdout',
+                    action='store_true',
+                    help="Force output to stdout. Ignores --out and --embed")
 args = parser.parse_args()
 
 texPath = path.Path((args.tex
@@ -39,9 +42,12 @@ outputPath = path.Path(args.out.strip('\'\" ')
                        if args.out is not None
                        else texPath.with_name(texPath.stem + '_umm.tex'))
 printToStdOut = False
-if not args.embed and outputPath.is_file():
+if not args.stdout and not args.embed and outputPath.is_file():
     print(f"\"{str(outputPath)}\" already exists. "
           "Will write to stdout instead")
+    printToStdOut = True
+elif args.stdout:
+    args.embed = False
     printToStdOut = True
 
 print("Parsing tex file")
@@ -90,19 +96,58 @@ with styPath.open('rt', encoding='UTF-8') as f:
                                  line)
                 if match is not None:
                     macroDefDict[match.group(1)] \
-                        = macroDefDict[match.group(2)] + [line, ]
+                        = [line, ]
+                    # = macroDefDict[match.group(2)] + [line, ]
                     aliasDict[match.group(1)] = match.group(2)
+definedMacros = list(macroDefDict.keys())
 for (aliasName, realName) in aliasDict.items():
     if aliasName in usedCmd:
         usedCmd.discard(realName)
+usedCmd = [m for m in usedCmd if m in definedMacros]
+
+# find dep
+macroDepDict = dict()
+for m in definedMacros:
+    depList = list()
+    for line in macroDefDict[m]:
+        for match in re.findall(r'(\\[a-zA-Z]+?)\b', line):
+            if match in definedMacros and match not in depList and match != m:
+                depList.append(match)
+    macroDepDict[m] = depList
+
+
+# resolve dep
+topoSortMarkDict = dict()
+topoSortOrdering = list()
+
+
+def topoSortVisit(macroName):
+    if macroName in topoSortMarkDict:
+        if not topoSortMarkDict[macroName]:
+            raise ValueError(f"Macro {macroName} has recursive dependency")
+        else:
+            return
+    topoSortMarkDict[macroName] = False
+    for depKey in macroDepDict[macroName]:
+        topoSortVisit(depKey)
+    topoSortMarkDict[macroName] = True
+    topoSortOrdering.append(macroName)
+
+
+for m in usedCmd:
+    if not topoSortMarkDict.get(m, False):
+        topoSortVisit(m)
+
 outputBuffer = [
     r'\usepackage{amsmath}',
     r'\usepackage{amssymb}',
     r'\usepackage{amsthm}',
     r'\usepackage{xparse}',
 ]
-for cmdName in usedCmd:
+for cmdName in topoSortOrdering:
     outputBuffer.extend(macroDefDict.get(cmdName, []))
+# for cmdName in usedCmd:
+#     outputBuffer.extend(macroDefDict.get(cmdName, []))
 
 if args.embed:
     fileLines = texPath.open('r', encoding='utf-8').readlines()
@@ -117,7 +162,7 @@ if args.embed:
             if lineLoc is None
             else fileLines[:lineLoc] + outputBuffer + fileLines[lineLoc + 1:]
         ):
-            print(line, file=f)
+            print(line.rstrip(), file=f)
 else:
     f = stdout
     try:

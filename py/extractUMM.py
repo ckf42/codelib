@@ -99,6 +99,14 @@ with styPath.open('rt', encoding='UTF-8') as f:
                         = [line, ]
                     # = macroDefDict[match.group(2)] + [line, ]
                     aliasDict[match.group(1)] = match.group(2)
+                else:
+                    match = re.match(
+                        r'\\DeclareMathOperator\{([^}]+?)\}', line)
+                    if match is not None:
+                        collectedMacroLines.clear()
+                        currentMacroName = match.group(1)
+                        doCollecting = False
+                        collectedMacroLines.append(line)
 definedMacros = list(macroDefDict.keys())
 for (aliasName, realName) in aliasDict.items():
     if aliasName in usedCmd:

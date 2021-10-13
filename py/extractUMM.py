@@ -19,6 +19,9 @@ parser.add_argument('--embed',
 parser.add_argument('--stdout',
                     action='store_true',
                     help="Force output to stdout. Ignores --out and --embed")
+parser.add_argument('--verbose',
+                    action='store_true',
+                    help="Verbose msg")
 args = parser.parse_args()
 
 texPath = path.Path((args.tex
@@ -69,9 +72,13 @@ if not packageFound:
     input("UMM not used")
     exit()
 
+if args.verbose:
+    print("cmd found: ")
+    for cmd in usedCmd:
+        print(cmd)
+
 print("Parsing sty file")
 macroDefDict = dict()
-aliasDict = dict()
 collectedMacroLines = list()
 currentMacroName = ''
 doCollecting = False
@@ -79,39 +86,37 @@ with styPath.open('rt', encoding='UTF-8') as f:
     for line in f:
         line = line.rstrip()
         if doCollecting:
+            # doing multiline collection
             collectedMacroLines.append(line)
             if len(line) > 0 and line[0] == '}':
+                # multiline collection ends
                 doCollecting = False
                 macroDefDict[currentMacroName] = collectedMacroLines[:]
-        else:
-            match = re.match(r'\\ProvideDocument[a-zA-Z]+\{([^}]+?)\}', line)
-            if match is not None:
-                collectedMacroLines.clear()
-                currentMacroName = match.group(1)
-                doCollecting = True
-                collectedMacroLines.append(line)
-            else:
-                match = re.match(r'\\providecommand\{(\\[^}]+?)\}\{(\\.+?)\} '
-                                 '%alias',
-                                 line)
-                if match is not None:
-                    macroDefDict[match.group(1)] \
-                        = [line, ]
-                    # = macroDefDict[match.group(2)] + [line, ]
-                    aliasDict[match.group(1)] = match.group(2)
-                else:
-                    match = re.match(
-                        r'\\DeclareMathOperator\{([^}]+?)\}', line)
-                    if match is not None:
-                        collectedMacroLines.clear()
-                        currentMacroName = match.group(1)
-                        doCollecting = False
-                        collectedMacroLines.append(line)
+        elif (match := re.match(r'\\ProvideDocument[a-zA-Z]+\{([^}]+?)\}',
+                                line)) is not None:
+            # start multiline collection
+            collectedMacroLines.clear()
+            currentMacroName = match.group(1)
+            doCollecting = True
+            collectedMacroLines.append(line)
+        elif (match := re.match(r'\\(providecommand|DeclareMathOperator)'
+                                r'\{(\\[^}]+?)\}(\[\d+\])?',
+                                line)) is not None:
+            # single line cmd
+            collectedMacroLines.clear()
+            doCollecting = False
+            macroDefDict[match.group(2)] = [line, ]
 definedMacros = list(macroDefDict.keys())
-for (aliasName, realName) in aliasDict.items():
-    if aliasName in usedCmd:
-        usedCmd.discard(realName)
-usedCmd = [m for m in usedCmd if m in definedMacros]
+usedCmd = sorted([m for m in usedCmd if m in definedMacros])
+
+if args.verbose:
+    print("Defined cmd: ")
+    for cmd in definedMacros:
+        print(cmd)
+
+    print("Used cmd: ")
+    for cmd in usedCmd:
+        print(cmd)
 
 # find dep
 macroDepDict = dict()

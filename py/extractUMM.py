@@ -22,6 +22,10 @@ parser.add_argument('--stdout',
 parser.add_argument('--verbose',
                     action='store_true',
                     help="Verbose msg")
+parser.add_argument('--kpsepath', 
+                    type=str,
+                    help="The path of kpsewhich to use. "
+                    "Defaults to the first one in PATH")
 args = parser.parse_args()
 
 texPath = path.Path((args.tex
@@ -31,9 +35,13 @@ texPath = path.Path((args.tex
 if not texPath.is_file() or texPath.suffix != '.tex':
     input("tex is not a valid path")
     exit()
+
+if args.kpsepath is None:
+    args.kpsepath = 'kpsewhich'
+
 styPath = path.Path(args.sty.strip('\'\" ')
                     if args.sty is not None
-                    else subprocess.run('kpsewhich usefulmathmacro.sty',
+                    else subprocess.run(f'{args.kpsepath} usefulmathmacro.sty',
                                         stdout=subprocess.PIPE,
                                         shell=True,
                                         universal_newlines=True

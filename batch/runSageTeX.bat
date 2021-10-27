@@ -1,9 +1,18 @@
 @echo off
 setlocal
+setlocal enabledelayedexpansion
 
 @rem settings
-set sageVersion=9.2
-set sageRuntimePath=%LOCALAPPDATA%\SageMath %sageVersion%\runtime
+set sageInstallParentDir=%LOCALAPPDATA%
+set sageVersion=
+set sageRuntimePath=
+
+if [%sageVersion%] == [] (
+    set sageInstallName=
+    for /f "usebackq tokens=* delims=" %%r in (`dir /b %sageInstallParentDir% ^| findstr /C:"SageMath"`) do set sageInstallName=%%r
+    set sageVersion=!sageInstallName:~9,12!
+    set sageRuntimePath=%LOCALAPPDATA%\SageMath !sageVersion!\runtime
+)
 
 set sageCmd="%sageRuntimePath%\bin\bash.exe" -l "%sageRuntimePath%\opt\sagemath-%sageVersion%\sage"
 set dirPath=

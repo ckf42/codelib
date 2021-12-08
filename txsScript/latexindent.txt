@@ -1,0 +1,32 @@
+%SCRIPT
+
+texindentPath = "latexindent.exe"
+settingYamlFilePath = "latexindent-settings.yaml"
+texindentPara = "-s -m"
+
+function getSystemStdout(cmd, wd=""){
+    // TODO block printing in texstudio console
+	  res = "";
+    sysproc = system(cmd, wd);
+    sysproc.standardOutputRead.connect( function(x) {res += x} );
+    sysproc.waitForFinished();
+    return res;
+}
+
+tmpFileDir = getSystemStdout("echo %TEMP%")
+tmpFileName = [tmpFileDir + "\\\\"  + ".tmp.latexindent", new Date().getTime(), "tex"].join(".")
+writeFile(tmpFileName, editor.text())
+indentCmd = [
+    texindentPath,
+    texindentPara,
+    "-l",
+    settingYamlFilePath,
+    tmpFileName,
+    "-o",
+    tmpFileName
+].join(" ")
+indentCmdProcess = system(indentCmd, tmpFileDir)
+indentCmdProcess.waitForFinished()
+cmdRes = readFile(tmpFileName)
+system(["rm", tmpFileName].join(" "))
+editor.setText(cmdRes.split("\r\n").join("\n"))

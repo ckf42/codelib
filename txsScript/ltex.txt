@@ -1,0 +1,31 @@
+%SCRIPT
+
+ltexMainPath = "%USERPROFILE%\\.vscode-oss\\extensions"
+configPath = ""
+
+function getSystemStdout(cmd, wd=""){
+    // TODO block printing in texstudio console
+    res = "";
+    sysproc = system(cmd, wd);
+    sysproc.standardOutputRead.connect( function(x) {res += x} );
+    sysproc.waitForFinished();
+    return res;
+}
+
+ltexScriptPath = getSystemStdout("echo " + ltexMainPath)
+res = getSystemStdout("echo valentjn.vscode-ltex-*", ltexScriptPath)
+ltexScriptPath = ltexScriptPath + "\\" + res + "\\lib"
+res = getSystemStdout("echo ltex-ls-*", ltexScriptPath)
+ltexScriptPath = ltexScriptPath + "\\" + res + "\\bin\\ltex-cli.bat"
+
+if (configPath.length != 0){
+    configPath = "--client-configuration=" + configPath;
+}
+
+tmpFileDir = getSystemStdout("echo %TEMP%")
+tmpFileName = [tmpFileDir + "\\\\"  + ".tmp.ltex", new Date().getTime(), "tex"].join(".")
+writeFile(tmpFileName, editor.text())
+
+getSystemStdout([ltexScriptPath, configPath, tmpFileName].join(" "))
+
+system(["rm", tmpFileName].join(" "))

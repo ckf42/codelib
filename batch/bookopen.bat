@@ -1,6 +1,9 @@
 @echo off
 setlocal
 setlocal EnableDelayedExpansion
+REM get original chcp
+set origChcp=
+for /f "usebackq tokens=*" %%o in (`chcp`) do for %%w in (%%o) do set origChcp=%%w
 REM set chcp to UTF-8 for display
 chcp 65001 >NUL
 
@@ -279,6 +282,6 @@ if not [!fzfResult!]==[] (
 )
 
 :endCleanUp
-REM reset chcp to en-US
-chcp 437 >NUL
+@REM reset chcp
+chcp !origChcp! >NUL
 endlocal

@@ -51,6 +51,7 @@ set needToReindex=0
 set needToFetchRemoteIndex=0
 set needHelp=0
 set needToStartSearch=0
+set selectInExplorerOnly=0
 
 :handleParameters
 if [%1]==[] goto endHandleParameters
@@ -73,10 +74,13 @@ if !needHelp! equ 1 (
     echo /f, /fetch                 Fetch remote index file
     echo /R, /rf, /r/f              Equivalent to /r /f
     echo /s, /search                Start searching after /r or /f
-    REM echo /debug Print all debug messages
+    echo /e, /select                Select the file in explorer only
+    @REM echo /d, /debug                 Print all debug messages
     goto endCleanUp
 )
 if "%1"=="/debug" (
+    set /a "scriptDebugFlag+=1"
+) else if "%1"=="/d" (
     set /a "scriptDebugFlag+=1"
 ) else if "%1"=="/r" (
     set needToReindex=1
@@ -99,6 +103,10 @@ if "%1"=="/debug" (
     set needToStartSearch=1
 ) else if "%1"=="/search" (
     set needToStartSearch=1
+) else if "%1"=="/e" (
+    set selectInExplorerOnly=1
+) else if "%1"=="/select" (
+    set selectInExplorerOnly=1
 ) else (
     echo("%1" is not a recognized switch
     goto endCleanUp
@@ -138,9 +146,6 @@ if !needToReindex! equ 1 (
     echo Refreshing index ...
     set remoteFileCount=0
     set localFileCount=0
-    @REM set processedFileCount=0
-    @REM set processedFileRatio=0
-    @REM set processedFileRatioOld=999
     if defined remoteIndexName (
         for /f %%r in ('type %remoteListPath% ^| find /c /v ""') do (
             set remoteFileCount=%%r
@@ -149,34 +154,12 @@ if !needToReindex! equ 1 (
     )
     if !scriptDebugFlag! neq 0 echo truncating local index
     break>%fileListPath%
-    REM %FZF_DEFAULT_COMMAND% . %localPath%>>%fileListPath%
     if !scriptDebugFlag! neq 0 echo rewriting local index
     dir /s /b !localPath!>>%fileListPath%
     for /f %%r in ('type %fileListPath% ^| find /c /v ""') do (
         set localFileCount=%%r
         echo Local file count: %%r
     )
-
-    rem find remote file not in local and append to local index
-    rem for /f "tokens=*" %%f in (%remoteListPath%) do (
-    rem     findstr /L /C:"%%~nxf" %fileListPath% >nul
-    rem     if errorlevel 1 (
-    rem         if !scriptDebugFlag! neq 0 (echo "%%f" not in local)
-    rem         echo %%f>>%fileListPath%
-    rem     )
-    rem     set /a "processedFileCount+=1"
-    rem     set /a "processedFileRatio=processedFileCount*100/remoteFileCount"
-    rem     if not !processedFileRatio! equ !processedFileRatioOld! (
-    rem         if not !processedFileCount! equ 1 (
-    rem             REM not first print, need to overwrite past progress
-    rem             set /p="A[1M" <nul
-    rem         )
-    rem         set /p="Processed !processedFileRatio!%%" <nul
-    rem         set processedFileRatioOld=!processedFileRatio!
-    rem     )
-    rem )
-    rem echo(
-    rem echo Done
 
     rem find local file in remote and remote from cached remote index
     for %%f in ("%fileListPath%") do (
@@ -208,20 +191,23 @@ if not exist %fileListPath% (
 for /f "tokens=* delims=;" %%r in ('type %fileListPath% ^| fzf') do set fzfResult=%%r
 if !scriptDebugFlag! neq 0 (echo fzfResult is !fzfResult!)
 if not [!fzfResult!]==[] (
-    @REM if !scriptDebugFlag! neq 0 (
-    @REM     echo file selected
-    @REM     echo decision part "!fzfResult:~0,25!"
-    @REM )
-    @REM if "!fzfResult:~0,25!"=="C:\Users\akfchan\Desktop\" (
     if exist "!fzfResult!" (
         echo Selected local file
         echo "!fzfResult!"
-        choice /M "Open file?"
+        set msgString="Open file?"
+        if !selectInExplorerOnly! equ 1 set msgString="Select file in explorer?"
+        choice /M !msgString!
         if errorlevel 2 (
             echo Action cancelled
         ) else if errorlevel 1 (
-            echo Opening file ...
-            explorer "!fzfResult!"
+            if !selectInExplorerOnly! equ 1 (
+                echo Selecting file ...
+                @REM assumed local file is recorded with full path
+                explorer /select,"!fzfResult!"
+            ) else (
+                echo Opening file ...
+                explorer "!fzfResult!"
+            )
         ) else (
             echo Error occured
             goto endCleanUp
@@ -236,18 +222,7 @@ if not [!fzfResult!]==[] (
             goto endCleanUp
         )
         set downloadPath=0
-        @REM choice /M "Where to put the file? 1: read, 2: papers, 3: alt" /C 123
         choice /M "!localPathChoiceMsg!" /C !localPathIdxStr!
-        @REM if errorlevel 3 (
-        @REM     set downloadPath=%altDirPath%
-        @REM ) else if errorlevel 2 (
-        @REM     set downloadPath=%papersDirPath%
-        @REM ) else if errorlevel 1 (
-        @REM     set downloadPath=%readDirPath%
-        @REM ) else (
-        @REM     echo Error occured
-        @REM     goto endCleanUp
-        @REM )
         set selectedDownloadPathIdx=!errorlevel!
         set downloadPath=
         for /f %%i in ("!errorlevel!") do set downloadPath=!localPathArr[%%i]!
@@ -284,9 +259,17 @@ if not [!fzfResult!]==[] (
                     echo downloaded path "!downloadPath!\%%~nxr"
                 )
             )
-            choice /M "Open downloaded file?" /C NY
+            set msgString="Open downloaded file?"
+            if !selectInExplorerOnly! equ 1 set msgString="Select downloaded file in explorer?"
+            choice /M !msgString! /C NY
             if errorlevel 2 (
-                for %%r in ("!fzfResult!") do @( explorer "!downloadPath!\%%~nxr" )
+                for %%r in ("!fzfResult!") do @( 
+                    if !selectInExplorerOnly! equ 1 (
+                        explorer /select,"!downloadPath!\%%~nxr"
+                    ) else (
+                        explorer "!downloadPath!\%%~nxr"
+                    ) 
+                )
             )
             break>nul
         ) || ( echo download failed )

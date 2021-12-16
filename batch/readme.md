@@ -1,18 +1,17 @@
 # Description
 
-This folder contains some batch scripts. 
+This folder contains some batch scripts.
 
 ## bookopen.bat
 
-This is a simple interactive script to manage the books I have. 
+This is a simple interactive script I use to manage some books I have on my drive.
 
-It works by storing the file index in a file and querying the index to speed up the loading. It also uses `fzf` for its selection interface.
+It queries a local file index built with option `/r`. Uses `fzf` for selecting files interactively.
 
-You would need to set the script configs manualy. The configs are hard-coded in the script and should be at the beginning of it.
+You would need to set the script configs manually and build the index first. The configs are hard-coded in the script and should be located near the beginning of it.
 
-If you want to use with a remote drive, you would need to set up `rclone` first. It assumes a index file `remoteIndexName`.
+If you want to use it with a remote drive (e.g. for fetching files from remote), you would need to set up the corresponding variables first. By default, it uses `rclone` and assumes a valid `remoteIndexName`.
 
 ## runSageTeX.bat
 
-This script is used in coorpation with `TeXStudio` to compile TeX files that uses the `sagetex` package. It is assumed that `sagemath` is installed. You need to change the `sage` path written in the script.
-
+This script is used as a part of `TeXStudio` build command to compile TeX files that uses the `sagetex` package. It is assumed that `sagemath` is installed properly. You may need to change the `sage` path hard-coded in the script.

@@ -1,10 +1,10 @@
 # txsScript
 
-Here are some macro scripts used for TexStudio.
+Here are some macro scripts I use with TeXStudio.
 
 To use these scripts, simply copy the content of the scripts into the macro dialog.
 
-Remeber to choose macro type "script".
+Remember to choose macro type "script".
 
 ## Note
 
@@ -12,11 +12,11 @@ Most scripts read some hard-coded config variables. These variables work on my m
 
 These config variables are usually put in the very front of the script, before e.g. defining utilitary functions.
 
-To use on other machines, you need to change the varialbes manually to something that match your machine.
+You need to change the variables manually to something that match your machine.
 
 Note that Windows path separator `\` needs to be escaped as `\\`.
 
-All these scripts target Windows machines and TexStudio version 4.0.x. No gaurantee if they work elsewhere.
+All these scripts target MS Windows OS and TeXStudio version 4.0.x. No sure if they work elsewhere.
 
 ## Content
 
@@ -32,11 +32,11 @@ Does not work on non-ascii content (because of latexindent).
 
 #### config
 
-* texindentPath = "latexindent.exe"
+* `texindentPath` = `"latexindent.exe"`
     * Full path to the `latexindent` executable
-* settingYamlFilePath = "latexindent-settings.yaml"
+* `settingYamlFilePath` = `"latexindent-settings.yaml"`
     * Full path to the config yaml used by `latexindent`
-* texindentPara = "-s -m"
+* `texindentPara` = `"-s -m"`
     * Parameters passed to `latexindent`
 
 ### ltex.js
@@ -47,13 +47,13 @@ Requires `LTeX-LS` installed first.
 
 #### config
 
-* ltexVSMainPath = "%USERPROFILE%\\.vscode-oss\\extensions"
+* `ltexVSMainPath` = `"%USERPROFILE%\\.vscode-oss\\extensions"`
     * The path to vscode plugin extension directory. `LTeX-LS` is assumed to be installed with the vscode plugin
     * Possible path:
-        * VSCode: "%USERPROFILE%\\.vscode\\extensions"
-        * VSCodium: "%USERPROFILE%\\.vscode-oss\\extensions"
-* ltexScriptDir = ""
+        * VSCode: `"%USERPROFILE%\\.vscode\\extensions"`
+        * VSCodium: `"%USERPROFILE%\\.vscode-oss\\extensions"`
+* `ltexScriptDir` = `""`
     * The full path to the directory that contains `ltex-cli.bat`.
     * Ignored if `ltexVSMainPath` is set to some nonempty string
-* configPath = ""
+* `configPath` = `""`
     * Path to the json config file used by `LTeX-CLI`

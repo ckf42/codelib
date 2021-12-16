@@ -6,7 +6,7 @@ from sys import stdout
 parser = argparse.ArgumentParser()
 parser.add_argument('--tex', type=str, help="Path to target tex file")
 parser.add_argument('--bib', type=str, nargs='*',
-                    help="Path to target tex file")
+                    help="Path to reference bib file")
 parser.add_argument('--out', type=str,
                     help="Path to output bib file. "
                     "Put \"stdout\" to output to stdout. "

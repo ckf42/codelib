@@ -22,9 +22,10 @@ parser.add_argument('--stdout',
 parser.add_argument('--verbose',
                     action='store_true',
                     help="Verbose msg")
-parser.add_argument('--kpsepath', 
+parser.add_argument('--kpsepath',
                     type=str,
-                    help="The path of kpsewhich to use. "
+                    help="The path of kpsewhich to use to find the macro sty. "
+                    "Useful if you have multiple TeX installations. "
                     "Defaults to the first one in PATH")
 args = parser.parse_args()
 

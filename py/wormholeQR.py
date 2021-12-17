@@ -6,12 +6,18 @@ import subprocess
 parser = argparse.ArgumentParser()
 parser.add_argument('path',
                     type=str,
-                    help="The path of the file to be sent by wormhole")
+                    help="The path of file be sent by wormhole")
+parser.add_argument('--astext',
+                    action='store_true',
+                    help="Send text by wormhole. "
+                    "If specified, path will be treated as plain text")
 args = parser.parse_args()
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 p = subprocess.Popen(
-    ['python', '-m', 'wormhole', 'send', args.path],
+    ['python', '-m',
+     'wormhole', 'send',
+     f'--text={args.path}' if args.astext else args.path, ],
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     shell=True,

@@ -28,6 +28,11 @@ Fetch the metadata of a document identifier and display its metadata in `stdout`
 
 Currently only support `doi`, `arxiv`, and `jstor`.
 
+
+## hxscript.py
+
+Some simple python script I have written for pwning.
+
 ## ipythonInitScript.py
 
 Import some python packages in `ipython` for scicomp. Just run the script after `ipython` is initiated.

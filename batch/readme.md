@@ -21,3 +21,8 @@ This script is used as a part of `TeXStudio` build command to compile TeX files 
 The MiKTeX distribution on the office computer is broken with some outdated packages cannot be update without starting the MiKTeX console with admin mode (which requires admin privilege I do not have). Somehow I cannot install newer version of these packages in user mode with the console. This script tries to install those packages manually.
 
 Running / double clicking on this batch file should fix the issue. Haven't test on other computers though.
+
+## pipup.bat
+
+`pip list -o` with `fzf` for updating python packages. Assumes `fzf` installed
+

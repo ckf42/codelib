@@ -4,7 +4,7 @@ Here are some macro scripts I use with TeXStudio.
 
 To use these scripts, simply copy the content of the scripts into the macro dialog.
 
-Remember to choose macro type "script".
+Remember to choose macro type "script". If the scripts ask for permissions for e.g. executing external commands, just choose Allow.
 
 ## Note
 
@@ -30,6 +30,8 @@ Calls `latexindent` on the current editor content and replace it with the format
 
 Does not work on non-ascii content (because of latexindent).
 
+Works by writing editor content to a file in `temp`.
+
 #### config
 
 * `texindentPath` = `"latexindent.exe"`
@@ -44,6 +46,8 @@ Does not work on non-ascii content (because of latexindent).
 Calls `LTeX-LS` on the current editor content and prints output in TXS console.
 
 Requires `LTeX-LS` installed first.
+
+Works by writing editor content to a file in `temp`.
 
 #### config
 

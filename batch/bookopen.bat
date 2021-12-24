@@ -24,6 +24,8 @@ set fileListPath=%USERPROFILE%\Desktop\aggregatedFileList.txt
 set rcloneDrive=gd:books
 @REM cmd used to get files from remote
 set rcloneCmd=rclone --drive-shared-with-me copy --progress %rcloneDrive%/
+@REM allow unknown para as query? 0/1: F/T
+set unknownParaAsQuery=1
 REM script configs end here
 
 set remoteListPath=%remoteIndexCacheDir%\%remoteIndexName%
@@ -55,6 +57,7 @@ set needToFetchRemoteIndex=0
 set needHelp=0
 set needToStartSearch=0
 set selectInExplorerOnly=0
+set cliQueryStr=
 
 :handleParameters
 if [%1]==[] goto endHandleParameters
@@ -110,6 +113,12 @@ if "%1"=="/debug" (
     set selectInExplorerOnly=1
 ) else if "%1"=="/select" (
     set selectInExplorerOnly=1
+) else if %unknownParaAsQuery% geq 1 (
+    if [!cliQueryStr!]==[] (
+        set cliQueryStr=%1
+    ) else (
+        set cliQueryStr=!cliQueryStr! %1
+    )
 ) else (
     echo("%1" is not a recognized switch
     goto endCleanUp
@@ -117,6 +126,12 @@ if "%1"=="/debug" (
 shift /1
 goto handleParameters
 :endHandleParameters
+if %unknownParaAsQuery% geq 1 (
+    if !scriptDebugFlag! neq 0 (
+        echo Cli query string:
+        echo !cliQueryStr!
+    )
+)
 
 if !scriptDebugFlag! geq 1 (
     echo debug verbose mode
@@ -191,7 +206,11 @@ if not exist %fileListPath% (
     echo %fileListPath% not found
     goto endCleanUp
 )
-for /f "tokens=* delims=;" %%r in ('type %fileListPath% ^| fzf') do set fzfResult=%%r
+set fzfCmd=fzf
+if not [!cliQueryStr!]==[] (
+    set fzfCmd=fzf -q "!cliQueryStr!"
+)
+for /f "tokens=* delims=;" %%r in ('type %fileListPath% ^| !fzfCmd!') do set fzfResult=%%r
 if !scriptDebugFlag! neq 0 (echo fzfResult is !fzfResult!)
 if not [!fzfResult!]==[] (
     if exist "!fzfResult!" (

@@ -1,28 +1,29 @@
 # Description
 
-This folder contains some batch scripts.
+This directory contains some batch scripts.
 
 ## bookopen.bat
 
-This is a simple interactive script I use to manage some books I have on my drive.
+A simple interactive script I use to manage some books (and papers) I have on my computer. Assumes that `fzf` is installed
 
-It queries a local file index built with option `/r`. Uses `fzf` for selecting files interactively.
+It requires a (local) index file for querying. This file can be built (and update) with option `/r`.
 
-You would need to set the script configs manually and build the index first. The configs are hard-coded in the script and should be located near the beginning of it.
+You would need to set the script configs manually and build the index first. The configs are hard-coded in the script and should be located near the beginning of the file.
 
-If you want to use it with a remote drive (e.g. for fetching files from remote), you would need to set up the corresponding variables first. By default, it uses `rclone` and assumes a valid `remoteIndexName`.
+To use it with a remote drive (e.g. for fetching files from remote), you would need to set up the corresponding variables first. By default, it uses `rclone` and assumes a valid `remoteIndexName`.
 
 ## runSageTeX.bat
 
-This script is used as a part of `TeXStudio` build command to compile TeX files that uses the `sagetex` package. It is assumed that `sagemath` is installed properly. You may need to change the `sage` path hard-coded in the script.
+This script is used as a part of `TeXStudio` build command to compile TeX files that uses the `sagetex` package. Assumes that `sagemath` is installed. You may need to change the `sage` path hard-coded in the script.
+
+The corresponding build command would be something like `"path\to\runSageTeX.bat" ?am"`
 
 ## mikTexFix.bat
 
-The MiKTeX distribution on the office computer is broken with some outdated packages cannot be update without starting the MiKTeX console with admin mode (which requires admin privilege I do not have). Somehow I cannot install newer version of these packages in user mode with the console. This script tries to install those packages manually.
+The MiKTeX distribution in my office computer is broken with some outdated packages cannot be updated without starting the MiKTeX console in admin mode (which requires admin privilege I do not have). Somehow I cannot install newer version of these packages in user mode with the MiKTeX console. This script tries to install those packages manually.
 
-Running / double clicking on this batch file should fix the issue. Haven't test on other computers though.
+Running / double-clicking on this batch file should fix the issue. Haven't test on other computers though.
 
 ## pipup.bat
 
-`pip list -o` with `fzf` for updating python packages. Assumes `fzf` installed
-
+`pip list -o` with `fzf` to update python packages. Assumes `fzf` is installed

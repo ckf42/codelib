@@ -58,70 +58,90 @@ set needHelp=0
 set needToStartSearch=0
 set selectInExplorerOnly=0
 set cliQueryStr=
+set inQueryStrings=0
 
 :handleParameters
 if [%1]==[] goto endHandleParameters
 if !scriptDebugFlag! neq 0 echo(para %1
-if "%1"=="/help" (
-    set needHelp=1
-) else if "%1"=="/h" (
-    set needHelp=1
-) else if "%1"=="/?" (
-    set needHelp=1
-) else if "%1"=="-h" (
-    set needHelp=1
-) else if "%1"=="--help" (
-    set needHelp=1
-)
-if !needHelp! equ 1 (
-    echo %~nx0 switches:
-    echo(/?, /h, /help, -h, --help  Display this help message and exit
-    echo /r, /refresh               Reindex local files
-    echo /f, /fetch                 Fetch remote index file
-    echo /R, /rf, /r/f              Equivalent to /r /f
-    echo /s, /search                Start searching after /r or /f
-    echo /e, /select                Select the file in explorer only
-    @REM echo /d, /debug                 Print all debug messages
-    goto endCleanUp
-)
-if "%1"=="/debug" (
-    set /a "scriptDebugFlag+=1"
-) else if "%1"=="/d" (
-    set /a "scriptDebugFlag+=1"
-) else if "%1"=="/r" (
-    set needToReindex=1
-) else if "%1"=="/refresh" (
-    set needToReindex=1
-) else if "%1"=="/R" (
-    set needToReindex=1
-    set needToFetchRemoteIndex=1
-) else if "%1"=="/rf" (
-    set needToReindex=1
-    set needToFetchRemoteIndex=1
-) else if "%1"=="/r/f" (
-    set needToReindex=1
-    set needToFetchRemoteIndex=1
-) else if "%1"=="/f" (
-    set needToFetchRemoteIndex=1
-) else if "%1"=="/fetch" (
-    set needToFetchRemoteIndex=1
-) else if "%1"=="/s" (
-    set needToStartSearch=1
-) else if "%1"=="/search" (
-    set needToStartSearch=1
-) else if "%1"=="/e" (
-    set selectInExplorerOnly=1
-) else if "%1"=="/select" (
-    set selectInExplorerOnly=1
-) else if %unknownParaAsQuery% geq 1 (
+
+if !inQueryStrings! geq 1 (
+    @REM all are query string
     if [!cliQueryStr!]==[] (
         set cliQueryStr=%1
     ) else (
         set cliQueryStr=!cliQueryStr! %1
     )
 ) else (
-    echo("%1" is not a recognized switch
-    goto endCleanUp
+    @REM normal para handling
+    if "%1"=="/help" (
+        set needHelp=1
+    ) else if "%1"=="/h" (
+        set needHelp=1
+    ) else if "%1"=="/?" (
+        set needHelp=1
+    ) else if "%1"=="-h" (
+        set needHelp=1
+    ) else if "%1"=="--help" (
+        set needHelp=1
+    )
+    if !needHelp! equ 1 (
+        echo %~nx0 switches:
+        echo(/?, /h, /help, -h, --help  Display this help message and exit
+        echo /r, /refresh               Reindex local files
+        echo /f, /fetch                 Fetch remote index file
+        @REM echo /R, /rf, /r/f              Equivalent to /r /f
+        echo /R                         Equivalent to /r /f
+        echo /s, /search                Start searching after /r or /f
+        echo /e, /select                Select the file in explorer only
+        if %unknownParaAsQuery% geq 1 (
+            echo --                         Stop parsing parameters and treat everything afterward as query string
+        )
+        @REM echo /d, /debug                 Print all debug messages
+        goto endCleanUp
+    )
+    if "%1"=="/debug" (
+        set /a "scriptDebugFlag+=1"
+    ) else if "%1"=="/d" (
+        set /a "scriptDebugFlag+=1"
+    ) else if "%1"=="/r" (
+        set needToReindex=1
+    ) else if "%1"=="/refresh" (
+        set needToReindex=1
+    ) else if "%1"=="/R" (
+        set needToReindex=1
+        set needToFetchRemoteIndex=1
+    @REM ) else if "%1"=="/rf" (
+    @REM     set needToReindex=1
+    @REM     set needToFetchRemoteIndex=1
+    @REM ) else if "%1"=="/r/f" (
+    @REM     set needToReindex=1
+    @REM     set needToFetchRemoteIndex=1
+    ) else if "%1"=="/f" (
+        set needToFetchRemoteIndex=1
+    ) else if "%1"=="/fetch" (
+        set needToFetchRemoteIndex=1
+    ) else if "%1"=="/s" (
+        set needToStartSearch=1
+    ) else if "%1"=="/search" (
+        set needToStartSearch=1
+    ) else if "%1"=="/e" (
+        set selectInExplorerOnly=1
+    ) else if "%1"=="/select" (
+        set selectInExplorerOnly=1
+    ) else if %unknownParaAsQuery% geq 1 (
+        @REM special para: query strings
+        if "%1"=="--" (
+            set inQueryStrings=1
+        ) else if [!cliQueryStr!]==[] (
+            set cliQueryStr=%1
+        ) else (
+            set cliQueryStr=!cliQueryStr! %1
+        )
+    ) else (
+        echo("%1" is not a recognized switch
+        goto endCleanUp
+    )
+
 )
 shift /1
 goto handleParameters

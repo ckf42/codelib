@@ -1,6 +1,6 @@
 # R CodeLib Rewrite Project
 
-This directory is for rewriting the old codelib/r with uniform format
+This directory is for rewriting the old codelib/r/legacy with uniform format
 
 ## Usage
 
@@ -86,3 +86,4 @@ Items in each category are list in descending order of importance
     * check if current documentation style format is correct
     * use external addons for writing documentation?
     * consider adding an author tag?
+

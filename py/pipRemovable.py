@@ -17,7 +17,6 @@ packageList = json.loads(subprocess.run(['pipdeptree',
                                          '--json'],
                                         stdout=subprocess.PIPE)
                          .stdout.decode())
-print("[DEBUG]: pipdeptree queried")
 # O(E)
 depTree = dict()
 for node in packageList:
@@ -31,7 +30,6 @@ for pacName in depTree:
         affTree[pacName] = list()
     for depName in depTree[pacName]:
         affTree[depName] = (affTree.get(depName, list()) + [pacName, ])
-print("[DEBUG]: Trees built")
 removableRecord = dict()
 
 
@@ -77,10 +75,8 @@ if len(args.target) != 0:
             # mark package as NOT-removable
             removableRecord[pacName] = False
     targetPacList = list(removableRecord.keys())
-    print(removableRecord)
     for pacName in targetPacList:
         updateSubDepStatus(pacName)
-        print(f"[DEBUG]: {pacName} updated")
     removablePac = [pacName
                     for pacName in removableRecord.keys()
                     if removableRecord[pacName]]  # if is TRUE

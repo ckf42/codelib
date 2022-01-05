@@ -59,7 +59,7 @@ A simple python I use to generate some sounds. Uses `numpy`
 
 Some python scripts I have written, for general purposes. May be used in other scripts.
 
-## pipPurge.py
+## pipRemovable.py
 
 A python script to check the dependencies of packages. Depends on `pipdeptree >= 0.5.0` (ironically). 
 

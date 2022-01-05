@@ -68,6 +68,10 @@ if len(args.target) != 0:
             removableRecord[pacName] = (True
                                         if len(affTree[pacName]) == 0
                                         else None)
+    if args.protect is None:
+        args.protect = ["pip", ]
+    else:
+        args.protect.append("pip")
     for pacName in (args.protect if args.protect is not None else list()):
         if pacName not in depTree:
             print(f"{pacName} is not installed")

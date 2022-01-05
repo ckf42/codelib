@@ -59,6 +59,12 @@ A simple python I use to generate some sounds. Uses `numpy`
 
 Some python scripts I have written, for general purposes. May be used in other scripts.
 
+## pipPurge.py
+
+A python script to check the dependencies of packages. Depends on `pipdeptree >= 0.5.0` (ironically). 
+
+**WARNING** the functionality depends on `pipdeptree`. If `pipdeptree` does not detect dependencies correctly (e.g. as optional), this script also gives incorrect answers. Check the dependencies yourself before actually uninstalling packages.
+
 ## wormholeQR.py
 
 Read the `wormhole send` code and generate a QR code that can be read by `wormhole-william`. Use for transferring files from computer to cellphone with `wormhole(-william)`

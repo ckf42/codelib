@@ -15,8 +15,8 @@ args = parser.parse_args()
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 p = subprocess.Popen(
-    ['python', '-m',
-     'wormhole', 'send',
+    # ['python', '-m',
+    ['wormhole', 'send',
      f'--text={args.path}' if args.astext else args.path, ],
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,

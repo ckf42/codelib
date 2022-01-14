@@ -40,6 +40,7 @@ metaQueryRes = rq.get(metaQueryURL.format(id=docIden),
 
 print(f"id: {docIden}")
 print(f"URL: {metaQueryRes.url}")
+print(f"content-type: {metaQueryRes.headers['content-type']}")
 
 if queryType == 'doi':
     metaDict = metaQueryRes.json()

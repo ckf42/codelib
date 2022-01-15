@@ -266,7 +266,8 @@ def hexByteStringToArr(hexByteStr: str,
 
     unitByteLen: int. The length of a byte in terms of blocks. Defaults to 4
 
-    inBigEndian: bool. Whether the string is recorded in big endian.
+    inBigEndian: bool. Whether the string is recorded in big endian
+                 (Most significant bytr first)
                  Defaults to True
 
     isNum: bool. Whether the contents are integers.
@@ -279,19 +280,19 @@ def hexByteStringToArr(hexByteStr: str,
     ----
     Example:
     >>> hx.hexByteStringToArr('61 62 63 64')
-    [1684234849]
+    [1633837924]
     >>> hx.hexByteStringToArr('61 62 63 64', unitByteLen=2)
-    [25185, 25699]
-    >>> hx.hexByteStringToArr('61 62 63 64', unitByteLen=2, isBigEndian=False)
     [24930, 25444]
+    >>> hx.hexByteStringToArr('61 62 63 64', unitByteLen=2, isBigEndian=False)
+    [25185, 25699]
     >>> hx.hexByteStringToArr('61 62 63 64', unitByteLen=2, isNum=False)
-    ['6261', '6463']
+    ['6162', '6364']
     """
     assert unitByteLen > 0
     arr = hexByteStr.split()
     assert len(arr) % unitByteLen == 0
     arr = [arr[i: i + unitByteLen] for i in range(0, len(arr), unitByteLen)]
-    if isBigEndian:
+    if not isBigEndian:
         arr = [seg[::-1] for seg in arr]
     arr = [''.join(seg) for seg in arr]
     if isNum:

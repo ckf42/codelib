@@ -27,3 +27,8 @@ Running / double-clicking on this batch file should fix the issue. Haven't test 
 ## pipup.bat
 
 `pip list -o` with `fzf` to update python packages. Assumes `fzf` is installed
+
+## condaUpdateAll.bat
+
+Updall all conda environments
+

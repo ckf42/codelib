@@ -30,5 +30,14 @@ Running / double-clicking on this batch file should fix the issue. Haven't test 
 
 ## condaUpdateAll.bat
 
-Updall all conda environments
+Updates all conda environments
+
+## callCondaCmd.template.bat 
+
+Calls the given command passing all parameters.
+
+Also checks if the given Conda Environment is activated. If not, the environment is activated before calling the command, then deactivate it after the command.
+
+Also safe-guard deactivating the environment from `CTRL-C` aborting.
+
 

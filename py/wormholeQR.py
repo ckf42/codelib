@@ -2,6 +2,7 @@ import argparse
 import os
 import qrcode
 import subprocess
+import locale
 
 parser = argparse.ArgumentParser()
 parser.add_argument('path',
@@ -15,7 +16,6 @@ args = parser.parse_args()
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 p = subprocess.Popen(
-    # ['python', '-m',
     ['wormhole', 'send',
      f'--text={args.path}' if args.astext else args.path, ],
     stdout=subprocess.PIPE,
@@ -26,7 +26,7 @@ p = subprocess.Popen(
 qrCodeObj = None
 while p.poll() is None:
     for line in p.stdout:
-        line = line.decode()
+        line = line.decode(locale.getpreferredencoding())
         print(line, end='')
         if qrCodeObj is None and line.startswith('wormhole receive'):
             whCode = line.split()[2]
@@ -34,3 +34,4 @@ while p.poll() is None:
             qrCodeObj.add_data(
                 f'wormhole:relay.magic-wormhole.io:4000?code={whCode}')
             qrCodeObj.print_ascii(invert=True)
+

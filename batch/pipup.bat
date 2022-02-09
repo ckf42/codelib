@@ -16,5 +16,6 @@ if !hasChosenPackage! geq 1 (
     choice /C YN /M "Press Y to proceed, N for cancel"
     if not errorlevel 2 (
         !pipUpdateCmd!
+        pip check -v
     )
 )

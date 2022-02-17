@@ -40,4 +40,7 @@ Also checks if the given Conda Environment is activated. If not, the environment
 
 Also safe-guard deactivating the environment from `CTRL-C` aborting.
 
+## networkDisconnectAlert.bat
+
+Check if the network is connected and alert if not
 

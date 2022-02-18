@@ -2,7 +2,8 @@
 setlocal EnableDelayedExpansion
 
 set checkDomain=example.com
-set requiredFailCount=10
+set requiredFailCount=3
+set pingWaitTime=10
 set doSimpleBeep=0
 set doPowershellBeep=1
 set beepFreq=550
@@ -11,14 +12,19 @@ set doTTS=1
 set ttsSentence=network disconnected
 
 set currentFailCount=0
-echo Hold CTRL-C to quit
 :pingLoopBegin
 
+echo Waiting %pingWaitTime% second(s) for the next ping ...
+choice /C SPQ /D S /T %pingWaitTime% /M "Press [S] to skip waiting, [P] to pause, or [Q] to quit"
+if ERRORLEVEL 3 ( goto endLabel )
+if ERRORLEVEL 2 ( pause )
 ping %checkDomain% -n 1 >NUL
 if ERRORLEVEL 1 (
     set /A "currentFailCount=currentFailCount+1"
+    echo Ping failed !currentFailCount! / %requiredFailCount%
 ) else (
     set currentFailCount=0
+    echo Ping succeed
 )
 if !currentFailCount! GEQ %requiredFailCount% (
     if %doSimpleBeep% EQU 1 (
@@ -33,3 +39,5 @@ if !currentFailCount! GEQ %requiredFailCount% (
 )
 
 goto pingLoopBegin
+:endLabel
+

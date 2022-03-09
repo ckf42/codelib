@@ -1,6 +1,6 @@
 import string
 import pathlib
-from typing import Iterable
+from typing import Iterable, Optional, Callable
 
 
 def rot13(s: str, n: int = 13) -> str:
@@ -29,7 +29,7 @@ def rot13(s: str, n: int = 13) -> str:
 
 def caeserBruteForce(s: str) -> list[str]:
     """
-    Enumerate all possible results of Ceaser cipher
+    Enumerate all possible results of Caeser cipher
     ----
     Parameter:
     s: str. The input string.
@@ -42,9 +42,10 @@ def caeserBruteForce(s: str) -> list[str]:
     ['abcd',
      'bcde',
      ...,
-     'yzab']
+     'yzab',
+     'zabc']
     """
-    return [rot13(s, i) for i in range(25)]
+    return [rot13(s, i) for i in range(26)]
 
 
 def lenIndices(it: Iterable, toReverse: bool = False) -> range:
@@ -154,7 +155,7 @@ def splitString(s: str, unitLen: int = 8, strict: bool = True) -> list[str]:
     Parameter:
     s: str. The target string
 
-    unitLen: int. The length of a chunk. Defautls to 8
+    unitLen: int. The length of a chunk. Defaults to 8
 
     strict: bool. Decide whether to allow the last block being half-filled.
             If True, length of input string must be integer multiple of chunk
@@ -237,8 +238,8 @@ def alphaToNum(s: str) -> list:
     s: string. The target string
     ----
     Return:
-    A list containing the indices of chatacters in the string
-    (case insensitive, starts with a = 1) in the English alphabet,
+    A list containing the indices of characters in the string
+    (case insensitive, starts with a = 0) in the English alphabet,
     or the original characters if they are not English letters
     ----
     Example:
@@ -251,7 +252,6 @@ def alphaToNum(s: str) -> list:
                   if c.isupper()
                   else c))
             for c in s]
-
 
 def hexByteStringToArr(hexByteStr: str,
                        unitByteLen: int = 4,
@@ -267,11 +267,11 @@ def hexByteStringToArr(hexByteStr: str,
     unitByteLen: int. The length of a byte in terms of blocks. Defaults to 4
 
     inBigEndian: bool. Whether the string is recorded in big endian
-                 (Most significant bytr first)
+                 (Most significant byte first)
                  Defaults to True
 
     isNum: bool. Whether the contents are integers.
-           If True, will try to convereach block into hex integers.
+           If True, will try to convert each block into hex integers.
            If False, the blocks are returned as hex string.
            Defaults to False
     ----
@@ -300,3 +300,194 @@ def hexByteStringToArr(hexByteStr: str,
     else:
         return arr
 
+def combineFromEach(listOfIter: list[Iterable],
+                    postMap: Optional[callable] = None):
+    """
+    Picks elements from a list and applies optional map
+    ----
+    Parameter:
+    listOfIter: list of iterable. Should contain the objects to be combined
+    
+    postMap: None or callable. The map to be applied on each combination.
+             Defaults to None (identity map)
+    ----
+    Return:
+    A list of results of the post map of all combinations of elements
+    in the list 
+    ----
+    Example:
+    >>> combineFromEach([[1, 2], [3, 4], [5]])
+    [[1, 3, 5], [1, 4, 5], [2, 3, 5], [2, 4, 5]]
+    >>> combineFromEach([[1, 2], [3, 4], [5]], sum)
+    [9, 10, 10, 11]
+    """
+    if postMap is not None:
+        return [postMap(i) for i in combineFromEach(listOfIter)]
+    elif len(listOfIter) == 1:
+        return [[i] for i in listOfIter[0]]
+    else:
+        return [[firstItem] + tailComb
+                for firstItem in listOfIter[0] 
+                for tailComb in combineFromEach(listOfIter[1:])]
+
+def vigenere_map(s: str,
+                 keyStr: str,
+                 doEncrypt: bool = True) -> str:
+    """
+    Maps the string under the Vigenere cipher
+    ----
+    Parameter:
+    s: str. The string to be mapped. Non-alphabetic characters are ignored.
+    
+    keyStr: str. The key string. Assumed to contains only alphabetic characters
+    
+    doEncrypt: bool. If True, s is encrypted with keyStr, decrypted if False
+               Defaults to True
+    ----
+    Return:
+    The result of the Vigenere map as a str
+    ----
+    Example:
+    >>> vigenere_map("this is a test string", "key")
+    [[1, 3, 5], [1, 4, 5], [2, 3, 5], [2, 4, 5]]
+    >>> vigenere_map("dlgc mq k xccx qdvgxk", "key", doEncrypt=False)
+    [9, 10, 10, 11]
+    """
+    kptr = 0
+    klen = len(keyStr)
+    pStr = ''
+    for c in s:
+        if c.isalpha():
+            pStr += rot13(c, (1 if doEncrypt else -1) * alphaToNum(keyStr[kptr])[0])
+            kptr = (kptr + 1) % klen
+        else:
+            pStr += c
+    return pStr
+
+def vigenere_crack(
+    cipherStr: str,
+    minKeyLen: int = 3,
+    maxKeyLen: int = 10,
+    takeTopCount: int = 5,
+    groundTruth: str = '',
+    freqDistFunc: Callable[dict, float] = distToEnglishText
+    ) -> list[tuple[str, str, float]]:
+    """
+    Tries to crack the Vigenere cipher with frequency attack
+    ----
+    Parameter:
+    cipherStr: str. The cipher text. Non-alphabetic characters are ignored
+    
+    minKeyLen: int. The minimal key length to be tested.
+               Defaults to 3
+    
+    maxKeyLen: int. The maximal key length to be tested.
+               Required to be at least 4 times of the length of cipherStr 
+               (ignoring non-alphabetic characters)
+               Defaults to 10
+
+    takeTopCount: int. The number of choice to consider for each letter in the key
+                  Defaults to 5
+    
+    groundTruth: str. Known parts of the string.Non-alphabetic characters 
+                 are ignored
+                 Will be truncated or padded with spaces if length does 
+                 not match
+                 Defaults to empty string (no known ground truth)
+    
+    freqDistFunc: callable. The function to get the character distribution distance.
+                  Should take a dict and return a float representing the distance 
+                  to reference character distribution
+                  Defaults to distToEnglishText
+    ----
+    Return:
+    A list of tuples that contains 3 elements:
+        the possible key: str
+        the possible plaintext from the key above: str
+        the distance to the standard character distribution: float
+    The list is sorted by the distance in increasing order
+    ----
+    Example:
+    >>> vigenere_crack(vigenere_map("this is a test string", "key"), 3, 3)
+    [
+        ('kec', 'thes io a tast otreng', 0.6299157414401557),
+        ('zeo', 'ehsd ic l todt cersyg', 0.6835626918468961),
+        ('zec', 'ehed io l tadt oereyg', 0.7046858962341623),
+        <truncated>
+        ('key', 'this is a test string', 0.9175545173500743),
+        <truncated>
+    # (125 items in total)
+    >>> vigenere_crack(vigenere_map("this is a test string", "key"), 3, 3, groundTruth="t is")
+    [
+        ('kiy', 'tdis es a pesp stninc', 0.8774170732565146),
+        ('kty', 'tsis ts a eese stcinr', 0.8987442044611574),
+        ('key', 'this is a test string', 0.9175545173500743),
+        ('kxy', 'tois ps a aesa styinn', 0.9309291480150536),
+        ('kry', 'tuis vs a gesg steint', 0.9554991028188043)
+    ]
+    """
+    if len(groundTruth) > len(cipherStr):
+        groundTruth = groundTruth[:len(cipherStr)]
+    elif len(groundTruth) < len(cipherStr):
+        groundTruth += ' ' * (len(cipherStr) - len(groundTruth))
+    pureCipherIdx = [idx 
+                     for (idx, c) in enumerate(cipherStr) 
+                     if c.isalpha()]
+    cipherLen = len(pureCipherIdx)
+    if maxKeyLen > cipherLen // 4:
+        raise ValueError(f'Cipher is too short ({cipherLen}) '
+                         f'for maximal key length ({maxKeyLen}).')
+    resultList = []
+    for proposedKeyLen in range(minKeyLen, maxKeyLen + 1):
+        strBuckets = [
+            ''.join([cipherStr[pureCipherIdx[c]]
+                     for c in range(charOffset, 
+                                    cipherLen, 
+                                    proposedKeyLen)])
+            for charOffset in range(0, proposedKeyLen)
+        ]
+        gtBuckets = [
+            ''.join([groundTruth[pureCipherIdx[c]]
+                     for c in range(charOffset, 
+                                    cipherLen, 
+                                    proposedKeyLen)])
+            for charOffset in range(0, proposedKeyLen)
+        ]
+        freqBuckets = [
+            [
+                (26 - idx, freqDistFunc(toCharFreq(guessText)))
+                for (idx, guessText) in enumerate(caeserBruteForce(cipherFrag))
+                if all([
+                    not g.isalpha() or c.lower() == g.lower()
+                    for (c, g) in zip(guessText, gtFrag)
+                ])
+            ]
+            for (cipherFrag, gtFrag) in zip(strBuckets, gtBuckets)
+        ]
+        freqOrder = [
+            [
+                fb[idx]
+                for idx in sorted(lenIndices(fb), 
+                                  key=lambda x: fb[x][1])[:takeTopCount]
+            ]
+            for fb in freqBuckets
+        ]
+        possibleKeys = combineFromEach([
+            [
+                chr(fb[idx][0] + ord('a'))
+                for (idx, val) in enumerate(fb)
+                if val in fo
+            ]
+            for (fb, fo) in zip(freqBuckets, freqOrder)
+        ], lambda x: ''.join(x))
+        resultList.extend([
+            (
+                k, 
+                (p := vigenere_map(cipherStr, k, False)),
+                freqDistFunc(toCharFreq(p))
+            )
+            for k in possibleKeys
+        ])
+    return sorted(resultList, key=lambda x: x[2])
+        
+    

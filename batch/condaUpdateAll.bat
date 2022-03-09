@@ -14,8 +14,8 @@ for /F "usebackq tokens=1,2" %%n in (`%CONDA_BAT% info --envs`) do @(
                 %CONDA_BAT% update --all --yes --name %%n
                 %CONDA_BAT% clean --all --yes
                 if [%1] EQU [/f] @(
-                    dir %condaBinPath%\..\envs\%%n\Scripts\*.c~
-                    del /F %condaBinPath%\..\envs\%%n\Scripts\*.c~
+                    dir /B %condaBinPath%\..\envs\%%n\Scripts\*.conda_trash
+                    del /F %condaBinPath%\..\envs\%%n\Scripts\*.conda_trash
                 )
             )
         )

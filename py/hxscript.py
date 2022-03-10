@@ -1,5 +1,6 @@
 import string
 import pathlib
+import re
 from typing import Iterable, Optional, Callable
 
 
@@ -364,16 +365,44 @@ def vigenere_map(s: str,
             pStr += c
     return pStr
 
+def factors(n: int) -> list[int]:
+    """
+    Gets all factors of a integer
+    ----
+    Parameter:
+    n: int. The target integer
+    ----
+    Return:
+    A list of integer factors of n in increasing order
+    If n is negative, an extra -1 will be prepended to factors(-n)
+    ----
+    Example:
+    >>> factors(144)
+    [1, 2, 3, 4, 6, 8, 9, 12, 16, 18, 24, 36, 48, 72, 144]
+    >>> factors(-144)
+    [-1, 1, 2, 3, 4, 6, 8, 9, 12, 16, 18, 24, 36, 48, 72, 144]
+    """
+    if n < 0:
+        return [-1, ] + factors(-n)
+    return sorted(set().union(*[
+        [i, n // i]
+        for i in range(1, int(n ** 0.5) + 1)
+        if not n % i
+    ]))
+
 def vigenere_crack(
     cipherStr: str,
     minKeyLen: int = 3,
     maxKeyLen: int = 10,
     takeTopCount: int = 5,
     groundTruth: str = '',
-    freqDistFunc: Callable[dict, float] = distToEnglishText
+    freqDistFunc: Callable[dict, float] = distToEnglishText,
+    distCutoff: float = None,
+    kasiskiOnly: bool = True,
+    checkerFunc: Callable[str, bool] = (lambda x: True)
     ) -> list[tuple[str, str, float]]:
     """
-    Tries to crack the Vigenere cipher with frequency attack
+    Tries to crack the Vigenere cipher with column-wise frequency attack
     ----
     Parameter:
     cipherStr: str. The cipher text. Non-alphabetic characters are ignored
@@ -399,6 +428,18 @@ def vigenere_crack(
                   Should take a dict and return a float representing the distance 
                   to reference character distribution
                   Defaults to distToEnglishText
+    
+    distCutoff: float, or None. The maximal value for a key to be accepted
+                If None, no cutoff is taken.
+                Defaults to None
+    
+    kasiskiOnly: bool. Should we use only key length from Kasiski analysis?
+                 Defaults to True
+                 
+    checkerFunc: callable. The function to decide if a possible plaintext
+                 should be accepted or not.
+                 Should take a str and return a bool indicating the decision
+                 Defaults to return True on all str (accept all plaintext)
     ----
     Return:
     A list of tuples that contains 3 elements:
@@ -434,13 +475,40 @@ def vigenere_crack(
                      for (idx, c) in enumerate(cipherStr) 
                      if c.isalpha()]
     cipherLen = len(pureCipherIdx)
+    pureCipher = ''.join([cipherStr[idx].lower() for idx in pureCipherIdx])
     if maxKeyLen > cipherLen // 4:
         raise ValueError(f'Cipher is too short ({cipherLen}) '
                          f'for maximal key length ({maxKeyLen}).')
+    proposedKeyRange = list(range(minKeyLen, maxKeyLen + 1))
+    kasiskiRepIndices = [
+        [
+            subMatch.start() 
+            for subMatch in re.finditer(repSub, pureCipher)
+        ]
+        for repSub in set([m.group(1)
+                           for m in re.finditer("(.{3,})(?=.*\\1)", 
+                                                pureCipher)])
+    ]
+    kasiskiRepCount = set().union(*map(
+        factors,
+        set().union(*[
+            [i - j for (i, j) in zip(idxBuckets[1:], idxBuckets[:-1])]
+            for idxBuckets in kasiskiRepIndices
+        ])
+    ))
+    if kasiskiOnly:
+        proposedKeyRange = [
+            x for x in proposedKeyRange if x in kasiskiRepCount
+        ]
+    else:
+        proposedKeyRange = sorted(
+            proposedKeyRange,
+            key=lambda x: 0 if x in kasiskiRepCount else 1
+        )
     resultList = []
-    for proposedKeyLen in range(minKeyLen, maxKeyLen + 1):
+    for proposedKeyLen in proposedKeyRange:
         strBuckets = [
-            ''.join([cipherStr[pureCipherIdx[c]]
+            ''.join([pureCipher[c]
                      for c in range(charOffset, 
                                     cipherLen, 
                                     proposedKeyLen)])
@@ -472,21 +540,24 @@ def vigenere_crack(
             ]
             for fb in freqBuckets
         ]
-        possibleKeys = combineFromEach([
+        possibleKeys = combineFromEach(
             [
-                chr(fb[idx][0] + ord('a'))
-                for (idx, val) in enumerate(fb)
-                if val in fo
-            ]
-            for (fb, fo) in zip(freqBuckets, freqOrder)
-        ], lambda x: ''.join(x))
+                [
+                    chr(fb[idx][0] + ord('a'))
+                    for (idx, val) in enumerate(fb)
+                    if val in fo
+                ]
+                for (fb, fo) in zip(freqBuckets, freqOrder)
+            ], 
+            lambda x: ((k := ''.join(x)), 
+                       (p := vigenere_map(cipherStr, k, False)),
+                       freqDistFunc(toCharFreq(p)))
+        )
         resultList.extend([
-            (
-                k, 
-                (p := vigenere_map(cipherStr, k, False)),
-                freqDistFunc(toCharFreq(p))
-            )
-            for k in possibleKeys
+            keyTextPair
+            for keyTextPair in possibleKeys
+            if (distCutoff == None or keyTextPair[2] <= distCutoff) \
+                and checkerFunc(keyTextPair[1])
         ])
     return sorted(resultList, key=lambda x: x[2])
         

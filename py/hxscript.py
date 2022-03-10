@@ -408,7 +408,8 @@ def vigenere_crack(
     freqDistFunc: Callable[dict, float] = distToEnglishText,
     distCutoff: float = None,
     kasiskiOnly: bool = True,
-    checkerFunc: Callable[str, bool] = (lambda x: True)
+    checkerFunc: Callable[str, bool] = (lambda x: True),
+    verboseInfo: bool = False
 ) -> list[tuple[str, str, float]]:
     """
     Tries to crack the Vigenere cipher with column-wise frequency attack
@@ -451,6 +452,9 @@ def vigenere_crack(
                  should be accepted or not.
                  Should take a str and return a bool indicating the decision
                  Defaults to return True on all str (accept all plaintext)
+
+    verboseInfo: bool. Should verbose message be printed during execution?
+                 Defaults to False
     ----
     Return:
     A list of tuples that contains 3 elements:
@@ -540,6 +544,8 @@ def vigenere_crack(
                 for idxBuckets in kasiskiRepIndices
             ])
         ))
+        if verboseInfo:
+            print(f"Kasiski indices:", kasiskiRepCount)
         proposedKeyRange = [
             x for x in proposedKeyRange if x in kasiskiRepCount
         ]
@@ -591,10 +597,14 @@ def vigenere_crack(
                        (p := vigenere_map(cipherStr, k, doDecrypt=True)),
                        freqDistFunc(toCharFreq(p)))
         )
-        resultList.extend([
+        possibleKeys = [
             keyTextPair
             for keyTextPair in possibleKeys
             if (distCutoff is None or keyTextPair[2] <= distCutoff)
             and checkerFunc(keyTextPair[1])
-        ])
+        ]
+        if verboseInfo and len(possibleKeys) != 0:
+            print("Possible keys:")
+            print([k[0] for k in possibleKeys])
+        resultList.extend(possibleKeys)
     return sorted(resultList, key=lambda x: x[2])

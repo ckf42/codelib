@@ -85,7 +85,7 @@ def toCharFreq(s: str, alphaOnly: bool = True) -> dict[str, float]:
     Frequencies are normalized so that they sum to 1
     ----
     Example:
-    >>> hx.toCharFreq('abcde12345', alphaOnly=False)
+    >>> hx.toCharFreq('abcde12345')
     {'a': 0.1, 'b': 0.1, 'c': 0.1, 'd': 0.1, 'e': 0.1, '1': 0.1, '2': 0.1,
      '3': 0.1, '4': 0.1, '5': 0.1}
     >>> hx.toCharFreq('abcde12345', alphaOnly=True)
@@ -99,15 +99,14 @@ def toCharFreq(s: str, alphaOnly: bool = True) -> dict[str, float]:
     return {c: f / totalCharCount for c, f in freqDict.items()}
 
 
-def distToEnglishText(charDistriDict: dict[str, float]) -> float:
+def distToEnglishText(charDistriDict: dict) -> float:
     """
     Compute the distance of character frequency to the English text frequency
     ----
     Parameter:
     charDistriDict: a dictionary that contains the frequency,
-                    in the form of char: freq.
-                    Keys are assumed to be only alphabetic letters
-                    in lower case
+                    in the form of char: freq. Frequencies are assumed to be
+                    normalized, and letters are in lower case
     ----
     Return:
     The L1 distance to the reference English text letter frequency
@@ -116,8 +115,9 @@ def distToEnglishText(charDistriDict: dict[str, float]) -> float:
     >>> hx.distToEnglishText({'a': 0.2, 'b': 0.2, 'c': 0.2,
         'd': 0.2, 'e': 0.2})
     1.4267346121566844
-    >>> hx.distToEnglishText({'a': 1, 'b': 1, 'c': 1, 'd': 1, 'e': 1})
-    1.4267346121566844
+    >>> hx.distToEnglishText({'a': 0.1, 'b': 0.1, 'c': 0.1,
+        'd': 0.1, 'e': 0.1})
+    0.9671256095621028
     """
     engDist = {
         'e': 21912, 't': 16587, 'a': 14810, 'o': 14003, 'i': 13318,
@@ -128,13 +128,13 @@ def distToEnglishText(charDistriDict: dict[str, float]) -> float:
         'z': 128
     }
     engDistSum = 182303  # sum(engDist.values())
-    inputSum = sum(charDistriDict.values())
-    return sum(abs(engDist[c] / engDistSum
-                   - charDistriDict.get(c, 0) / inputSum)
+    return sum(abs(engDist[c] / engDistSum - charDistriDict.get(c, 0))
                for c in string.ascii_lowercase)
 
 
-def readTextFile(filePath: str, enc: str = 'utf-8') -> list[str]:
+def readTextFile(filePath: str,
+                 enc: str = 'utf-8',
+                 keepNewline: bool = False) -> list[str]:
     """
     Get the content of a file
     ----
@@ -142,6 +142,9 @@ def readTextFile(filePath: str, enc: str = 'utf-8') -> list[str]:
     filePath: str. The path of the file. Assume to exist and readable
 
     enc: str. The encoding used for the file. Defaults to UTF-8
+
+    keepNewline: bool. Should the trailing newline be stripped?
+                 Defaults to False
     ----
     Return:
     A list of strings. The content of the target file read in text mode.
@@ -151,7 +154,7 @@ def readTextFile(filePath: str, enc: str = 'utf-8') -> list[str]:
     with pathlib.Path(filePath).expanduser().resolve(strict=True)\
             .open('rt', encoding=enc) as f:
         returnLst = f.readlines()
-    return returnLst
+    return returnLst if not keepNewLine else [w.rstrip('\n') for w in returnLst]
 
 
 def splitString(s: str, unitLen: int = 8, strict: bool = True) -> list[str]:
@@ -410,7 +413,7 @@ def vigenere_crack(
     freqDistFunc: Callable[dict, float] = distToEnglishText,
     distCutoff: float = None,
     kasiskiOnly: bool = True,
-    checkerFunc: Optional[Callable[str, bool]] = None,
+    checkerFunc: Callable[str, bool] = (lambda x: True),
     verboseInfo: bool = False
 ) -> list[tuple[str, str, float]]:
     """
@@ -450,10 +453,10 @@ def vigenere_crack(
     kasiskiOnly: bool. Should we use only key length from Kasiski analysis?
                  Defaults to True
 
-    checkerFunc: callable, or None. The function to decide if a possible
-                 plaintext should be accepted or not.
+    checkerFunc: callable. The function to decide if a possible plaintext
+                 should be accepted or not.
                  Should take a str and return a bool indicating the decision
-                 Defaults to None (accept all plaintext)
+                 Defaults to return True on all str (accept all plaintext)
 
     verboseInfo: bool. Should verbose message be printed during execution?
                  Defaults to False
@@ -466,11 +469,11 @@ def vigenere_crack(
     The list is sorted by the distance in increasing order
     ----
     Example:
-    >>> ciph = hx.vigenere_map('Lorem ipsum dolor sit amet, consectetur '
-                               'adipiscing elit, sed do eiusmod tempor '
-                               'incididunt ut labore et dolore magna aliqua.',
-                               'key')
-    >>> hx.vigenere_crack(ciph, 3, 3)
+    >>> ciph = vigenere_map('Lorem ipsum dolor sit amet, consectetur '
+                            'adipiscing elit, sed do eiusmod tempor '
+                            'incididunt ut labore et dolore magna aliqua.',
+                            'key')
+    >>> vigenere_crack(ciph, 3, 3)
     [
         (
             'kdy',
@@ -496,9 +499,10 @@ def vigenere_crack(
             'key',
             'Lorem ipsum dolor sit amet, consectetur adipiscing <truncated>
             0.4101044662446801
-        ),
+        )
+    ]
     # (125 items in total)
-    >>> hx.vigenere_crack(ciph, 3, 3, groundTruth="lorem")
+    >>> vigenere_crack(ciph, 3, 3, groundTruth="lorem")
     [
         (
             'key',
@@ -506,8 +510,7 @@ def vigenere_crack(
             0.4101044662446801
         )
     ]
-    >>> hx.vigenere_crack(ciph, 3, 3,
-                          checkerFunc=lambda x: "lorem" in x.lower())
+    >>> vigenere_crack(ciph, 3, 3, checkerFunc=lambda x: "lorem" in x.lower())
     [
         (
             'key',
@@ -547,7 +550,7 @@ def vigenere_crack(
             ])
         ))
         if verboseInfo:
-            print("Kasiski indices:", kasiskiRepCount)
+            print(f"Kasiski indices:", kasiskiRepCount)
         proposedKeyRange = [
             x for x in proposedKeyRange if x in kasiskiRepCount
         ]
@@ -603,10 +606,11 @@ def vigenere_crack(
             keyTextPair
             for keyTextPair in possibleKeys
             if (distCutoff is None or keyTextPair[2] <= distCutoff)
-            and (checkerFunc is None or checkerFunc(keyTextPair[1]))
+            and checkerFunc(keyTextPair[1])
         ]
         if verboseInfo and len(possibleKeys) != 0:
             print("Possible keys:")
             print([k[0] for k in possibleKeys])
         resultList.extend(possibleKeys)
     return sorted(resultList, key=lambda x: x[2])
+

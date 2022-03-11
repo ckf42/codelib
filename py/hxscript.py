@@ -85,7 +85,7 @@ def toCharFreq(s: str, alphaOnly: bool = True) -> dict[str, float]:
     Frequencies are normalized so that they sum to 1
     ----
     Example:
-    >>> hx.toCharFreq('abcde12345')
+    >>> hx.toCharFreq('abcde12345', alphaOnly=False)
     {'a': 0.1, 'b': 0.1, 'c': 0.1, 'd': 0.1, 'e': 0.1, '1': 0.1, '2': 0.1,
      '3': 0.1, '4': 0.1, '5': 0.1}
     >>> hx.toCharFreq('abcde12345', alphaOnly=True)
@@ -99,14 +99,15 @@ def toCharFreq(s: str, alphaOnly: bool = True) -> dict[str, float]:
     return {c: f / totalCharCount for c, f in freqDict.items()}
 
 
-def distToEnglishText(charDistriDict: dict) -> float:
+def distToEnglishText(charDistriDict: dict[str, float]) -> float:
     """
     Compute the distance of character frequency to the English text frequency
     ----
     Parameter:
     charDistriDict: a dictionary that contains the frequency,
-                    in the form of char: freq. Frequencies are assumed to be
-                    normalized, and letters are in lower case
+                    in the form of char: freq.
+                    Keys are assumed to be only alphabetic letters
+                    in lower case
     ----
     Return:
     The L1 distance to the reference English text letter frequency
@@ -115,9 +116,8 @@ def distToEnglishText(charDistriDict: dict) -> float:
     >>> hx.distToEnglishText({'a': 0.2, 'b': 0.2, 'c': 0.2,
         'd': 0.2, 'e': 0.2})
     1.4267346121566844
-    >>> hx.distToEnglishText({'a': 0.1, 'b': 0.1, 'c': 0.1,
-        'd': 0.1, 'e': 0.1})
-    0.9671256095621028
+    >>> hx.distToEnglishText({'a': 1, 'b': 1, 'c': 1, 'd': 1, 'e': 1})
+    1.4267346121566844
     """
     engDist = {
         'e': 21912, 't': 16587, 'a': 14810, 'o': 14003, 'i': 13318,
@@ -128,7 +128,9 @@ def distToEnglishText(charDistriDict: dict) -> float:
         'z': 128
     }
     engDistSum = 182303  # sum(engDist.values())
-    return sum(abs(engDist[c] / engDistSum - charDistriDict.get(c, 0))
+    inputSum = sum(charDistriDict.values())
+    return sum(abs(engDist[c] / engDistSum
+                   - charDistriDict.get(c, 0) / inputSum)
                for c in string.ascii_lowercase)
 
 
@@ -408,7 +410,7 @@ def vigenere_crack(
     freqDistFunc: Callable[dict, float] = distToEnglishText,
     distCutoff: float = None,
     kasiskiOnly: bool = True,
-    checkerFunc: Callable[str, bool] = (lambda x: True),
+    checkerFunc: Optional[Callable[str, bool]] = None,
     verboseInfo: bool = False
 ) -> list[tuple[str, str, float]]:
     """
@@ -448,10 +450,10 @@ def vigenere_crack(
     kasiskiOnly: bool. Should we use only key length from Kasiski analysis?
                  Defaults to True
 
-    checkerFunc: callable. The function to decide if a possible plaintext
-                 should be accepted or not.
+    checkerFunc: callable, or None. The function to decide if a possible
+                 plaintext should be accepted or not.
                  Should take a str and return a bool indicating the decision
-                 Defaults to return True on all str (accept all plaintext)
+                 Defaults to None (accept all plaintext)
 
     verboseInfo: bool. Should verbose message be printed during execution?
                  Defaults to False
@@ -464,11 +466,11 @@ def vigenere_crack(
     The list is sorted by the distance in increasing order
     ----
     Example:
-    >>> ciph = vigenere_map('Lorem ipsum dolor sit amet, consectetur '
-                            'adipiscing elit, sed do eiusmod tempor '
-                            'incididunt ut labore et dolore magna aliqua.',
-                            'key')
-    >>> vigenere_crack(ciph, 3, 3)
+    >>> ciph = hx.vigenere_map('Lorem ipsum dolor sit amet, consectetur '
+                               'adipiscing elit, sed do eiusmod tempor '
+                               'incididunt ut labore et dolore magna aliqua.',
+                               'key')
+    >>> hx.vigenere_crack(ciph, 3, 3)
     [
         (
             'kdy',
@@ -494,10 +496,9 @@ def vigenere_crack(
             'key',
             'Lorem ipsum dolor sit amet, consectetur adipiscing <truncated>
             0.4101044662446801
-        )
-    ]
+        ),
     # (125 items in total)
-    >>> vigenere_crack(ciph, 3, 3, groundTruth="lorem")
+    >>> hx.vigenere_crack(ciph, 3, 3, groundTruth="lorem")
     [
         (
             'key',
@@ -505,7 +506,8 @@ def vigenere_crack(
             0.4101044662446801
         )
     ]
-    >>> vigenere_crack(ciph, 3, 3, checkerFunc=lambda x: "lorem" in x.lower())
+    >>> hx.vigenere_crack(ciph, 3, 3,
+                          checkerFunc=lambda x: "lorem" in x.lower())
     [
         (
             'key',
@@ -545,7 +547,7 @@ def vigenere_crack(
             ])
         ))
         if verboseInfo:
-            print(f"Kasiski indices:", kasiskiRepCount)
+            print("Kasiski indices:", kasiskiRepCount)
         proposedKeyRange = [
             x for x in proposedKeyRange if x in kasiskiRepCount
         ]
@@ -601,7 +603,7 @@ def vigenere_crack(
             keyTextPair
             for keyTextPair in possibleKeys
             if (distCutoff is None or keyTextPair[2] <= distCutoff)
-            and checkerFunc(keyTextPair[1])
+            and (checkerFunc is None or checkerFunc(keyTextPair[1]))
         ]
         if verboseInfo and len(possibleKeys) != 0:
             print("Possible keys:")

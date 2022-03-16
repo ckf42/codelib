@@ -63,6 +63,9 @@ set currentWaitTime=%pingWaitTime%
 for /F %%a in ('copy /Z "%~F0" NUL') do set "CR=%%a"
 
 echo You may press CTRL+C to quit while waiting
+if %interactiveMode% EQU 0 (
+    echo or press any key to skip waiting
+)
 
 :pingLoopBegin
 if %interactiveMode% EQU 1 (

@@ -29,6 +29,45 @@ parser.add_argument('--kpsepath',
                     "Defaults to the first one in PATH")
 args = parser.parse_args()
 
+
+def findThisMatchBracket(inputStr: str, startPos: int = 0,
+                         bracketPair: str = '{}',
+                         escapeChar: str = '\\') -> int:
+    if len(bracketPair) != 2:
+        raise ValueError("bracketPair is not a string of length 2")
+    if inputStr[startPos] != bracketPair[0]:
+        raise ValueError("character at startPos "
+                         f"({startPos}) is not an opening bracket. \n"
+                         "Context: "
+                         + inputStr[max(0, startPos - 10):
+                                    min(len(inputStr), startPos + 10)])
+    isEscaped = False
+    charIdx = startPos - 1
+    while charIdx >= 0 and inputStr[charIdx] == escapeChar:
+        isEscaped = not isEscaped
+        charIdx -= 1
+    if isEscaped:
+        raise ValueError("bracket at startPos is escaped")
+    charIdx = startPos
+    inputLen = len(inputStr)
+    bracketCounter = 0
+    while charIdx < inputLen:
+        thisChar = inputStr[charIdx]
+        if thisChar == escapeChar:
+            isEscaped = not escapeChar
+        else:
+            if not isEscaped:
+                if thisChar == bracketPair[0]:
+                    bracketCounter += 1
+                elif thisChar == bracketPair[1]:
+                    bracketCounter -= 1
+                    if bracketCounter == 0:
+                        return charIdx
+            isEscaped = False
+        charIdx += 1
+    raise ValueError("No matching close bracket")
+
+
 texPath = path.Path((args.tex
                      if args.tex is not None
                      else input("Enter path to target .tex file:\n")
@@ -87,34 +126,68 @@ if args.verbose:
         print(cmd)
 
 print("Parsing sty file")
-macroDefDict = dict()
-collectedMacroLines = list()
-currentMacroName = ''
-doCollecting = False
-with styPath.open('rt', encoding='UTF-8') as f:
+# macroDefDict = dict()
+# collectedMacroLines = list()
+# currentMacroName = ''
+# doCollecting = False
+# with styPath.open('rt', encoding='UTF-8') as f:
+#     for line in f:
+#         line = line.rstrip()
+#         if doCollecting:
+#             # doing multiline collection
+#             collectedMacroLines.append(line)
+#             if len(line) == 1 and line[0] == '}':
+#                 # multiline collection ends
+#                 doCollecting = False
+#                 macroDefDict[currentMacroName] = collectedMacroLines[:]
+#         elif (match := re.match(r'\\ProvideDocument[a-zA-Z]+\{([^}]+?)\}',
+#                                 line)) is not None:
+#             # start multiline collection
+#             collectedMacroLines.clear()
+#             currentMacroName = match.group(1)
+#             doCollecting = True
+#             collectedMacroLines.append(line)
+#         elif (match := re.match(r'\\(providecommand|DeclareMathOperator)'
+#                                 r'\{(\\[^}]+?)\}(\[\d+\])?',
+#                                 line)) is not None:
+#             # single line cmd
+#             collectedMacroLines.clear()
+#             doCollecting = False
+#             macroDefDict[match.group(2)] = [line, ]
+macroFileContent = list()
+with styPath.open('rt', encoding='utf-8') as f:
     for line in f:
-        line = line.rstrip()
-        if doCollecting:
-            # doing multiline collection
-            collectedMacroLines.append(line)
-            if len(line) > 0 and line[0] == '}':
-                # multiline collection ends
-                doCollecting = False
-                macroDefDict[currentMacroName] = collectedMacroLines[:]
-        elif (match := re.match(r'\\ProvideDocument[a-zA-Z]+\{([^}]+?)\}',
-                                line)) is not None:
-            # start multiline collection
-            collectedMacroLines.clear()
-            currentMacroName = match.group(1)
-            doCollecting = True
-            collectedMacroLines.append(line)
-        elif (match := re.match(r'\\(providecommand|DeclareMathOperator)'
-                                r'\{(\\[^}]+?)\}(\[\d+\])?',
-                                line)) is not None:
-            # single line cmd
-            collectedMacroLines.clear()
-            doCollecting = False
-            macroDefDict[match.group(2)] = [line, ]
+        if (lineContent := re.split(r'(?<!\\)(?:\\\\)*%',
+                                    line, maxsplit=1)[0]) != '':
+            macroFileContent.append(lineContent)
+macroFileContent = ''.join(macroFileContent)
+macroDefDict = dict()
+for macroMatchObj in re.finditer(
+    r'^\\(ProvideDocumentCommand|providecommand|DeclareMathOperator)',
+    macroFileContent, re.M
+):
+    matchBegin = macroMatchObj.start()
+    matchEnd = macroMatchObj.end()
+    macroNameEnd = findThisMatchBracket(macroFileContent, matchEnd)
+    macroName = macroFileContent[matchEnd + 1:macroNameEnd]
+    contentEnd = macroNameEnd
+    if macroMatchObj.group(1) == 'ProvideDocumentCommand':
+        contentEnd = findThisMatchBracket(
+            macroFileContent,
+            findThisMatchBracket(macroFileContent, contentEnd + 1) + 1
+        )
+    elif macroMatchObj.group(1) == 'providecommand':
+        # TODO: deal with brackets in default argument?
+        contentEnd = findThisMatchBracket(
+            macroFileContent,
+            macroFileContent.find('{', contentEnd)
+        )
+    else:  # DeclareMathOperator
+        contentEnd = findThisMatchBracket(macroFileContent, contentEnd + 1)
+    contentEnd = macroFileContent.find('\n', contentEnd)
+    macroDefDict[macroName] = macroFileContent[matchBegin:contentEnd]\
+        .split(sep='\n')
+
 definedMacros = list(macroDefDict.keys())
 usedCmd = sorted([m for m in usedCmd if m in definedMacros])
 

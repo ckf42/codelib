@@ -72,22 +72,31 @@ for bib in usedBib:
         continue
     print(f"parsing {str(bibPath)}")
     with bibPath.open('rt', encoding='utf-8') as bibFile:
+        citeEntry = list()
+        citeEntryName = list()
         for line in bibFile:
             linelstrip = line.lstrip()
-            if linelstrip == '' \
-                    or linelstrip.startswith(ignoredBibLineHead):
+            if linelstrip == '' or linelstrip.startswith(ignoredBibLineHead):
                 continue
             if doCollecting:
-                citedEntryList.append(line.rstrip())
-                if line[0] == '}':
+                citeEntry.append(line.rstrip())
+                if (matchObj := re.match(r'ids\s*=\s*\{(\w+)\}',
+                                         linelstrip)) is not None:
+                    citeEntryName.append(matchObj.group(1))
+                elif line[0] == '}':
                     doCollecting = False
+                    if any((entryName in citedKeyList)
+                            for entryName in citeEntryName):
+                        citedEntryList.extend(citeEntry)
+                        for entryName in citeEntryName:
+                            if entryName in citedKeyList:
+                                citedKeyList.remove(entryName)
             else:
-                lineMatchObj = re.match(r'@[a-zA-Z]+\{(\w+),', line)
-                if lineMatchObj is not None \
-                        and lineMatchObj.group(1) in citedKeyList:
-                    citedKeyList.remove(lineMatchObj.group(1))
+                if (matchObj := re.match(r'@[a-zA-Z]+\{(\w+),',
+                                         linelstrip)) is not None:
                     doCollecting = True
-                    citedEntryList.append(line.rstrip())
+                    citeEntry = [line.rstrip()]
+                    citeEntryName = [matchObj.group(1)]
 
 if len(citedKeyList) != 0:
     print("some citekeys are not found in ref bib:")

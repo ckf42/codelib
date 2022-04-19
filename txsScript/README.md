@@ -64,9 +64,7 @@ Works by writing editor content to a file in `temp`.
 
 ### inlineToEquationStar.js
 
-Change the selected inline math formula (surrounded by `$`) into `equation*`
+Put cursor in inline math formula (surrounded by `$`) and convert it into `equation*`
 
-Need to select the whole formula first
-
-If there is a dollar sign in the selection, will only highlight it
+Does not check if the cursor in math mode or not
 

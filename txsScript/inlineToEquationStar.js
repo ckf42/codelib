@@ -1,39 +1,35 @@
 %SCRIPT
 
-selectedText = cursor.selectedText();
-if (selectedText.length != 0){
-    doDelPrevChar = false;
-    doDelNextChar = false;
-    contentOffset = 0;
-    if (selectedText[0] == "$"){
-        selectedText = selectedText.slice(1);
-    } else {
-        doDelPrevChar = true;
-    }
-    if (selectedText[selectedText.length - 1] == "$"){
-        selectedText = selectedText.slice(0, -1);
-        contentOffset = 1;
-    } else {
-        doDelNextChar = true;
-    }
-    matchObj = selectedText.match(RegExp("(?:^|[^\\\\])(?:\\\\\\\\)*\\$"));
-    if (matchObj !== null){
-        cursor.movePosition(selectedText.length + contentOffset, cursorEnums.Left);
-        cursor.movePosition(matchObj.index + matchObj[0].length - 1, cursorEnums.Right);
-        cursor.movePosition(1, cursorEnums.Right, cursorEnums.KeepAnchor);
-    } else {
-        cursor.removeSelectedText();
-        if (doDelPrevChar){cursor.deletePreviousChar();}
-        if (doDelNextChar){cursor.deleteChar();}
-        editor.insertText([
-            "",
-            "\\begin{equation*}", 
-            selectedText,
-            "\\end{equation*}",
-            ""
-        ].join('\n'));
-        while ([" ", ".", ","].includes(editor.text(cursor.lineNumber())[cursor.columnNumber()])){
-            cursor.deleteChar();
-        }
-    }
+cursor.beginEditBlock(); 
+editor.find("(?:^|[^\\\\])(?:\\\\\\\\)*(\\$)", false, true, false, false, true, false);
+var endCol = cursor.columnNumber() - 1;
+var endLin = cursor.lineNumber();
+cursor.deletePreviousChar()
+editor.findPrev();
+var begLin = cursor.anchorLineNumber();
+cursor.shift(1);
+cursor.deleteChar();
+editor.relayPanelCommand("Search", "display", [0, false]);
+
+if (endLin < begLin){
+    cursor.movePosition(begLin - endLin, cursorEnums.Up, cursorEnums.KeepAnchor);
 }
+if (endLin > begLin){
+    cursor.movePosition(endLin - begLin, cursorEnums.Down, cursorEnums.KeepAnchor);
+}
+cursor.movePosition(1, cursorEnums.StartOfLine, cursorEnums.KeepAnchor);
+cursor.movePosition(endCol - (begLin == endLin ? 1 : 0), cursorEnums.Right, cursorEnums.KeepAnchor);
+
+var formulaContent = cursor.selectedText();
+cursor.removeSelectedText();
+editor.insertText([
+    "",
+    "\\begin{equation*}", 
+    formulaContent,
+    "\\end{equation*}",
+    ""
+].join('\n'));
+while ([" ", ".", ","].includes(editor.text(cursor.lineNumber())[cursor.columnNumber()])){
+    cursor.deleteChar();
+}
+cursor.endEditBlock(); 

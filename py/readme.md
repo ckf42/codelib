@@ -37,11 +37,11 @@ Some simple python script I have written for practising CTF.
 
 Import some python packages in `ipython` for scicomp. Just run the script after `ipython` is initiated.
 
-## musicKeyboard*.py
+## musicKeyboard.py
 
 A mini project I did. Use your keyboard to play some musics. Dropped because of NKRO.
 
-Built upon `personalPylib_audio.py`. Left-hand version imports it directly.
+Uses code from `personalPylib_audio.py`. 
 
 ## npPylib.py
 

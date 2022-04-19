@@ -126,34 +126,6 @@ if args.verbose:
         print(cmd)
 
 print("Parsing sty file")
-# macroDefDict = dict()
-# collectedMacroLines = list()
-# currentMacroName = ''
-# doCollecting = False
-# with styPath.open('rt', encoding='UTF-8') as f:
-#     for line in f:
-#         line = line.rstrip()
-#         if doCollecting:
-#             # doing multiline collection
-#             collectedMacroLines.append(line)
-#             if len(line) == 1 and line[0] == '}':
-#                 # multiline collection ends
-#                 doCollecting = False
-#                 macroDefDict[currentMacroName] = collectedMacroLines[:]
-#         elif (match := re.match(r'\\ProvideDocument[a-zA-Z]+\{([^}]+?)\}',
-#                                 line)) is not None:
-#             # start multiline collection
-#             collectedMacroLines.clear()
-#             currentMacroName = match.group(1)
-#             doCollecting = True
-#             collectedMacroLines.append(line)
-#         elif (match := re.match(r'\\(providecommand|DeclareMathOperator)'
-#                                 r'\{(\\[^}]+?)\}(\[\d+\])?',
-#                                 line)) is not None:
-#             # single line cmd
-#             collectedMacroLines.clear()
-#             doCollecting = False
-#             macroDefDict[match.group(2)] = [line, ]
 macroFileContent = list()
 with styPath.open('rt', encoding='utf-8') as f:
     for line in f:

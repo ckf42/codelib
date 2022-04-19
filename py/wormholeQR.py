@@ -12,16 +12,24 @@ parser.add_argument('--astext',
                     action='store_true',
                     help="Send text by wormhole. "
                     "If specified, path will be treated as plain text")
+parser.add_argument('--wormhole',
+                    type=str,
+                    help="Path to wormhole",
+                    default='wormhole')
 args = parser.parse_args()
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 p = subprocess.Popen(
-    ['wormhole', 'send',
-     f'--text={args.path}' if args.astext else args.path, ],
+    [
+        args.wormhole,
+        'send',
+        f'--text={args.path}' if args.astext else args.path,
+    ],
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     shell=True,
-    bufsize=0)
+    bufsize=0
+)
 
 qrCodeObj = None
 while p.poll() is None:
@@ -34,4 +42,3 @@ while p.poll() is None:
             qrCodeObj.add_data(
                 f'wormhole:relay.magic-wormhole.io:4000?code={whCode}')
             qrCodeObj.print_ascii(invert=True)
-

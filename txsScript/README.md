@@ -61,3 +61,12 @@ Works by writing editor content to a file in `temp`.
     * Ignored if `ltexVSMainPath` is set to some nonempty string
 * `configPath` = `""`
     * Path to the json config file used by `LTeX-CLI`
+
+### inlineToEquationStar.js
+
+Change the selected inline math formula (surrounded by `$`) into `equation*`
+
+Need to select the whole formula first
+
+If there is a dollar sign in the selection, will only highlight it
+

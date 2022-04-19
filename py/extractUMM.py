@@ -2,6 +2,7 @@ import re
 import argparse
 import pathlib as path
 import subprocess
+from shutil import copy2
 from sys import stdout
 
 parser = argparse.ArgumentParser()
@@ -27,6 +28,10 @@ parser.add_argument('--kpsepath',
                     help="The path of kpsewhich to use to find the macro sty. "
                     "Useful if you have multiple TeX installations. "
                     "Defaults to the first one in PATH")
+parser.add_argument('--nobackup',
+                    action='store_true',
+                    help="Do not save a backup copy. "
+                    "Ignored if --embed is not present")
 args = parser.parse_args()
 
 
@@ -130,7 +135,10 @@ macroFileContent = list()
 with styPath.open('rt', encoding='utf-8') as f:
     for line in f:
         if (lineContent := re.split(r'(?<!\\)(?:\\\\)*%',
-                                    line, maxsplit=1)[0]) != '':
+                                    line,
+                                    maxsplit=1)[0]) != '':
+            if lineContent[-1] != '\n':
+                lineContent += '\n'
             macroFileContent.append(lineContent)
 macroFileContent = ''.join(macroFileContent)
 macroDefDict = dict()
@@ -146,19 +154,20 @@ for macroMatchObj in re.finditer(
     if macroMatchObj.group(1) == 'ProvideDocumentCommand':
         contentEnd = findThisMatchBracket(
             macroFileContent,
-            findThisMatchBracket(macroFileContent, contentEnd + 1) + 1
+            findThisMatchBracket(macroFileContent, macroNameEnd + 1) + 1
         )
     elif macroMatchObj.group(1) == 'providecommand':
         # TODO: deal with brackets in default argument?
         contentEnd = findThisMatchBracket(
             macroFileContent,
-            macroFileContent.find('{', contentEnd)
+            macroFileContent.find('{', macroNameEnd)
         )
     else:  # DeclareMathOperator
-        contentEnd = findThisMatchBracket(macroFileContent, contentEnd + 1)
+        contentEnd = findThisMatchBracket(macroFileContent, macroNameEnd + 1)
     contentEnd = macroFileContent.find('\n', contentEnd)
-    macroDefDict[macroName] = macroFileContent[matchBegin:contentEnd]\
+    macroContent = macroFileContent[matchBegin:contentEnd]\
         .split(sep='\n')
+    macroDefDict[macroName] = macroContent
 
 definedMacros = list(macroDefDict.keys())
 usedCmd = sorted([m for m in usedCmd if m in definedMacros])
@@ -217,6 +226,15 @@ for cmdName in topoSortOrdering:
 #     outputBuffer.extend(macroDefDict.get(cmdName, []))
 
 if args.embed:
+    if not args.nobackup:
+        baseBackupName = texPath.stem + '_ummbackup'
+        backupName = baseBackupName
+        backupCounter = 0
+        while (texPath.parent / (backupName + texPath.suffix)).exists():
+            backupCounter += 1
+            backupName = baseBackupName + f"({backupCounter})"
+        copy2(texPath, texPath.parent / (backupName + texPath.suffix))
+        print(f"Backup saved as {backupName + texPath.suffix}")
     fileLines = texPath.open('r', encoding='utf-8').readlines()
     lineLoc = next((idx
                     for idx in range(len(fileLines))

@@ -1,13 +1,12 @@
 %SCRIPT
 
 cursor.beginEditBlock(); 
-editor.find("(?:^|[^\\\\])(?:\\\\\\\\)*(\\$)", false, true, false, false, true, false);
+editor.find("(?=^|[^\\\\])(?=\\\\\\\\)*(\\$)", true, true, false, false, true, false);
 var endCol = cursor.columnNumber() - 1;
 var endLin = cursor.lineNumber();
 cursor.deletePreviousChar()
 editor.findPrev();
 var begLin = cursor.anchorLineNumber();
-cursor.shift(1);
 cursor.deleteChar();
 editor.relayPanelCommand("Search", "display", [0, false]);
 

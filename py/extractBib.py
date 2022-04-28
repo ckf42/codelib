@@ -2,11 +2,14 @@ import re
 import argparse
 import pathlib as path
 from sys import stdout
+from shutil import copy2
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--tex', type=str, help="Path to target tex file")
 parser.add_argument('--bib', type=str, nargs='*',
-                    help="Path to reference bib file")
+                    help="Path to reference bib file. "
+                    "Can omit if added in tex with addbibresource command")
 parser.add_argument('--out', type=str,
                     help="Path to output bib file. "
                     "Put \"stdout\" to output to stdout. "
@@ -14,6 +17,17 @@ parser.add_argument('--out', type=str,
 parser.add_argument('--frag', action='store_true',
                     help="Output as filecontents fragment. "
                     "Implies output to stdout")
+parser.add_argument('--inject', action='store_true',
+                    help="Inject addbibresource command in file. "
+                    "Command will replace the first addbibresource command, "
+                    "and all other addbibresource command will be removed. "
+                    "Path will be absolute if out is given, "
+                    "relative otherwise. "
+                    "Ignored if output to stdout")
+parser.add_argument('--nobackup',
+                    action='store_true',
+                    help="Do not save a backup copy. "
+                    "Ignored if --inject is not present")
 args = parser.parse_args()
 
 ignoredBibLineHead = ('%', 'readstatus', 'groups', 'abstract', 'comment')
@@ -37,8 +51,9 @@ printToStdOut = False
 if args.frag:
     args.out = ''
     printToStdOut = True
+isOutGivenByUser = args.out is None
 outputBibPath = path.Path(args.out.strip('\'\" ')
-                          if args.out is not None
+                          if not isOutGivenByUser
                           else texPath.with_suffix('.bib'))
 if str(outputBibPath).lower() == 'stdout':
     printToStdOut = True
@@ -102,7 +117,7 @@ if len(citedKeyList) != 0:
     print("some citekeys are not found in ref bib:")
     for citedKey in citedKeyList:
         print('\t', citedKey)
-    input("enter to generate bib anyways")
+    input("Press Enter to ignore and generate bib anyways")
 
 print(f"writing to {str(outputBibPath) if not printToStdOut else 'stdout'}")
 f = stdout
@@ -133,4 +148,32 @@ finally:
         print("------------------ copy before this line ------------------")
     else:
         f.close()
+
+if args.inject and not printToStdOut:
+    if not args.nobackup:
+        baseBackupName = texPath.stem + '_bibbackup'
+        backupName = baseBackupName
+        backupCounter = 0
+        while (texPath.parent / (backupName + texPath.suffix)).exists():
+            backupCounter += 1
+            backupName = baseBackupName + f"({backupCounter})"
+        copy2(texPath, texPath.parent / (backupName + texPath.suffix))
+        print(f"Backup saved as {backupName + texPath.suffix}")
+    addResLineIdx = sorted([idx
+                            for (idx, line) in enumerate(fileContent)
+                            if line.lstrip().startswith('\\addbibresource')],
+                           reverse=True)
+    firstResLineIdx = addResLineIdx.pop()
+    fileContent = [line
+                   for (idx, line) in enumerate(fileContent)
+                   if idx not in addResLineIdx]
+    fileContent[firstResLineIdx] = re.sub(
+        r'(?=\\addbibresource\{)(.+?\.bib)(?<=\})',
+        outputBibPath.as_posix() if isOutGivenByUser else outputBibPath.name,
+        fileContent[firstResLineIdx]
+    )
+    with texPath.open('w', encoding='utf-8') as f:
+        for line in fileContent:
+            print(line, file=f)
+
 input("Done")

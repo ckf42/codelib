@@ -25,6 +25,7 @@ parser.add_argument('--verbose',
                     help="Verbose msg")
 parser.add_argument('--kpsepath',
                     type=str,
+                    default='kpsewhich',
                     help="The path of kpsewhich to use to find the macro sty. "
                     "Useful if you have multiple TeX installations. "
                     "Defaults to the first one in PATH")
@@ -80,9 +81,6 @@ texPath = path.Path((args.tex
 if not texPath.is_file() or texPath.suffix != '.tex':
     input("tex is not a valid path")
     exit()
-
-if args.kpsepath is None:
-    args.kpsepath = 'kpsewhich'
 
 styPath = path.Path(args.sty.strip('\'\" ')
                     if args.sty is not None

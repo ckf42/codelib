@@ -51,9 +51,9 @@ printToStdOut = False
 if args.frag:
     args.out = ''
     printToStdOut = True
-isOutGivenByUser = args.out is None
+isOutGivenByUser = args.out is not None
 outputBibPath = path.Path(args.out.strip('\'\" ')
-                          if not isOutGivenByUser
+                          if isOutGivenByUser
                           else texPath.with_suffix('.bib'))
 if str(outputBibPath).lower() == 'stdout':
     printToStdOut = True
@@ -164,11 +164,11 @@ if args.inject and not printToStdOut:
                             if line.lstrip().startswith('\\addbibresource')],
                            reverse=True)
     firstResLineIdx = addResLineIdx.pop()
-    fileContent = [line
+    fileContent = [line.rstrip('\n')
                    for (idx, line) in enumerate(fileContent)
                    if idx not in addResLineIdx]
     fileContent[firstResLineIdx] = re.sub(
-        r'(?=\\addbibresource\{)(.+?\.bib)(?<=\})',
+        r'(?<=\\addbibresource\{)(.+?\.bib)(?=\})',
         outputBibPath.as_posix() if isOutGivenByUser else outputBibPath.name,
         fileContent[firstResLineIdx]
     )

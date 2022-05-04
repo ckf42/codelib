@@ -44,3 +44,7 @@ Also safe-guard deactivating the environment from `CTRL-C` aborting.
 
 Check if the network is connected and alert if not
 
+## updateSageTex.bat
+
+Copy `sagetex.sty` to texmf tree. Similar to `runSageTex.bat` but is used for updatting/resetting `sagetex`
+

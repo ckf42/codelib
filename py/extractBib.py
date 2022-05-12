@@ -14,6 +14,11 @@ parser.add_argument('--out', type=str,
                     help="Path to output bib file. "
                     "Put \"stdout\" to output to stdout. "
                     "Default to bib in tex path")
+parser.add_argument('--forceout',
+                    action='store_true',
+                    help="Overwrite output bib file if it already exists. "
+                    "Will truncate the existing file. "
+                    "Ignored if output to stdout")
 parser.add_argument('--frag', action='store_true',
                     help="Output as filecontents fragment. "
                     "Implies output to stdout")
@@ -57,7 +62,7 @@ outputBibPath = path.Path(args.out.strip('\'\" ')
                           else texPath.with_suffix('.bib'))
 if str(outputBibPath).lower() == 'stdout':
     printToStdOut = True
-elif outputBibPath.is_file():
+elif outputBibPath.is_file() and not args.forceout:
     input(f"\"{str(outputBibPath)}\" already exists. \n"
           "Will print to stdout instead")
     printToStdOut = True
@@ -123,7 +128,7 @@ print(f"writing to {str(outputBibPath) if not printToStdOut else 'stdout'}")
 f = stdout
 try:
     if not printToStdOut:
-        f = outputBibPath.open('xt', encoding='UTF-8')
+        f = outputBibPath.open('wt', encoding='UTF-8')
 except FileExistsError:
     print(f"File \"{str(outputBibPath)}\" already exists. \n"
           "Please check if path is valid and delete the old file. \n"

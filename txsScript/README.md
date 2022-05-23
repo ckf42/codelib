@@ -66,5 +66,23 @@ Works by writing editor content to a file in `temp`.
 
 Put cursor in inline math formula (surrounded by `$`) and convert it into `equation*`
 
+Currently supports only `$$` and not `\(\)` syntax yet
+
 Does not check if the cursor in math mode or not
+
+### toggleCustomCommentStyle.js
+
+Toggle comment on the line(s) selected
+
+Allows customization on comment style
+
+If multiple lines are selected, action determined on whether the first line is commented
+
+#### config
+
+* `commentSignAdd` = `"% "`
+    * The string used for commenting lines
+* `commentSignRemoveRegex` = `new RegExp("^" + commentSignAdd)`
+    * The regex used for matching commented line
+    * Default to the same string as commentSignAdd
 

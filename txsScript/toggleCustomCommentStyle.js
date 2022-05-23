@@ -3,34 +3,34 @@
 var commentSignAdd = "% ";
 var commentSignRemoveRegex = new RegExp("^" + commentSignAdd);
 
-function moveCursor(newLine, newCol, withAnchorKeep=false){
+cursor.beginEditBlock();
+
+function moveCursor(newLine, newCol, withAnchorKept=false){
     var currentLine = cursor.lineNumber();
     if (currentLine < newLine){
         cursor.movePosition(newLine - currentLine, 
                             cursorEnums.Down,
-                            withAnchorKeep ? cursorEnums.KeepAnchor : cursorEnums.MoveAnchor);
+                            withAnchorKept ? cursorEnums.KeepAnchor : cursorEnums.MoveAnchor);
     }
     if (currentLine > newLine){
         cursor.movePosition(currentLine - newLine, 
                             cursorEnums.Up,
-                            withAnchorKeep ? cursorEnums.KeepAnchor : cursorEnums.MoveAnchor);
+                            withAnchorKept ? cursorEnums.KeepAnchor : cursorEnums.MoveAnchor);
     }  
     cursor.movePosition(1,
                         newCol >= 0 ? cursorEnums.StartOfLine : cursorEnums.EndOfLine,
-                        withAnchorKeep ? cursorEnums.KeepAnchor : cursorEnums.MoveAnchor);
+                        withAnchorKept ? cursorEnums.KeepAnchor : cursorEnums.MoveAnchor);
     cursor.movePosition(newCol >= 0 ? newCol : (-1 - newCol),
                         newCol >= 0 ? cursorEnums.Right : cursorEnums.Left,
-                        withAnchorKeep ? cursorEnums.KeepAnchor : cursorEnums.MoveAnchor);
+                        withAnchorKept ? cursorEnums.KeepAnchor : cursorEnums.MoveAnchor);
 }
-
-cursor.beginEditBlock();
 
 var cursorLine = cursor.lineNumber();
 var cursorCol = cursor.columnNumber();
 var anchorLine = cursor.anchorLineNumber();
 var anchorCol = cursor.anchorColumnNumber();
 
-lineArray = [];
+var lineArray = [];
 for (var i = Math.min(cursorLine, anchorLine); i <= Math.max(cursorLine, anchorLine); ++i){
     lineArray.push(editor.text(i));
 }
@@ -55,9 +55,9 @@ moveCursor(Math.max(cursorLine, anchorLine), -1, true);
 cursor.replaceSelectedText(replaceText);
 
 // reset cursor and anchor position
-moveCursor(anchorLine, anchorCol + cursorOffset);
+moveCursor(anchorLine, Math.max(0, anchorCol + cursorOffset));
 if (cursorLine != anchorLine || cursorCol != anchorCol){
-    moveCursor(cursorLine, cursorCol + cursorOffset, true);
+    moveCursor(cursorLine, Math.max(0, cursorCol + cursorOffset), true);
 }
 
 cursor.endEditBlock();

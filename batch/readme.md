@@ -48,3 +48,11 @@ Check if the network is connected and alert if not
 
 Copy `sagetex.sty` to texmf tree. Similar to `runSageTex.bat` but is used for updatting/resetting `sagetex`
 
+## selectThis.bat
+
+Open `explorer.exe` with specified file selected, or prompt if the file does not exist
+
+Treats whole arguments as a single filename
+
+Useful with doskey
+

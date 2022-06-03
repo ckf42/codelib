@@ -7,10 +7,10 @@ set multiPara=0
 :paraProcessing
 if [%1]==[] goto endParaProcessing
 if [!para!]==[] (
-    set para=%1
+    for /f %%p in ("%1") do set para=%%p
 ) else (
     set multiPara=1
-    set para=!para! %1
+    for /f %%p in ("%1") do set para=!para! %%p
 )
 shift /1
 goto paraProcessing

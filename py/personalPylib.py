@@ -1,11 +1,17 @@
-import decimal
+import decimal as __decimal
+import typing as __typing
+from math import log1p, exp
+from numbers import Number as __Number
+
 if __name__ == '__main__':
     exit()
 
 
-def viewList(lst: list, itemPerPage: int = 20,
+def viewList(lst: list,
+             itemPerPage: int = 20,
              displayMethod: callable = print,
-             showOrdinal: bool = False, useIndex: bool = False,
+             showOrdinal: bool = False,
+             useIndex: bool = False,
              headMessageStrFunc: callable
              = lambda lstLen: f"{lstLen} item(s) in total"):
     if headMessageStrFunc is not None:
@@ -103,6 +109,23 @@ def viewList(lst: list, itemPerPage: int = 20,
 
 
 def genStr(charList: str, minLen: int, maxLen: int) -> str:
+    """
+    Generate a string from the given alphabet
+    ---
+    Parameter:
+        charList:
+            Type: str
+            The string of alphabet characters
+        minLen:
+            Type: int
+            The minimal length of the string to be generated
+        maxLen:
+            Type: int
+            The maximal length of the string to be generated
+    ---
+    Return:
+        Each yield generates a string consisting of letters in charList
+    """
     # O(length+0.5*length) per yield
     for outputLen in range(max(minLen, 1), maxLen + 1):
         selectCharIdx = [0] * outputLen
@@ -139,7 +162,25 @@ def userConfirm(message: str,
     return s in charYStr
 
 
-def floydCycleDetect(f: callable, x0) -> (int, int):
+def floydCycleDetect(f: __typing.Callable, x0) -> (int, int):
+    """
+    Find the length of the loop
+    ---
+    Parameter:
+        f:
+            Type: callable
+            The callable to check for
+            Must takes only one parameter
+        x0:
+            Type: Any
+            The initial seed to look at
+            Will be supplied to f
+    ---
+    Return:
+        A tuple of 2 intgers (c, d) where
+            c is the the number of iterations to enter the loop
+            d is the length of the loop
+    """
     tortoise = f(x0)
     hare = f(tortoise)
     while hare != tortoise:
@@ -204,7 +245,27 @@ def inputPath(displayStr: str,
     return s
 
 
-class textColoring:
+def textColoring(text: str, color: str = "white") -> str:
+    """
+    Put ANSI color in string
+    ---
+    Parameter:
+        text:
+            Type: str
+            The strings to be colored
+        color:
+            Type: str
+            The target string
+            Can be a 6-digit hex number as color code, or one of the following strings:
+                'reset', 'none', 'black', 'red', 'green',
+                'yellow', 'blue', 'magenta', 'cyan', 'white',
+                'bright black', 'bright red', 'bright green',
+                'bright yellow', 'bright blue', 'bright magenta',
+                'bright cyan', 'bright white'
+    ---
+    Return:
+        The same string, with ANSI color code surrounded
+    """
     colorCode = {
         'reset': 0, 'none': 0, 'black': 30, 'red': 31, 'green': 32,
         'yellow': 33, 'blue': 34, 'magenta': 35, 'cyan': 36, 'white': 37,
@@ -212,21 +273,39 @@ class textColoring:
         'bright yellow': 93, 'bright blue': 94, 'bright magenta': 95,
         'bright cyan': 96, 'bright white': 97,
     }
-
-    def __new__(cls, text: str, color: str = "white") -> str:
-        color = color.lower().strip()
-        try:
-            rHex, gHex, bHex = \
-                int(color[:2], 16), int(color[2:4], 16), int(color[4:], 16)
-            color = f'38;2;{rHex};{gHex};{bHex}'
-        except ValueError:  # is string name
-            color = cls.colorCode.get(color, 0)
-        return f'\x1b[{color}m{text}\x1b[0m'
+    color = color.lower().strip()
+    try:
+        rHex, gHex, bHex = \
+            int(color[:2], 16), int(color[2:4], 16), int(color[4:], 16)
+        color = f'38;2;{rHex};{gHex};{bHex}'
+    except ValueError:  # is string name
+        color = colorCode.get(color, 0)
+    return f'\x1b[{color}m{text}\x1b[0m'
 
 
 def FareyApprox(x: float,
                 tol: float = 1e-8,
                 maxIter: int = 1000) -> (int, int):
+    """
+    Farey Approximatin of float number
+    ---
+    Parameter:
+        x:
+            Type: float
+            The input
+        tol:
+            Type: float
+            Default: 1e-8
+            The numerical tolerance
+        maxIter:
+            Type: int
+            Default: 1000
+            The maximal iterations to run this algorithm
+    ---
+    Return:
+        A tuple of 2 integers (n, d) such that n / d approximates x
+        d is guaranteed positive
+    """
     isNeg = False
     if x < 0:
         isNeg = True
@@ -251,12 +330,12 @@ def FareyApprox(x: float,
 
 
 def GaussLegendreAlgorithm(iterTime: int = 5, prec: int = 53) \
-        -> decimal.Decimal:
-    decimal.getcontext().prec = prec
-    a = decimal.Decimal('1')
-    b = decimal.Decimal('0.5').sqrt()
-    t = decimal.Decimal('1') / 4
-    p = decimal.Decimal('1')
+        -> __decimal.Decimal:
+    __decimal.getcontext().prec = prec
+    a = __decimal.Decimal('1')
+    b = __decimal.Decimal('0.5').sqrt()
+    t = __decimal.Decimal('1') / 4
+    p = __decimal.Decimal('1')
     for i in range(iterTime):
         newA = (a + b) / 2
         newB = (a * b).sqrt()
@@ -266,26 +345,130 @@ def GaussLegendreAlgorithm(iterTime: int = 5, prec: int = 53) \
     return (a + b) ** 2 / (4 * t)
 
 
-class stringToPhoneNum:
-    _internaldict = {
-        **dict.fromkeys(list('abc'), '2'),
-        **dict.fromkeys(list('def'), '3'),
-        **dict.fromkeys(list('ghi'), '4'),
-        **dict.fromkeys(list('jkl'), '5'),
-        **dict.fromkeys(list('mno'), '6'),
-        **dict.fromkeys(list('pqrs'), '7'),
-        **dict.fromkeys(list('tuv'), '8'),
-        **dict.fromkeys(list('wxyz'), '9'),
+def ArithmeticGeometricMean(a: float,
+                            b: float,
+                            tol: float = 1e-8,
+                            maxIter: int = 25) -> float:
+    """
+    Compute the arithmetic-geometric mean of two numbers
+    ---
+    Parameters:
+        a:
+            Type: float
+            Assumed positive
+        b:
+            Type: float
+            Assumed positive
+        tol:
+            Type: float
+            Default: 1e-8
+            The stopping numerical tolerance
+        maxIter:
+            Type: int
+            Default: 25
+            The maximal number of iterations
+    ---
+    Return:
+        The arithmetic-geometric mean of a and b as a float
+    """
+    a = __decimal.Decimal(a)
+    b = __decimal.Decimal(b)
+    while maxIter > 0:
+        a, b = (a + b) / 2, (a * b).sqrt()
+        if abs(b / a - 1) < tol:
+            break
+        maxIter -= 1
+    return float(a)
+
+
+def stringToPhoneNum(s: str, asMultiTap: bool = False) -> str:
+    """
+    Translate a string to the corresponding number sequence on phone input
+    ---
+    Parameter:
+        s:
+            Type: str
+            The input string
+        asMultiTap:
+            Type: bool
+            Default: False
+            Determine if Multi-tap typing should be used instead of T9
+    ---
+    Return:
+        A string where the lower-case order are translated to number as in phone input
+        If a character is not a lower-case letter, it is be kept in the string
+    """
+    keyLists = ('abc', 'def', 'ghi', 'jkl', 'mno', 'pqrs', 'tuv', 'wxyz')
+    # TODO: better construct method?
+    keyDict = {}
+    for idx, tok in enumerate(keyLists):
+        keyDict.update(
+            zip(tok,
+                (str(idx + 2) * k
+                 for k in (range(1, len(tok) + 1)
+                           if asMultiTap
+                           else (1, ) * len(tok))))
+        )
+    return ''.join([keyDict.get(i, i) for i in s])
+
+
+def multitapToString(s: str):
+    """
+    Convert a multitap digit sequence into letters
+    ---
+    Parameter:
+        s:
+            Type: str
+            The input string
+    ---
+    Return:
+        A string where all digits in input s are translated into
+            the corresponding letters via multitap
+        Characters in s that are not in 2-9 are kept
+    ---
+    Exceptions:
+        If the string cannot be decoded, a ValueError will be thrown.
+    """
+    translateDict = {
+        2: 'abc', 3: 'def',
+        4: 'ghi', 5: 'jkl', 6: 'mno',
+        7: 'pqrs', 8: 'tuv', 9: 'wxyz'
     }
+    outputStr = ""
+    idx = 0
+    while idx < len(s):
+        if s[idx] in "23456789":
+            offset = 0
+            while idx + offset < len(s) and s[idx + offset] == s[idx]:
+                offset += 1
+            targetStr = translateDict[s[idx]]
+            if offset >= len(targetStr):
+                raise ValueError(f"Cannot decode position {idx} to {idx + offset}")
+            else:
+                outputStr += targetStr[offset - 1]
+        else:
+            outputStr += s[idx]
+    return outputStr
 
-    def __new__(cls, s: str) -> str:
-        return ''.join([cls._internaldict.get(i, i) for i in s])
 
-
-def listMatrix(val, *args) -> list:
-    from numbers import Number
+def listMatrix(val: __typing.Union[float, __typing.Callable], *args: int) -> list:
+    """
+    Construct a matrix encoded as a nested list in vanilla python
+    ---
+    Parameter:
+        val:
+            Type: Union[Callable, float]
+            The value used to fill the matrix
+        *args:
+            Type: int
+            The dimensions of the matrix
+    ---
+    Return:
+        A nested matrix of depth len(args),
+            where the (k+1)th coordinate is of size args[k]
+    """
     valF = val
-    if isinstance(val, Number):
+    if isinstance(val, __Number):
         valF = (lambda *args: val)
     if len(args) == 1:
         return [valF(idx) for idx in range(args[0])]
@@ -294,45 +477,89 @@ def listMatrix(val, *args) -> list:
                 for idx in range(args[0])]
 
 
-def overwriteThenDelete(filePath: str,
-                        passes: int = 3, blockSize: int = 4096,
-                        randomModule: str = 'os') -> None:
-    randomBitGen = None
-    if randomModule == 'random':
-        from random import getrandbits
-
-        def randomBitGen(k):
-            return bytes(getrandbits(8) for i in range(k))
-    elif randomModule == 'secrets':
-        from secrets import randbits
-
-        def randomBitGen(k):
-            return bytes(randbits(8) for i in range(k))
-    else:
-        from os import urandom
-
-        def randomBitGen(k):
-            return urandom(k)
-    from os import fstat, remove
-    with open(filePath, 'rb+') as f:
-        fileSize = fstat(f.fileno()).st_size
-        blockCount, remainBytes = divmod(fileSize, blockSize)
-        for passNo in range(passes):
-            f.seek(0)
-            for i in range(blockCount):
-                f.write(randomBitGen(blockSize))
-            f.write(randomBitGen(remainBytes))
-    remove(filePath)
-
-
 def binom(n: int, r: int) -> float:
-    from math import log1p, exp
+    """
+    Approximate value for binomial coefficients
+    ---
+    Parameter:
+        n:
+            Type: int
+        r:
+            Type: int
+    ---
+    Return:
+        The estimated binomial coefficient C(n, r)
+        May not return an integer
+    """
     r = min(r, n - r)
     return exp(sum(log1p((n - r) / i) for i in range(1, r + 1)))
 
 
-def sqrtByBinom(x: float, approxSqrtX: float = None,
-                n: int = 2, iterTime: int = 1) -> float:
+def sqrtNewton(x: float, tol: float = 1e-17, maxIter: int = 25) -> float:
+    """
+    An algorithm to compute the square root of a float, by Newton's algorithm
+    ---
+    Parameter:
+        x:
+            Type: float
+            The input value
+        tol:
+            Type: float
+            Default: 1e-17
+            The numerical tolerance
+        maxIter:
+            Type: int
+            Default: 25
+            The number of iterations to run the algorithm
+    ---
+    Return:
+        The estimated value of the square root of x
+    ---
+    Exceptions:
+        If x < 0, a ValueError will be thrown.
+    """
+    if x < 0:
+        raise ValueError("Cannot take square root of a negative number.")
+    elif x == 0:
+        return 0
+    else:
+        r = x / 4
+        tol = tol * tol
+        while maxIter > 0 and abs(r * r / x - 1) > tol:
+            r = (r + x / r) / 2
+            maxIter -= 1
+        return r
+
+
+def sqrtByBinom(x: float,
+                approxSqrtX: __typing.Optional[float] = None,
+                n: int = 2,
+                iterTime: int = 1) -> float:
+    """
+    An algorithm to compute the square root of a float, by an algorithm from 4Chan /sci/
+    The origin of the algorithm is unknown.
+    ---
+    Parameter:
+        x:
+            Type: float
+            The input value
+        approxSqrtX:
+            Type: Optional[float]
+            Default: None
+            The initial seed for the algorithm
+            If None, will be set to x / 2
+        n:
+            Type: int
+            Default: 2
+            The order of the binomial set used
+        iterTime:
+            Type: int
+            Default: 1
+            The number of iterations to run the algorithm
+    ---
+    Return:
+        The estimated value of the square root of x
+    """
     if approxSqrtX is None:
         approxSqrtX = x / 2
     if iterTime != 1:
@@ -342,8 +569,8 @@ def sqrtByBinom(x: float, approxSqrtX: float = None,
                            iterTime - 1)
     r = x / (approxSqrtX ** 2)
     return approxSqrtX \
-        * sum(binom(n, 2 * k) * r**k for k in range(0, n // 2 + 1)) \
-        / sum(binom(n, 2 * k + 1) * r**k for k in range(0, (n - 1) // 2 + 1))
+        * sum(binom(n, 2 * k) * (r ** k) for k in range(0, n // 2 + 1)) \
+        / sum(binom(n, 2 * k + 1) * (r ** k) for k in range(0, (n - 1) // 2 + 1))
 
 
 def findAllMatchBrackets(inputStr: str,
@@ -383,9 +610,47 @@ def findAllMatchBrackets(inputStr: str,
     return outputRes
 
 
-def findThisMatchBracket(inputStr: str, startPos: int = 0,
+def findThisMatchBracket(inputStr: str,
+                         startPos: int = 0,
                          bracketPair: str = '{}',
                          escapeChar: str = '\\') -> int:
+    """
+    Find the matching bracket
+    ---
+    Parameter:
+        inputStr:
+            Type: str
+            The string to be checked
+        startPos:
+            Type: int
+            Default: 0
+            The position to start finding
+            Assumed to be position of the opening bracket
+        bracketPair:
+            Type: str
+            Default: '{}'
+            The bracket pair to be checked, encoded a string of length 2
+            Required that the character of inputtStr at startPos is
+                the first character of this string
+            Will look for the second character of this string
+        escapeChar:
+            Type: str
+            Default: '\\' (a single backslash)
+            Assumed to be length 1.
+            The character used to escape the bracket characters.
+            Bracket characters preceeded by this character will be ignored.
+            If the character itself is preceeded by an escapeChar,
+                the next character will not be escaped. (Same as \ and \\)
+    ---
+    Return:
+        An int that represents the position in inputStr that matches
+            the open bracket at startPos with the correct depth
+    ---
+    Exceptions:
+        If the character at startPos is escaped, a ValueError will be thrown.
+        If there is no closing bracket that matche the opening bracket at startPos,
+            a ValueError will be thrown.
+    """
     if len(bracketPair) != 2:
         raise ValueError("bracketPair is not a string of length 2")
     if inputStr[startPos] != bracketPair[0]:
@@ -419,3 +684,83 @@ def findThisMatchBracket(inputStr: str, startPos: int = 0,
             isEscaped = False
         charIdx += 1
     raise ValueError("No matching close bracket")
+
+
+def vecNorm(vec: tuple[float], p: float = 2):
+    """
+    Return the p-norm of a vector
+    ---
+    Parameter:
+        vec:
+            Type: tuple[float]
+            The vector in question
+        p:
+            Type: float
+            Default: 2
+            The index of the norm
+    ---
+    Return:
+        A float represnting the p-norm
+    """
+    return sum(abs(coor) ** p for coor in vec) ** (1 / p)
+
+
+def intLatticePointInSphere(
+        dim: int,
+        r: float,
+        excludeNeg: bool = False,
+        excludeZero: bool = False) -> __typing.Iterator[tuple[int]]:
+    """
+    Generates integer coordinates in some sphere
+    ---
+    Parameter:
+        dim:
+            Type: int
+            The dimension of the coordinate generated
+        r:
+            Type: float
+            The radius of the sphere
+        excludeNeg:
+            Type: bool
+            Default: False
+            Determine if points with negative coordinates should be included.
+        excludeZero:
+            Type: bool
+            Default: False
+            Determine if points with coordinates 0 should be included.
+    ---
+    Return:
+        Return r-tuples of integers that are included in a sphere of radius r.
+        If excludeNeg or excludeZero is True, the corresponding tuples will be omitted.
+    """
+    if dim == 0:
+        if r >= 0:
+            yield tuple()
+    elif r == 0:
+        if not excludeZero:
+            yield (0, ) * dim
+    elif r > 0:
+        enumLim = int(r)
+        if not excludeNeg:
+            for firstCoor in range(-enumLim, 0):
+                for pt in intLatticePointInSphere(
+                        dim - 1,
+                        (r * r - firstCoor * firstCoor) ** (1 / 2),
+                        excludeNeg=False,
+                        excludeZero=excludeZero):
+                    yield (firstCoor, ) + pt
+        if not excludeZero:
+            for pt in intLatticePointInSphere(
+                    dim - 1,
+                    r,
+                    excludeNeg=excludeNeg,
+                    excludeZero=False):
+                yield (0, ) + pt
+        for firstCoor in range(1, enumLim + 1):
+            for pt in intLatticePointInSphere(
+                    dim - 1,
+                    (r * r - firstCoor * firstCoor) ** (1 / 2),
+                    excludeNeg=excludeNeg,
+                    excludeZero=excludeZero):
+                yield (firstCoor, ) + pt
+

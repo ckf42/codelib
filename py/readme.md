@@ -43,7 +43,7 @@ A mini project I did. Use your keyboard to play some musics. Dropped because of 
 
 Uses code from `personalPylib_audio.py`. 
 
-## npPylib.py
+## personalPylib_np.py
 
 Same as `personalPylib.py` but relies on `numpy`
 
@@ -57,13 +57,17 @@ A simple python I use to generate some sounds. Uses `numpy`
 
 ## personalPylib.py
 
-Some python scripts I have written, for general purposes. May be used in other scripts.
+Some python scripts I have written. May be used in other scripts.
 
 ## pipRemovable.py
 
 A python script to check the dependencies of packages. Depends on `pip` and `pipdeptree >= 0.5.0` (ironically). 
 
 **WARNING** the functionality depends on `pipdeptree`. If `pipdeptree` does not detect dependencies correctly (e.g. as optional), this script also gives incorrect answers. Check the dependencies yourself before actually uninstalling packages.
+
+## ReplotOnZoom.py
+
+A simple class that replots the bitmap on zooming and paning
 
 ## wormholeQR.py
 

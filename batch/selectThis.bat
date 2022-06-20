@@ -21,7 +21,7 @@ if !multiPara! GEQ 1 (
     set para="!para!"
 )
 if exist !para! (
-    explorer /select,"!para!"
+    explorer /select,!para!
 ) else (
     echo !para! does not exist
 )

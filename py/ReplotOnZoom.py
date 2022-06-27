@@ -2,6 +2,7 @@ from matplotlib.backend_bases import MouseEvent as _pltMouseEvent
 from matplotlib.pyplot import show as _pltShow
 from matplotlib.pyplot import subplots as _pltSubplots
 from numpy import flipud as _npFlipud
+from typing import Callable, Optional
 
 class ReplotOnZoom:
     """
@@ -35,9 +36,9 @@ class ReplotOnZoom:
     def __init__(self,
                  xLims: tuple[float, float],
                  yLims: tuple[float, float],
-                 bitmapCalculateFunc: callable,
-                 paraDict: dict = {},
-                 pltParaDict: dict = {},
+                 bitmapCalculateFunc: Callable,
+                 paraDict: Optional[dict] = None,
+                 pltParaDict: Optional[dict] = None,
                  eps: float = 1e-5,
                  verbose: bool = False):
         """
@@ -53,7 +54,7 @@ class ReplotOnZoom:
                 The range in y-coordinate
                 Assumed of form (ymin, ymax)
             bitmapCalculateFunc:
-                Type: callable
+                Type: Callable
                 Must take (at least) 4 positional parameters,
                     which are exactly the values in xLims and yLims.
                 Assumed to return a 2D array-like object of type that can be plotted
@@ -63,17 +64,19 @@ class ReplotOnZoom:
                 If the first 4 parameters are not for xLims and yLims,
                     try wrapping bitmapCalculateFunc in a wrapper function.
             paraDict:
-                Type: dict
-                Default: empty dict
+                Type: Optional[dict]
+                Default: None
                 The additional parameters to be passed to bitmapCalculateFunc.
                 All parameters will be passed as keyword parameters.
+                If None, no additional parameters will be added.
                 If you have other positional parameters that cannot be passed this way,
                     try wrapping bitmapCalculateFunc in a wrapper function.
             pltParaDict:
-                Type: dict
-                Default: empty dict
+                Type: Optional[dict]
+                Default: None
                 Parameters to be passed to matplotlib.pyplot.imshow.
                 All parameters will be passed as keyword parameters.
+                If None, no additional parameters will be added.
             eps:
                 Type: float
                 Default: 1e-5
@@ -87,8 +90,8 @@ class ReplotOnZoom:
         self._yLims = yLims
         self._calFunc = bitmapCalculateFunc
         self._fig, self._ax = _pltSubplots(1, 1)
-        self._paraDict = paraDict
-        self._pltPara = pltParaDict
+        self._paraDict = paraDict if paraDict is not None else {}
+        self._pltPara = pltParaDict if pltParaDict is not None else {}
         self._eps = eps if eps > 0 else 1e-5
         self._verbose = verbose
         self._fig.canvas.mpl_connect('button_release_event', self.__onZoomCallBack)
@@ -119,7 +122,13 @@ class ReplotOnZoom:
             if self._verbose:
                 print("Area changed")
                 print("X:", self._xLims, "->", currentXLim)
+                oldLim = self._xLims[1] - self._xLims[0]
+                newLim = currentXLim[1] - currentXLim[0]
+                print(f"XRange: {oldLim} x {oldLim / newLim:0.3f}")
                 print("Y:", self._yLims, "->", currentYLim)
+                oldLim = self._yLims[1] - self._yLims[0]
+                newLim = currentYLim[1] - currentYLim[0]
+                print(f"YRange: {oldLim} x {oldLim / newLim:0.3f}")
                 print("Replotting ...")
             self.__replot(currentXLim, currentYLim)
             if self._verbose:

@@ -19,7 +19,7 @@ parser.add_argument('--wormhole',
 args = parser.parse_args()
 
 os.environ["PYTHONUNBUFFERED"] = "1"
-cmdLst = [ args.wormhole, 'send' ] 
+cmdLst = [args.wormhole, 'send']
 if args.text:
     cmdLst.append('--text')
 cmdLst.append(args.path)
@@ -28,7 +28,6 @@ qrCodeObj = None
 with subprocess.Popen(cmdLst,
                       stdout=subprocess.PIPE,
                       stderr=subprocess.STDOUT,
-                      # shell=True,
                       bufsize=0) as p:
     while p.poll() is None:
         for line in p.stdout:

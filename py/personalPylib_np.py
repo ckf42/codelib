@@ -1,7 +1,9 @@
 import numpy as np
+from typing import Callable
 
 # NOTE: when plotting in plt, the y-axis begins from the top to bottom
 #       an additional np.flipud may be needed
+# TODO: numba compatible
 
 def julia(c: np.cdouble,
           xmin: float = -1.5,
@@ -125,3 +127,114 @@ def tanPlotHelper(f: callable,
     pts = np.linspace(np.arctan(interval[0]), np.arctan(interval[1]), nPts)
     return (pts, f(np.tan(pts)))
 
+
+def blockSelfSimCal(xmin: float, xmax: float, ymin: float, ymax: float,
+                    xres: int, yres: int,
+                    nmax: int,
+                    blockSpec: tuple[tuple[tuple[Callable], Callable]]):
+    res = xres * yres
+    xidx, yidx = np.mgrid[0 : xres, 0 : yres]
+    n = np.zeros((xres, yres), dtype=np.uint8)
+    vidx = np.vstack((xidx.flatten(), yidx.flatten()))
+    v = np.vstack((np.linspace(xmin, xmax, xres)[xidx].flatten(),
+                   np.linspace(ymin, ymax, yres)[yidx].flatten()))
+    tags = np.empty(res, dtype=np.uint8)
+    for iterTime in range(1, nmax + 1):
+        if len(tags) == 0:
+            break
+        msk = np.empty_like(tags, dtype=np.bool8)
+        tags.fill(0)
+        for i in range(len(blockSpec)):
+            # region i + 1
+            np.logical_and.reduce(tuple(f(v[0, :], v[1, :]) for f in blockSpec[i][0]),
+                                  out=msk)
+            tags[msk] = i + 1
+        # region no
+        msk = (tags == 0)
+        n[vidx[0, msk], vidx[1, msk]] = iterTime
+        # shift
+        # TODO: better?
+        for i in range(len(blockSpec)):
+            msk = (tags == i + 1)
+            v[:, msk] = blockSpec[i][1](v[:, msk])
+        # cleanup
+        np.logical_not(tags == 0, out=msk)
+        vidx, v, tags = vidx[:, msk], v[:, msk], tags[msk]
+    n[n == 0] = nmax + 1
+    return n.transpose()
+
+
+def sierpinskiTrig(xmin: float = 0.,
+                   xmax: float = 1.,
+                   ymin: float = 0.,
+                   ymax: float = 1.,
+                   xres: int = 768,
+                   yres: int = 576,
+                   nmax: int = 25):
+    return blockSelfSimCal(xmin, xmax, ymin, ymax, xres, yres, nmax,
+            (
+                ((lambda x, y: y > 0,
+                  lambda x, y: y < np.sqrt(3) * x,
+                  lambda x, y: y < np.sqrt(3) * (1 / 2 - x)),
+                 lambda v: v * 2),
+                ((lambda x, y: y > 0,
+                  lambda x, y: y < np.sqrt(3) * (x - 1 / 2),
+                  lambda x, y: y < np.sqrt(3) * (1 - x)),
+                 lambda v: v * 2 - [[1], [0]]),
+                ((lambda x, y: y > np.sqrt(3) / 4,
+                  lambda x, y: y < np.sqrt(3) * x,
+                  lambda x, y: y < np.sqrt(3) * (1 - x)),
+                 lambda v: v * 2 - [[1 / 2], [np.sqrt(3) / 2]]),
+            ))
+
+
+def sierpinskiSponge(xmin: float = 0.,
+                     xmax: float = 1.,
+                     ymin: float = 0.,
+                     ymax: float = 1.,
+                     xres: int = 768,
+                     yres: int = 576,
+                     nmax: int = 25):
+    return blockSelfSimCal(xmin, xmax, ymin, ymax, xres, yres, nmax,
+            (
+                ((lambda x, y: x > 0,
+                  lambda x, y: x < 1 / 3,
+                  lambda x, y: y > 0,
+                  lambda x, y: y < 1 / 3),
+                 lambda v: v * 3),
+                ((lambda x, y: x > 1 / 3,
+                  lambda x, y: x < 2 / 3,
+                  lambda x, y: y > 0,
+                  lambda x, y: y < 1 / 3),
+                 lambda v: v * 3 - [[1], [0]]),
+                ((lambda x, y: x > 2 / 3,
+                  lambda x, y: x < 1,
+                  lambda x, y: y > 0,
+                  lambda x, y: y < 1 / 3),
+                 lambda v: v * 3 - [[2], [0]]),
+                ((lambda x, y: x > 0,
+                  lambda x, y: x < 1 / 3,
+                  lambda x, y: y > 1 / 3,
+                  lambda x, y: y < 2 / 3),
+                 lambda v: v * 3 - [[0], [1]]),
+                ((lambda x, y: x > 2 / 3,
+                  lambda x, y: x < 1,
+                  lambda x, y: y > 1 / 3,
+                  lambda x, y: y < 2 / 3),
+                 lambda v: v * 3 - [[2], [1]]),
+                ((lambda x, y: x > 0,
+                  lambda x, y: x < 1 / 3,
+                  lambda x, y: y > 2 / 3,
+                  lambda x, y: y < 1),
+                 lambda v: v * 3 - [[0], [2]]),
+                ((lambda x, y: x > 1 / 3,
+                  lambda x, y: x < 2 / 3,
+                  lambda x, y: y > 2 / 3,
+                  lambda x, y: y < 1),
+                 lambda v: v * 3 - [[1], [2]]),
+                ((lambda x, y: x > 2 / 3,
+                  lambda x, y: x < 1,
+                  lambda x, y: y > 2 / 3,
+                  lambda x, y: y < 1),
+                 lambda v: v * 3 - [[2], [2]]),
+            ))

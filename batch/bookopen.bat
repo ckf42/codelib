@@ -59,6 +59,7 @@ set needToStartSearch=0
 set selectInExplorerOnly=0
 set cliQueryStr=
 set inQueryStrings=0
+set localFileOnly=0
 
 :handleParameters
 if [%1]==[] goto endHandleParameters
@@ -93,6 +94,7 @@ if !inQueryStrings! geq 1 (
         echo /R                         Equivalent to /r /f
         echo /s, /search                Start searching after /r or /f
         echo /e, /select                Select the file in explorer only
+        echo /l, /local                 Consider the local files only
         if %unknownParaAsQuery% geq 1 (
             echo --                         Stop parsing parameters and treat everything afterward as query string
         )
@@ -128,6 +130,10 @@ if !inQueryStrings! geq 1 (
         set selectInExplorerOnly=1
     ) else if "%1"=="/select" (
         set selectInExplorerOnly=1
+    ) else if "%1"=="/l" (
+        set localFileOnly=1
+    ) else if "%1"=="/local" (
+        set localFileOnly=1
     ) else if %unknownParaAsQuery% geq 1 (
         @REM special para: query strings
         if "%1"=="--" (
@@ -230,7 +236,18 @@ set fzfCmd=fzf
 if not [!cliQueryStr!]==[] (
     set fzfCmd=fzf -q "!cliQueryStr!"
 )
-for /f "tokens=* delims=;" %%r in ('type %fileListPath% ^| !fzfCmd!') do set fzfResult=%%r
+
+set fileFilterCmd=type %fileListPath%
+if !localFileOnly! equ 1 (
+    set findStrPattern=/C:!localPathArr[1]!
+    for /l %%i in (2,1,%localPathCount%) do (
+        set findStrPattern=!findStrPattern! /C:!localPathArr[%%i]!
+    )
+    set fileFilterCmd=!fileFilterCmd! ^| findstr !findStrPattern!
+)
+if !scriptDebugFlag! neq 0 (echo !fileFilterCmd!)
+
+for /f "tokens=* delims=;" %%r in ('!fileFilterCmd! ^| !fzfCmd!') do set fzfResult=%%r
 if !scriptDebugFlag! neq 0 (echo fzfResult is !fzfResult!)
 if not [!fzfResult!]==[] (
     if exist "!fzfResult!" (

@@ -56,7 +56,6 @@ set needToReindex=0
 set needToFetchRemoteIndex=0
 set needHelp=0
 set needToStartSearch=0
-set selectInExplorerOnly=0
 set cliQueryStr=
 set inQueryStrings=0
 set localFileOnly=0
@@ -93,7 +92,6 @@ if !inQueryStrings! geq 1 (
         @REM echo /R, /rf, /r/f              Equivalent to /r /f
         echo /R                         Equivalent to /r /f
         echo /s, /search                Start searching after /r or /f
-        echo /e, /select                Select the file in explorer only
         echo /l, /local                 Consider the local files only
         if %unknownParaAsQuery% geq 1 (
             echo --                         Stop parsing parameters and treat everything afterward as query string
@@ -126,10 +124,6 @@ if !inQueryStrings! geq 1 (
         set needToStartSearch=1
     ) else if "%1"=="/search" (
         set needToStartSearch=1
-    ) else if "%1"=="/e" (
-        set selectInExplorerOnly=1
-    ) else if "%1"=="/select" (
-        set selectInExplorerOnly=1
     ) else if "%1"=="/l" (
         set localFileOnly=1
     ) else if "%1"=="/local" (
@@ -253,20 +247,16 @@ if not [!fzfResult!]==[] (
     if exist "!fzfResult!" (
         echo Selected local file
         echo "!fzfResult!"
-        set msgString="Open file?"
-        if !selectInExplorerOnly! equ 1 set msgString="Select file in explorer?"
-        choice /M !msgString!
-        if errorlevel 2 (
+        choice /C YNS /M "Open file? ([Y]es / [N]o / [S]elect instead)?"
+        if errorlevel 3 (
+            echo Selecting file ...
+            @REM assumed local file is recorded with full path
+            explorer /select,"!fzfResult!"
+        ) else if errorlevel 2 (
             echo Action cancelled
         ) else if errorlevel 1 (
-            if !selectInExplorerOnly! equ 1 (
-                echo Selecting file ...
-                @REM assumed local file is recorded with full path
-                explorer /select,"!fzfResult!"
-            ) else (
-                echo Opening file ...
-                explorer "!fzfResult!"
-            )
+            echo Opening file ...
+            explorer "!fzfResult!"
         ) else (
             echo Error occured
             goto endCleanUp
@@ -318,17 +308,19 @@ if not [!fzfResult!]==[] (
                     echo downloaded path "!downloadPath!\%%~nxr"
                 )
             )
-            set msgString="Open downloaded file?"
-            if !selectInExplorerOnly! equ 1 set msgString="Select downloaded file in explorer?"
-            choice /M !msgString! /C NY
-            if errorlevel 2 (
-                for %%r in ("!fzfResult!") do @( 
-                    if !selectInExplorerOnly! equ 1 (
-                        explorer /select,"!downloadPath!\%%~nxr"
-                    ) else (
-                        explorer "!downloadPath!\%%~nxr"
-                    ) 
-                )
+            choice /C YNS /M "Open file? ([Y]es / [N]o / [S]elect instead)?"
+            if errorlevel 3 (
+                echo Selecting file ...
+                @REM assumed local file is recorded with full path
+                explorer /select,"!downloadPath!\%%~nxr"
+            ) else if errorlevel 2 (
+                echo Action cancelled
+            ) else if errorlevel 1 (
+                echo Opening file ...
+                explorer "!downloadPath!\%%~nxr"
+            ) else (
+                echo Error occured
+                goto endCleanUp
             )
             break>nul
         ) || ( echo download failed )

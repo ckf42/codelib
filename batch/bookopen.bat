@@ -205,7 +205,7 @@ if !needToReindex! equ 1 (
         echo Local file count: %%r
     )
 
-    rem find local file in remote and remote from cached remote index
+    @rem find local file in remote and remove from cached remote index
     for %%f in ("%fileListPath%") do (
         if !scriptDebugFlag! neq 0 (echo Writing %TEMP%\%%~nxf.tmp)
         break>%TEMP%\%%~nxf.tmp
@@ -215,7 +215,7 @@ if !needToReindex! equ 1 (
         )
         if !scriptDebugFlag! neq 0 (echo Writing %TEMP%\%%~nxf.tmp.tmp)
         if defined remoteIndexName (
-            findstr /V /G:"%TEMP%\%%~nxf.tmp" %remoteListPath% >%TEMP%\%%~nxf.tmp.tmp
+            findstr /L /V /G:"%TEMP%\%%~nxf.tmp" %remoteListPath% >%TEMP%\%%~nxf.tmp.tmp
         )
         type %%f >>%TEMP%\%%~nxf.tmp.tmp
         type %TEMP%\%%~nxf.tmp.tmp >%%f

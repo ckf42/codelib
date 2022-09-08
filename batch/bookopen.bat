@@ -270,10 +270,10 @@ if not [!fzfResult!]==[] (
             echo Action cancelled
             goto endCleanUp
         )
-        set downloadPath=0
-        choice /M "!localPathChoiceMsg!" /C !localPathIdxStr!
-        set selectedDownloadPathIdx=!errorlevel!
+        @REM set downloadPath=0
         set downloadPath=
+        choice /M "!localPathChoiceMsg!" /C !localPathIdxStr!
+        @REM set selectedDownloadPathIdx=!errorlevel!
         for /f %%i in ("!errorlevel!") do set downloadPath=!localPathArr[%%i]!
         if !scriptDebugFlag! neq 0 (echo download path "!downloadPath!")
         if not defined downloadPath (
@@ -300,7 +300,7 @@ if not [!fzfResult!]==[] (
                 if !scriptDebugFlag! neq 0 (echo %TEMP%\%%~nxf.tmp)
                 break>%TEMP%\%%~nxf.tmp
                 type %fileListPath%>%TEMP%\%%~nxf.tmp
-                type %TEMP%\%%~nxf.tmp | findstr /v /C:"!fzfResult!">%fileListPath%
+                type %TEMP%\%%~nxf.tmp | findstr /L /V /C:"!fzfResult!">%fileListPath%
                 del %TEMP%\%%~nxf.tmp
             )
             if !scriptDebugFlag! neq 0 (
@@ -312,12 +312,20 @@ if not [!fzfResult!]==[] (
             if errorlevel 3 (
                 echo Selecting file ...
                 @REM assumed local file is recorded with full path
-                explorer /select,"!downloadPath!\%%~nxr"
+                for %%r in ("!fzfResult!") do (
+                    echo downloaded path "!downloadPath!\%%~nxr"
+                    if !scriptDebugFlag! neq 0 (echo explorer /select,"!downloadPath!\%%~nxr")
+                    explorer /select,"!downloadPath!\%%~nxr"
+                )
             ) else if errorlevel 2 (
                 echo Action cancelled
             ) else if errorlevel 1 (
                 echo Opening file ...
-                explorer "!downloadPath!\%%~nxr"
+                for %%r in ("!fzfResult!") do (
+                    echo downloaded path "!downloadPath!\%%~nxr"
+                    if !scriptDebugFlag! neq 0 (echo explorer "!downloadPath!\%%~nxr")
+                    explorer "!downloadPath!\%%~nxr"
+                )
             ) else (
                 echo Error occured
                 goto endCleanUp

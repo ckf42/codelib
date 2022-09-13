@@ -1,16 +1,18 @@
 import argparse
 import subprocess
 import json
+# TODO: remove json dependency?
 
 parser = argparse.ArgumentParser()
 parser.add_argument("target",
                     nargs='*',
                     help="Names of packages to be checked. "
-                    "Leave empty to find top-level packages")
+                    "Leave empty to find top-level packages. "
+                    "Case sensitive")
 parser.add_argument("--protect",
                     nargs='*',
                     help="Omit these packages when checking")
-parser.add_argument("--verbose",
+parser.add_argument("--verbose", "-v",
                     action='store_true',
                     help="Print verbose information")
 args = parser.parse_args()
@@ -18,7 +20,6 @@ args = parser.parse_args()
 if args.verbose:
     print("----------")
     print("Querying pip ...")
-    print("----------")
 installedPackageList = frozenset(
     pd['name']
     for pd
@@ -28,14 +29,19 @@ installedPackageList = frozenset(
 if args.verbose:
     print("----------")
     print("Packages reported by pip:")
-    for pacName in installedPackageList:
+    for pacName in sorted(installedPackageList):
         print(pacName)
+
+args.target = list(pacName
+                   for pacName in args.target
+                   if pacName in installedPackageList \
+                           or print(f"{pacName} is not installed by pip"))
+if len(args.target) == 0:
+    exit()
+if args.verbose:
     print("----------")
     print("Querying pipdeptree ...")
-    print("----------")
-packageList = json.loads(subprocess.run(['pipdeptree',
-                                         '--all',
-                                         '--json'],
+packageList = json.loads(subprocess.run(['pipdeptree', '--all', '--json'],
                                         stdout=subprocess.PIPE)
                          .stdout.decode())
 # O(E)
@@ -46,11 +52,11 @@ for node in packageList:
         continue
     depTree[pacName] = (depTree.get(pacName, list())
                         + [d['key']
-                        for d
-                        in node['dependencies']
-                        if d['key'] in installedPackageList])
+                           for d
+                           in node['dependencies']
+                           if d['key'] in installedPackageList])
 # O(E)
-affTree = dict()
+affTree = dict() # reverse depTree
 for pacName in depTree:
     if pacName not in installedPackageList:
         continue
@@ -61,9 +67,9 @@ for pacName in depTree:
 
 if args.verbose:
     print("----------")
-    print("Dependence reported by pipdeptree:")
-    for pacName in depTree:
-        print(pacName)
+    print("Dependency reported by pipdeptree:")
+    for pacName, pacDepLst in depTree.items():
+        print(pacName, pacDepLst)
     print("----------")
 
 removableRecord = dict()
@@ -98,19 +104,20 @@ def getTopLevelPac():
 if len(args.target) != 0:
     for pacName in args.target:
         if pacName not in depTree:
-            print(f"{pacName} is not installed by pip")
+            print(f"No dependency found for {pacName}")
         else:
-            # mark package as removable / maybe-removable
+        # mark package as removable / maybe-removable
             removableRecord[pacName] = (True
                                         if len(affTree[pacName]) == 0
                                         else None)
+    # protect pip
     if args.protect is None:
         args.protect = ["pip", ]
     else:
         args.protect.append("pip")
-    for pacName in (args.protect if args.protect is not None else list()):
+    for pacName in args.protect:
         if pacName not in depTree:
-            print(f"{pacName} is not installed by pip")
+            print(f"{pacName} is not installed by pip. Omitted.")
         else:
             # mark package as NOT-removable
             removableRecord[pacName] = False
@@ -134,3 +141,4 @@ else:
     topLevelList = getTopLevelPac()
     if len(topLevelList) != 0:
         print(" ".join(sorted(topLevelList)))
+

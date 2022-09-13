@@ -764,3 +764,70 @@ def intLatticePointInSphere(
                     excludeZero=excludeZero):
                 yield (firstCoor, ) + pt
 
+def gcd(x: int, y: int, *args: int) -> int:
+    if len(args) == 0:
+        return x if y == 0 else gcd(y, x % y)
+    else:
+        return gcd(gcd(x, y), *args)
+
+
+def exgcd(x: int, y: int) -> tuple[int]:
+    if y == 0:
+        return (x, 1, 0)
+    else:
+        (g, a, b) = exgcd(y, x % y)
+        return (g, b, a - b * (x // y))
+
+
+def waterPouringProblem(target: __typing.Union[int, tuple[int]],
+                        jars: tuple[int],
+                        initState: __typing.Optional[tuple[int]] = None) -> list[tuple[int]]:
+    l = len(jars)
+    if initState is None:
+        initState = (0, ) * l
+    if isinstance(target, tuple) and target % gcd(*jars) != 0:
+        return list()
+    prevState = dict()
+    rec = dict()
+    prevState[initState] = None
+    rec[initState] = 0
+    statePtr = 0
+    keymap = (lambda x: (rec[x], min(abs(i - target) for i in x))) \
+            if isinstance(target, int) \
+            else (lambda x: (rec[x], sum(abs(i - j) for (i, j) in zip(target, x))))
+    while len(rec) != 0:
+        currState = min(rec.keys(), key=lambda x:keymap(x))
+        currStep = rec.pop(currState)
+        if (isinstance(target, int) and target in currState) or (isinstance(target, tuple) and target == currState):
+            statePtr = currState
+            break
+        for idx in range(l):
+            # move
+            for idx2 in range(idx + 1, l):
+                # idx -> idx2
+                transf = min(currState[idx], jars[idx2] - currState[idx2])
+                newState = currState[:idx] + (currState[idx] - transf, ) + currState[idx + 1: idx2] + (currState[idx2] + transf, ) + currState[idx2 + 1:]
+                if newState not in prevState:
+                    rec[newState] = currStep + 1
+                    prevState[newState] = currState
+                # idx2 -> idx
+                transf = min(currState[idx2], jars[idx] - currState[idx])
+                newState = currState[:idx] + (currState[idx] + transf, ) + currState[idx + 1: idx2] + (currState[idx2] - transf, ) + currState[idx2 + 1:]
+                if newState not in prevState:
+                    rec[newState] = currStep + 1
+                    prevState[newState] = currState
+            # fill / clean
+            newState = currState[:idx] + (jars[idx], ) + currState[idx + 1:]
+            if newState not in prevState:
+                rec[newState] = currStep + 1
+                prevState[newState] = currState
+            newState = currState[:idx] + (0, ) + currState[idx + 1:]
+            if newState not in prevState:
+                rec[newState] = currStep + 1
+                prevState[newState] = currState
+    returnList = list()
+    while statePtr is not None:
+        returnList.append(statePtr)
+        statePtr = prevState[statePtr]
+    return returnList[::-1]
+

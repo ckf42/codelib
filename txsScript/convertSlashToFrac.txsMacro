@@ -1,0 +1,22 @@
+{
+    "abbrev": "",
+    "description": [
+        "select a slashed fraction and convert to \\frac"
+    ],
+    "formatVersion": 1,
+    "menu": "",
+    "name": "convert slash to frac",
+    "shortcut": "",
+    "tag": [
+        "%SCRIPT",
+        "",
+        "editor.replaceSelectedText(",
+        "\tcursor.selectedText().replace(",
+        "\t\tRegExp(\"^\\\\s*(.+?)\\\\s*/\\\\s*(.+?)\\\\s*$\"), ",
+        "\t\t\"\\\\frac{$1}{$2}\"), ",
+        "\t{\"noEmpty\": true}",
+        ");",
+        ""
+    ],
+    "trigger": ""
+}

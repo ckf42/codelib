@@ -68,6 +68,12 @@ A simple python I use to generate some sounds. Uses `numpy`
 
 Some python scripts I have written. May be used in other scripts.
 
+## previewLatex.py
+
+A function that renders `SageMath` `latex` output into image and put it on console in [iTerm2 image sequence](https://iterm2.com/documentation-images.html)
+
+Should work on all terminal emulators that support the iTerm2 image protocol, but currently on Windows only work on default `mintty`. Not sure why
+
 ## pipRemovable.py
 
 A python script to check the dependencies of packages. Depends on `pip` and `pipdeptree >= 0.5.0` (ironically). 

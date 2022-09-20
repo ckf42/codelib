@@ -3,7 +3,8 @@ def previewLatex(inputExpression):
     import tempfile
     import os
     import shutil
-    from imgcat import imgcat
+    import base64
+    import sys
 
     if shutil.which('pdflatex') is None:
         print("pdflatex not found")
@@ -27,20 +28,44 @@ def previewLatex(inputExpression):
         '$' + latex(inputExpression) + '$',
         r'\end{document}',
     ))
-    fp = tempfile.NamedTemporaryFile('wt', delete=False, encoding='utf-8')
-    fpPath = fp.name.replace('/tmp', realTmpPath, 1)
-    print(texContent, file=fp)
-    fp.close()
-    subprocess.run(['pdflatex', '-synctex=0', '-interaction=nonstopmode', fpPath],
-                   cwd='/tmp',
-                   stdout=subprocess.PIPE)
-    subprocess.run(['pdftocairo', '-png', '-singlefile', fpPath + '.pdf', fpPath],
-                   cwd='/tmp',
-                   stdout=subprocess.PIPE)
-    print('')
-    with open(fp.name + '.png', 'rb') as imgF:
-        imgcat(imgF)
-    print('')
-    for f in ('.aux', '.log', '.pdf', '.png', ''):
-        os.unlink(fp.name + f)
+    try:
+        fp = tempfile.NamedTemporaryFile('wt', delete=False, encoding='utf-8')
+        fpPath = fp.name.replace('/tmp', realTmpPath, 1)
+        print(texContent, file=fp)
+        fp.close()
+        texCompile = subprocess.run(['pdflatex', '-synctex=0', '-interaction=nonstopmode', fpPath],
+                                    cwd='/tmp',
+                                    stdout=subprocess.PIPE,
+                                    text=True,
+                                    encoding='UTF-8')
+        if '! LaTeX Error: File' in texCompile.stdout:
+            pkgNameIdx = texCompile.stdout.find('! LaTeX Error: File `') + 21
+            pkgNameSeg = texCompile.stdout[pkgNameIdx + 21:]
+            pkgNameEndIdx = pkgNameSeg.find("'")
+            raise RuntimeError(f"Package {pkgNameSeg[:pkgNameEndIdx - 4]} not found")
+        subprocess.run(['pdftocairo', '-png', '-singlefile', fpPath + '.pdf', fpPath],
+                        cwd='/tmp',
+                        stdout=subprocess.PIPE)
+        if not os.path.exists(fp.name + '.png'):
+            raise RuntimeError("pdftocairo failed")
+        fSize = os.path.getsize(fp.name + '.png')
+        fContent = b''
+        with open(fp.name + '.png', 'rb') as imgF:
+            fContent = imgF.read()
+        outputSeq = b''.join((
+            b'\x1b]1337;File=size=',
+            bytes(str(fSize), 'ASCII'),
+            b';inline=1;height=auto:',
+            base64.b64encode(fContent),
+            b'\x07\x0a'
+        ))
+        print('')
+        sys.stdout.buffer.write(outputSeq)
+        print('')
+    except Exception as e:
+        print(e)
+    finally:
+        for f in ('.aux', '.log', '.pdf', '.png', ''):
+            if os.path.isfile(fp.name + f):
+                os.unlink(fp.name + f)
 

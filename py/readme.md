@@ -72,7 +72,9 @@ Some python scripts I have written. May be used in other scripts.
 
 A function that renders `SageMath` `latex` output into image and put it on console in [iTerm2 image sequence](https://iterm2.com/documentation-images.html)
 
-Should work on all terminal emulators that support the iTerm2 image protocol, but currently on Windows only work on default `mintty`. Not sure why
+The template latex content is edited from TeXStudio preview latex file. Requires `amsmath`, `amssymb`, `amsfonts`, `preview`, `varwidth` packages
+
+Should work on all terminal emulators that support the iTerm2 image protocol, but currently on Windows only work with the default `mintty` terminal. Not sure why
 
 ## pipRemovable.py
 

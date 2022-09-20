@@ -40,7 +40,7 @@ def previewLatex(inputExpression):
                                     encoding='UTF-8')
         if '! LaTeX Error: File' in texCompile.stdout:
             pkgNameIdx = texCompile.stdout.find('! LaTeX Error: File `') + 21
-            pkgNameSeg = texCompile.stdout[pkgNameIdx + 21:]
+            pkgNameSeg = texCompile.stdout[pkgNameIdx:]
             pkgNameEndIdx = pkgNameSeg.find("'")
             raise RuntimeError(f"Package {pkgNameSeg[:pkgNameEndIdx - 4]} not found")
         subprocess.run(['pdftocairo', '-png', '-singlefile', fpPath + '.pdf', fpPath],

@@ -32,6 +32,11 @@ Fetch the metadata of a document identifier and display its metadata in `stdout`
 
 Currently only support `doi`, `arxiv`, and `jstor`.
 
+## getExchangeRate.py
+
+Get the exchange rate from one currency to another. Does not guarantee data accuracy.
+
+Available backends are [currency-api](https://github.com/fawazahmed0/currency-api) and [European Central Bank](https://sdw-wsrest.ecb.europa.eu/help/)
 
 ## hxscript.py
 

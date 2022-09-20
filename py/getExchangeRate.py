@@ -14,11 +14,11 @@ parser.add_argument('initCurr',
 parser.add_argument('destCurr',
                     type=str,
                     help="The currency to exchange to")
-parser.add_argument('--base',
+parser.add_argument('--backend',
                     type=str,
                     choices=['currency-api', 'ecb'],
                     default='currency-api',
-                    help="The API to query. Defaults to currency-api")
+                    help="The backend API to query. Defaults to currency-api")
 args = parser.parse_args()
 
 def ecbQuery(fromCurr, toCurr):
@@ -44,7 +44,7 @@ def ecbQuery(fromCurr, toCurr):
             raise RuntimeError(f"Request returned with {resp.status_code}")
     exch1 = _ecbQueryBase(fromCurr) if fromCurr.upper() != 'EUR' else {'rate': 1, 'time': datetime.date.today().isoformat()}
     exch2 = _ecbQueryBase(toCurr) if toCurr.upper() != 'EUR' else {'rate': 1, 'time': datetime.date.today().isoformat()}
-    return {'rate': round(exch2['rate'] / exch1['rate'], 6), 'time': min(exch1['time'], exch2['time'])}
+    return {'rate': exch2['rate'] / exch1['rate'], 'time': min(exch1['time'], exch2['time'])}
 
 def currApiQuery(fromCurr, toCurr):
     # https://github.com/fawazahmed0/currency-api
@@ -59,6 +59,6 @@ def currApiQuery(fromCurr, toCurr):
 resDict = {
     'ecb': ecbQuery,
     'currency-api': currApiQuery,
-}[args.base](args.initCurr, args.destCurr)
-print(f"{resDict['rate'] * args.amount} (on {resDict['time']})")
+}[args.backend](args.initCurr, args.destCurr)
+print(f"{round(resDict['rate'] * args.amount, 6)} (on {resDict['time']})")
 

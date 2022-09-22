@@ -46,7 +46,7 @@ Check if the network is connected and alert if not
 
 ## updateSageTex.bat
 
-Copy `sagetex.sty` to texmf tree. Similar to `runSageTex.bat` but is used for updatting/resetting `sagetex`
+Copy `sagetex.sty` to texmf tree. Similar to `runSageTex.bat` but is used for updating/resetting `sagetex`
 
 ## selectThis.bat
 
@@ -55,4 +55,8 @@ Open `explorer.exe` with specified file selected, or prompt if the file does not
 Treats whole arguments as a single filename
 
 Useful with doskey
+
+## callHashcat.bat, callJohn.bat
+
+Scripts to aid using `hashcat` and `johntheripper`. Mostly to expand path relative to cwd and set working directory
 

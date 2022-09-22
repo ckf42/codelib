@@ -2,7 +2,7 @@
 
 Some userscripts I have written.
 
-Most of them *should* be Violentmonkey-compatible.
+Most of them *should* be [Violentmonkey](https://violentmonkey.github.io/)-compatible.
 
 ## Get github repo size.js
 

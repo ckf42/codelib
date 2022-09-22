@@ -82,7 +82,7 @@ Some python scripts I have written. May be used in other scripts.
 
 ## previewLatex.py
 
-A function that renders `SageMath` `latex` output into image and put it on console in [iTerm2 image sequence](https://iterm2.com/documentation-images.html)
+A function that renders `SageMath` expression (that can be `latex()`ed) into image and put it on console in [iTerm2 image sequence](https://iterm2.com/documentation-images.html)
 
 The template latex content is edited from TeXStudio preview latex file. Requires `amsmath`, `amssymb`, `amsfonts`, `preview`, `varwidth` packages
 

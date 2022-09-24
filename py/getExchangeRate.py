@@ -1,6 +1,7 @@
 import requests as rq
 import datetime
 import argparse
+import locale
 
 parser = argparse.ArgumentParser()
 parser.add_argument('amount',
@@ -8,18 +9,24 @@ parser.add_argument('amount',
                     nargs='?',
                     default=1,
                     help="The amount of original currency. Defaults to 1")
-parser.add_argument('initCurr',
+parser.add_argument('fromCurr',
                     type=str,
                     help="The currency to exchange from")
-parser.add_argument('destCurr',
+parser.add_argument('toCurr',
                     type=str,
                     help="The currency to exchange to")
+parser.add_argument('--thousand',
+                    action='store_true',
+                    help="Use thousand separator instead of myraid separator")
 parser.add_argument('--backend',
                     type=str,
                     choices=['currency-api', 'ecb'],
                     default='currency-api',
                     help="The backend API to query. Defaults to currency-api")
 args = parser.parse_args()
+
+locale.setlocale(locale.LC_MONETARY, locale.getlocale())
+locale._override_localeconv['mon_grouping'] = [3 if args.thousand else 4, 0]
 
 def ecbQuery(fromCurr, toCurr):
     # https://sdw-wsrest.ecb.europa.eu/help/
@@ -59,6 +66,6 @@ def currApiQuery(fromCurr, toCurr):
 resDict = {
     'ecb': ecbQuery,
     'currency-api': currApiQuery,
-}[args.backend](args.initCurr, args.destCurr)
-print(f"{round(resDict['rate'] * args.amount, 6)} (on {resDict['time']})")
+}[args.backend](args.fromCurr, args.toCurr)
+print(f"{locale.currency(round(resDict['rate'] * args.amount, 6), symbol=False, grouping=True)} (on {resDict['time']})")
 

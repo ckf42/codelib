@@ -295,16 +295,19 @@ if not [!fzfResult!]==[] (
             for %%r in ("!fzfResult!") do @( copy /b "!downloadPath!\%%~nxr"+,, "!downloadPath!\" )
         ) && (
             echo Updating index ...
-            for %%r in ("!fzfResult!") do @( echo !downloadPath!\%%~nxr>>%fileListPath% )
-            for %%f in ("%fileListPath%") do @(
-                if !scriptDebugFlag! neq 0 (echo %TEMP%\%%~nxf.tmp)
-                break>%TEMP%\%%~nxf.tmp
-                type %fileListPath%>%TEMP%\%%~nxf.tmp
-                type %TEMP%\%%~nxf.tmp | findstr /L /V /C:"!fzfResult!">%fileListPath%
-                del %TEMP%\%%~nxf.tmp
-            )
-            if !scriptDebugFlag! neq 0 (
-                for %%r in ("!fzfResult!") do (
+            for %%r in ("!fzfResult!") do @(
+                for %%f in ("%fileListPath%") do (
+                    if !scriptDebugFlag! neq 0 (
+                        echo %TEMP%\%%~nxf.tmp
+                        echo %%~nxr
+                    )
+                    break>%TEMP%\%%~nxf.tmp
+                    type %fileListPath% >%TEMP%\%%~nxf.tmp
+                    type %TEMP%\%%~nxf.tmp | findstr /L /V /C:"%%~nxr" >%fileListPath%
+                    del %TEMP%\%%~nxf.tmp
+                )
+                echo !downloadPath!\%%~nxr >>%fileListPath%
+                if !scriptDebugFlag! neq 0 (
                     echo downloaded path "!downloadPath!\%%~nxr"
                 )
             )
@@ -313,7 +316,6 @@ if not [!fzfResult!]==[] (
                 echo Selecting file ...
                 @REM assumed local file is recorded with full path
                 for %%r in ("!fzfResult!") do (
-                    echo downloaded path "!downloadPath!\%%~nxr"
                     if !scriptDebugFlag! neq 0 (echo explorer /select,"!downloadPath!\%%~nxr")
                     explorer /select,"!downloadPath!\%%~nxr"
                 )
@@ -322,7 +324,6 @@ if not [!fzfResult!]==[] (
             ) else if errorlevel 1 (
                 echo Opening file ...
                 for %%r in ("!fzfResult!") do (
-                    echo downloaded path "!downloadPath!\%%~nxr"
                     if !scriptDebugFlag! neq 0 (echo explorer "!downloadPath!\%%~nxr")
                     explorer "!downloadPath!\%%~nxr"
                 )

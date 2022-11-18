@@ -22,8 +22,12 @@ set remoteIndexCacheDir=%USERPROFILE%\Downloads
 set fileListPath=%USERPROFILE%\Desktop\aggregatedFileList.txt
 @REM file dir on remote
 set rcloneDrive=gd:books
+@REM base cmd for rclone
+set rcloneBaseCmd=rclone --drive-shared-with-me --progress
 @REM cmd used to get files from remote
-set rcloneCmd=rclone --drive-shared-with-me copy --progress %rcloneDrive%/
+set rcloneCmd=%rcloneBaseCmd% copy %rcloneDrive%/
+@REM cmd used to get index from from remote
+set rcloneIndexFetchCmd=%rcloneCmd%
 @REM allow unknown para as query? 0/1: F/T
 set unknownParaAsQuery=1
 REM script configs end here
@@ -175,7 +179,7 @@ for %%f in (%fileListPath%) do echo Current index timestamp %%~tf
 if !needToFetchRemoteIndex! equ 1 (
     if defined remoteIndexName (
         echo Fetching remote index ...
-        set rcloneFetchRemoteCmd=%rcloneCmd%%remoteIndexRemoteDir%%remoteIndexName% %remoteIndexCacheDir%
+        set rcloneFetchRemoteCmd=%rcloneIndexFetchCmd%%remoteIndexRemoteDir%%remoteIndexName% %remoteIndexCacheDir%
         if !scriptDebugFlag! neq 0 (echo rclone command !rcloneFetchRemoteCmd!)
         !rcloneFetchRemoteCmd!
         if !errorlevel! neq 0 (

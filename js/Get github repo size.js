@@ -15,6 +15,16 @@ let debugPrint = (scriptCfg.debugVerbose ? (x)=>console.log(`[${GM_info.script.n
 
 debugPrint("Script starting ...");
 
+function toReadableUnit(i, decimalPlace=2) {
+    let unitArr = ['KB', 'MB', 'GB', 'TB'];
+    let unitIdx = 0;
+    while (i >= 1000 && unitIdx < unitArr.length - 1){
+        i /= 1000;
+        unitIdx += 1;
+    }
+    return i.toFixed(decimalPlace) + ' ' + unitArr[unitIdx];
+}
+
 let downloadCodeBtn = document.querySelector('details[data-action="toggle:get-repo#onDetailsToggle"]');
 if (downloadCodeBtn){
     debugPrint("Repo download button found");
@@ -22,19 +32,14 @@ if (downloadCodeBtn){
     let repoSize = -1;
     debugPrint("Getting repo size");
     gitDLAsZip.textContent = gitDLAsZip.textContent.replace("Download ZIP", "Download ZIP (getting repo size)");
-    let responseJson = fetch("https://api.github.com/repos/" + window.location.href.replace(/^https?:\/\/github.com\//, ""))
-                       .then(function(response){
-                           return response.json();
-                       }).then(function(response){
-                           repoSize = response.size;
-                           debugPrint("repo size: " + repoSize);
-                           gitDLAsZip.textContent = gitDLAsZip.textContent
-                                                              .replace("Download ZIP (getting repo size)", 
-                                                                       "Download ZIP (approx. " + repoSize + " KB)");
-                       }).catch(function(err){
-                           debugPrint(err);
-                           gitDLAsZip.textContent = gitDLAsZip.textContent
-                                                              .replace("Download ZIP (getting repo size)", 
-                                                                       "Download ZIP (size unknown)");
-                       });
+    fetch("https://api.github.com/repos/" + window.location.href.replace(/^https?:\/\/github.com\//, ""))
+        .then((response) => response.json()).then(function(response){
+            repoSize = response.size;
+            debugPrint("repo size: " + repoSize);
+            gitDLAsZip.textContent = gitDLAsZip.textContent
+                .replace("Download ZIP (getting repo size)", "Download ZIP (approx. " + toReadableUnit(repoSize) + ")");
+        }).catch(function(err){
+            debugPrint(err);
+            gitDLAsZip.textContent = gitDLAsZip.textContent.replace("Download ZIP (getting repo size)", "Download ZIP (size unknown)");
+        });
 }

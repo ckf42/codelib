@@ -22,15 +22,15 @@ class ReplotOnZoom:
         ...              {'xres': 1024, 'yres': 768, 'nmax': 250},
         ...              verbose=True).show()
     """
-    _xLims = None
-    _yLims = None
-    _calFunc = None
+    _xLims: tuple[float, float] = (-float('inf'), float('inf'))
+    _yLims: tuple[float, float] = (-float('inf'), float('inf'))
+    _calFunc: Optional[Callable] = None
     _fig = None
     _ax = None
-    _paraDict = {}
-    _pltPara = {}
-    _eps = 1e-5
-    _verbose = False
+    _paraDict: dict = {}
+    _pltPara: dict = {}
+    _eps: float = 1e-5
+    _verbose: bool = False
 
 
     def __init__(self,

@@ -1,7 +1,7 @@
 import string
 import pathlib
 import re
-from typing import Iterable, Optional, Callable, Union
+from typing import Iterable, Sequence, Optional, Callable, Union, Sized
 
 
 def extractString(s: str, head: str, tail: str) -> Optional[str]:
@@ -60,11 +60,11 @@ def rot13(s: str, n: int = 13) -> str:
                                      ls[n:] + ls[:n] + us[n:] + us[:n]))
 
 
-def head(it: Iterable, count: int = 5):
+def head(it: Sequence, count: int = 5):
     return it[:count]
 
 
-def tail(it: Iterable, count: int = 5):
+def tail(it: Sequence, count: int = 5):
     return it[-count:]
 
 
@@ -89,7 +89,7 @@ def caeserBruteForce(s: str) -> list[str]:
     return [rot13(s, i) for i in range(26)]
 
 
-def lenIndices(it: Iterable, toReverse: bool = False) -> range:
+def lenIndices(it: Sized, toReverse: bool = False) -> range:
     """
     Get the range of len of an iterable
     ----
@@ -131,7 +131,7 @@ def toCharFreq(s: str, alphaOnly: bool = True) -> dict[str, float]:
         >>> hx.toCharFreq('abcde12345', alphaOnly=True)
         {'a': 0.2, 'b': 0.2, 'c': 0.2, 'd': 0.2, 'e': 0.2}
     """
-    freqDict = dict()
+    freqDict: dict[str, float] = dict()
     sList = [c.lower() for c in s if (not alphaOnly or c.isalpha())]
     for c in sList:
         freqDict[c] = freqDict.get(c, 0) + 1
@@ -192,11 +192,11 @@ def readTextFile(filePath: str,
         A list of strings. The content of the target file read in text mode.
         Each item is a line
     """
-    returnLst = []
+    returnLst: list[str] = []
     with pathlib.Path(filePath).expanduser().resolve(strict=True)\
             .open('rt', encoding=enc) as f:
         returnLst = f.readlines()
-    return returnLst if not keepNewLine else [w.rstrip('\n') for w in returnLst]
+    return returnLst if not keepNewline else [w.rstrip('\n') for w in returnLst]
 
 
 def splitString(s: str, unitLen: int = 8, strict: bool = True) -> list[str]:
@@ -308,7 +308,7 @@ def alphaToNum(s: str) -> list[Union[str, int]]:
 def hexByteStringToArr(hexByteStr: str,
                        unitByteLen: int = 4,
                        isBigEndian: bool = True,
-                       isNum: bool = True):
+                       isNum: bool = True) -> Union[list[str], list[int]]:
     """
     Convert hex byte blocks back to an array
     ----
@@ -341,16 +341,16 @@ def hexByteStringToArr(hexByteStr: str,
         ['6162', '6364']
     """
     assert unitByteLen > 0
-    arr = hexByteStr.split()
-    assert len(arr) % unitByteLen == 0
-    arr = [arr[i: i + unitByteLen] for i in range(0, len(arr), unitByteLen)]
+    byteArrLst = hexByteStr.split()
+    assert len(byteArrLst) % unitByteLen == 0
+    byteSeg = [byteArrLst[i: i + unitByteLen] for i in range(0, len(byteArrLst), unitByteLen)]
     if not isBigEndian:
-        arr = [seg[::-1] for seg in arr]
-    arr = [''.join(seg) for seg in arr]
+        byteSeg = [seg[::-1] for seg in byteSeg]
+    joinedSeg: list[str] = [''.join(seg) for seg in byteSeg]
     if isNum:
-        return [int(seg, 16) for seg in arr]
+        return [int(seg, 16) for seg in joinedSeg]
     else:
-        return arr
+        return joinedSeg
 
 
 def combineFromEach(listOfIter: list[Iterable],
@@ -412,8 +412,9 @@ def vigenere_map(s: str,
     pStr = ''
     for c in s:
         if c.isalpha():
-            pStr += rot13(c, (-1 if doDecrypt else 1)
-                          * alphaToNum(keyStr[kptr])[0])
+            rotOffset = alphaToNum(keyStr[kptr])[0]
+            assert isinstance(rotOffset, int)
+            pStr += rot13(c, (-1 if doDecrypt else 1) * rotOffset)
             kptr = (kptr + 1) % klen
         else:
             pStr += c
@@ -452,10 +453,10 @@ def vigenere_crack(
     maxKeyLen: int = 10,
     takeTopCount: int = 5,
     groundTruth: str = '',
-    freqDistFunc: Callable[dict, float] = distToEnglishText,
-    distCutoff: float = None,
+    freqDistFunc: Callable[[dict], float] = distToEnglishText,
+    distCutoff: Optional[float] = None,
     kasiskiOnly: bool = True,
-    checkerFunc: Callable[str, bool] = (lambda x: True),
+    checkerFunc: Callable[[str], bool] = (lambda x: True),
     verboseInfo: bool = False
 ) -> list[tuple[str, str, float]]:
     """
@@ -581,7 +582,7 @@ def vigenere_crack(
     if maxKeyLen > cipherLen // 4:
         raise ValueError(f'Cipher is too short ({cipherLen}) '
                          f'for maximal key length ({maxKeyLen}).')
-    proposedKeyRange = range(minKeyLen, maxKeyLen + 1)
+    proposedKeyRange = tuple(range(minKeyLen, maxKeyLen + 1))
     if kasiskiOnly:
         kasiskiRepIndices = [
             [
@@ -601,9 +602,9 @@ def vigenere_crack(
         ))
         if verboseInfo:
             print(f"Kasiski indices:", kasiskiRepCount)
-        proposedKeyRange = [
+        proposedKeyRange = tuple(
             x for x in proposedKeyRange if x in kasiskiRepCount
-        ]
+        )
     resultList = []
     for proposedKeyLen in proposedKeyRange:
         strBuckets = [

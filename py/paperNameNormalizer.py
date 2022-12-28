@@ -4,7 +4,7 @@ import unicodedata as ud
 
 # extract from shdl
 
-def transformToAuthorStr(authorList: tuple[tuple[str]]) -> str:
+def transformToAuthorStr(authorList: tuple[tuple[str, ...], ...]) -> str:
     # authorList assumed (given name, family name)
     return ', '.join(''.join((gNamePart
                               if len(gNamePart) <= 1 or not gNamePart.isalpha()

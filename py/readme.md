@@ -40,7 +40,10 @@ Currently only support `doi`, `arxiv`, and `jstor`.
 
 Get the exchange rate from one currency to another. Does not guarantee data accuracy.
 
-Available backends are [currency-api](https://github.com/fawazahmed0/currency-api) and [European Central Bank](https://sdw-wsrest.ecb.europa.eu/help/)
+Available backends are 
+* [European Central Bank](https://sdw-wsrest.ecb.europa.eu/help/)
+* [currency-api](https://github.com/fawazahmed0/currency-api)
+* [Exchange Rate API](https://www.exchangerate-api.com)
 
 ## getFontList.py
 

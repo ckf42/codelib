@@ -48,6 +48,30 @@ def hasher(fname, hasherName, forceModule=False):
 
 print(f"file size (in byte): {fileLoc.stat().st_size}")
 
+fileSigStatus = subprocess.run(['powershell',
+                                '-Command',
+                                '(',
+                                'Get-AuthenticodeSignature',
+                                '-FilePath',
+                                str(fileLoc.resolve()),
+                                ').Status'],
+                               stdout=subprocess.PIPE,
+                               text=True).stdout.strip()
+print("File signature status:", fileSigStatus)
+if fileSigStatus != 'NotSigned':
+    print("Signature info:")
+    print(subprocess.run(['powershell',
+                          '-Command',
+                          '(',
+                          'Get-AuthenticodeSignature',
+                          '-FilePath',
+                          str(fileLoc.resolve()),
+                          ').SignerCertificate',
+                          '|',
+                          'Format-List'],
+                         stdout=subprocess.PIPE,
+                         text=True).stdout.strip())
+
 hashDict = dict()
 for hName in hashNameTuple:
     hashDict[hName] = hasher(fileLoc, hName, args.pysum)

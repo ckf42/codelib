@@ -5,11 +5,14 @@ import argparse
 parser = argparse.ArgumentParser(
         epilog="Notes on backends: "
         "European Central Bank (ecb) (seemingly) only has API to convert from EUR. "
-        "Non-EUR conversion is done by converting to EUR first. "
-        "Result may not be accuracy. "
+        "Non-EUR conversion is done by converting to EUR first, "
+        "and the result may be inaccuracy. "
+        "Currency-API (https://github.com/fawazahmed0/currency-api) also has "
+        "exchange rates for cryptocurrencies. "
         "Exchange Rate API (https://www.exchangerate-api.com) "
         "is queried via their open access endpoint, "
         "which has a 20-minute IP-based rate limit. "
+        "For supported currency code, please check the documentation for the backends. "
         "Props to the maintainers of these backends for providing these resources.")
 parser.add_argument('amount',
                     type=float,
@@ -18,20 +21,20 @@ parser.add_argument('amount',
                     help="The amount of original currency. Defaults to 1.0")
 parser.add_argument('fromCurr',
                     type=str,
-                    help="The currency to exchange from")
+                    help="The code for the original currency")
 parser.add_argument('toCurr',
                     type=str,
-                    help="The currency to exchange to")
-parser.add_argument('--thousand',
+                    help="The code for the target currency")
+parser.add_argument('--thousand', '-t',
                     action='store_true',
-                    help="Use thousand separator (3-digit) instead of "
-                    "the default myriad separator (4-digit)")
-parser.add_argument('--decimal',
+                    help="Use thousand separator (3-digit, i.e. 10,000) instead of "
+                    "the default myriad separator (4-digit, i.e. 1,0000)")
+parser.add_argument('--decimal', '-d',
                     type=int,
                     default=2,
                     help="The number of decimal places to keep. "
                     "Defaults to 2")
-parser.add_argument('--backend',
+parser.add_argument('--backend', '-b',
                     type=str,
                     choices=('ecb', 'curr-api', 'er-api'),
                     default='ecb',

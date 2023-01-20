@@ -51,6 +51,7 @@ for line in sorted(subprocess.run(fcCmd,
                                   capture_output=True,
                                   text=True,
                                   encoding='utf-8',
-                                  errors='ignore').stdout.strip('"').split('""')):
+                                  errors='ignore',
+                                  check=True).stdout.strip('"').split('""')):
     print(line.strip())
 

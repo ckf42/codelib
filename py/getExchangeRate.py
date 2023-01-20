@@ -75,16 +75,18 @@ def ecbQuery(fromCurr: str, toCurr: str) -> dict:
             'lastNObservations': '1',
         }
         resp = rq.get(ecbAddr, params=reqPara)
-        if resp.status_code == 200:
+        if resp.status_code == 200 and len(resp.text) != 0:
             try:
                 respJs = resp.json()
                 respTime = respJs['structure']['dimensions']['observation'][0]['values'][0]['id']
                 respVal = respJs['dataSets'][0]['series']['0:0:0:0:0']['observations']['0'][0]
                 return {'rate': respVal, 'time': respTime}
-            except:
+            except rq.exceptions.JSONDecodeError:
                 raise RuntimeError("Failed parsing response")
         elif resp.status_code == 404:
             raise RuntimeError(f"Currency not supported: {targetCurr}")
+        elif len(resp.text) == 0:
+            raise RuntimeError(f"Not enough data returned for currency {targetCurr}")
         else:
             raise RuntimeError(f"Request returned with {resp.status_code}")
     todayDate = datetime.date.today().isoformat()

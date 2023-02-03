@@ -1,8 +1,8 @@
+from typing import Callable, Optional
 from matplotlib.backend_bases import MouseEvent as _pltMouseEvent
 from matplotlib.pyplot import show as _pltShow
 from matplotlib.pyplot import subplots as _pltSubplots
 from numpy import flipud as _npFlipud
-from typing import Callable, Optional
 
 class ReplotOnZoom:
     """

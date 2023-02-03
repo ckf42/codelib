@@ -16,6 +16,12 @@ Compute some hashes, check file signature and search the MD5 hash on VirusTotal.
 
 Scan image in clipboard and decode the QR code within, if any. Requires `opencv-python`, `pillow`, and `numpy`
 
+## decodeMorseInWav.py
+
+Decode the Morse code in a `wav` file and translate it to text. Still has some issues handling spacing swings
+
+Requires `numpy`, `scipy`, and uses `MorseCodeDict.py`
+
 ## expandMdMathMacro.py
 
 Read a `Markdown` file that uses math macros (stored as `json` format) and transform to plain math `KaTeX` math commands. Also allow transforming math commands with image links, or transform the file into a `HTML` file that can be rendered with `MathML` or GitHub-previewable `IPython` notebook.
@@ -60,6 +66,10 @@ Some simple python script I have written for practising CTF.
 ## ipythonInitScript.py
 
 Import some python packages in `ipython` for scicomp. Just run the script after `ipython` is initiated.
+
+## MorseCodeDict.py
+
+Not a cli utility but a simple module that contains dict on converting simple Morse code and some helper functions
 
 ## musicKeyboard.py
 

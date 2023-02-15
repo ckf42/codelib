@@ -1,15 +1,17 @@
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from pathlib import Path
 from itertools import groupby
 from datetime import timedelta
 import numpy as np
 from scipy.signal import welch, stft, find_peaks
 from scipy.io import wavfile
+from scipy.stats import gaussian_kde
 import MorseCodeDict as MCD
 
-def main():
+def getCliArg():
     parser = ArgumentParser(
             epilog="Work best on consistent intervals and without noise. "
+            "Should still work if signal not too corrupted. "
             "May need to cleanup signal and test with different arguments "
             "to get accurate result")
     parser.add_argument(
@@ -25,6 +27,7 @@ def main():
             type=int,
             default=512,
             help="The number of samples in each STFT (and Welch) segment. "
+            "Typically a power of 2. Usually 256, 512, or 1024. "
             "Defaults to 512")
     parser.add_argument(
             '--channel', '-c',
@@ -44,9 +47,8 @@ def main():
             "which are the `di` (short signal) length "
             "and the `dah` (long signal) length. "
             "If not specified, will try to deduce from signal. "
-            "If less than 2 lengths are specified, "
-            "will attempt to fill up the missing lengths "
-            "with the (1, 3) pattern")
+            "If only 1 length is specified, "
+            "will use 3 times the length as the second one")
     parser.add_argument(
             '--offLen', '-0',
             type=float,
@@ -59,7 +61,7 @@ def main():
             "will try to use the most common lengths in signal. "
             "If not specified, will try to deduce from signal. "
             "If less than 3 lengths are specified, "
-            "will attempt to fill up the missing lengths "
+            "will attempt to fill up the remaining lengths "
             "with the (1, 3, 7) pattern")
     parser.add_argument(
             '--verbose', '-v',
@@ -87,6 +89,10 @@ def main():
         if len(args.offLen) == 2:
             args.offLen.append(min(args.offLen) * 7)
         args.offLen.sort()
+    return args
+
+def main():
+    args = getCliArg()
     # get data
     filepath = Path(args.file)
     assert filepath.is_file(), "Not a valid file"
@@ -106,18 +112,20 @@ def main():
     # find signal freq
     freq = args.freq
     if freq is None:
-        wfq1, Pxx1 = welch(xNormalized, sampleRate, nperseg=args.nperseg, average='mean')
-        wfq2, Pxx2 = welch(xNormalized, sampleRate, nperseg=args.nperseg, average='median')
-        (wfq, Pxx) = (wfq1, Pxx1) if Pxx1.max() >= Pxx2.max() else (wfq1, Pxx2)
-        freq = wfq[Pxx.argmax()]
+        wfq1, Pxx1 = welch(xNormalized, sampleRate,
+                           nperseg=args.nperseg, average='mean')
+        wfq2, Pxx2 = welch(xNormalized, sampleRate,
+                           nperseg=args.nperseg, average='median')
+        freq = wfq1[Pxx1.argmax()] if Pxx1.max() >= Pxx2.max() else wfq2[Pxx2.argmax()]
         if args.verbose:
             print(f'{freq=:.2f}')
     elif args.verbose:
+        assert freq > 0
         print(f'{freq=} (overridden)')
     assert freq is not None
     # convert to digital
     fq, st, Zxx = stft(xNormalized, sampleRate, nperseg=args.nperseg)
-    fqp = np.abs(Zxx)[np.argmin(np.square(fq - freq)), :]
+    fqp = np.abs(Zxx)[np.argmin(np.abs(fq - freq)), :]
     valGp = list((k, len(tuple(v))) for k, v in groupby(fqp >= np.mean(fqp)))
     currTime = 0
     if not valGp[0][0]:
@@ -126,47 +134,64 @@ def main():
     if not valGp[-1][0]:
         valGp.pop()
     if args.verbose >= 2:
-        print(f'consecutive signal count={len(valGp)}')
+        print(f'consecutive segment count={len(valGp)}')
         print(f'unit len={st[1]:.3g}s')
     # find signal lengths
-    onHist = np.histogram(tuple(v for k, v in valGp if k), bins='auto')
-    offHist = np.histogram(tuple(v for k, v in valGp if not k), bins='auto')
-    offPeaks = find_peaks(offHist[0], prominence=1)
-    durList = [
-            (np.asarray(sorted(((offHist[1][1:] + offHist[1][:-1]) / 2)\
-                    [offPeaks[0][np.argsort(offPeaks[1]['prominences'])[-3:]]]))
-             if args.offLen is None
-             else np.asarray(args.offLen) / st[1]),
-            (np.asarray(sorted(((onHist[1][1:] + onHist[1][:-1]) / 2)\
-                    [np.argpartition(onHist[0], -2)[-2:]]))
-             if args.onLen is None
-             else np.asarray(args.onLen) / st[1])
-    ]
-    assert len(durList[1]) >= 2, "Unable to determine unit signal length"
+    onVal = np.asarray(tuple(v for k, v in valGp if k))
+    offVal = np.asarray(tuple(v for k, v in valGp if not k))
+    epdfs = (gaussian_kde(offVal), gaussian_kde(onVal))
+    xRanges = tuple(np.linspace(min(vList) - 3, max(vList) + 3, len(frozenset(vList)) * 10)
+                    for vList in (offVal, onVal))
+    peakProps = tuple(
+            tuple((peakVal, pProp)
+                  for peakVal in xRanges[tIdx][find_peaks(epdfs[tIdx](xRanges[tIdx]))[0]]
+                  if (pProp := epdfs[tIdx].integrate_box_1d(peakVal - 3, peakVal + 3)) \
+                          >= 0.01 * epdfs[tIdx].integrate_box_1d(xRanges[tIdx][0],
+                                                                 xRanges[tIdx][-1]))
+            for tIdx in (0, 1))
+    durList = list(
+            (np.sort(tuple(
+                peakProps[tIdx][i][0]
+                for i in np.argpartition(tuple(p[1] for p in peakProps[tIdx]),
+                                        -min(len(peakProps[tIdx]),
+                                             maxCount))[-1:-(maxCount + 1):-1]))
+             if overrideLen is None
+             else (np.asarray(overrideLen) / st[1]))[:maxCount]
+            for (tIdx, overrideLen, maxCount) in zip((0, 1), (args.offLen, args.onLen), (3, 2)))
+    assert len(durList[1]) == 2, "Unable to determine unit signal length"
     if len(durList[0]) == 0:
         # fail to find peak, fallback with sorting
+        offHist = np.histogram(offVal, bins='auto')
         offPeakIdx = np.argpartition(offHist[0], -3)[-1:-4:-1]
-        durList[0] = ((offHist[1][1:] + offHist[1][:-1]) / 2)\
-                [offPeakIdx[offHist[0][offPeakIdx] != 0]]
+        durList[0] = np.sort(((offHist[1][1:] + offHist[1][:-1]) / 2)\
+                [offPeakIdx[offHist[0][offPeakIdx] != 0]])
     if len(durList[0]) == 0:
         # still fail to find peak, fallback with signal length
         durList[0] = np.asarray(tuple(i * durList[1][1] for i in (1, 3, 7)))
-    for i in (0, 1):
-        durList[i] = np.hstack(((0,), durList[i]))
-    if args.verbose >= 2:
+    elif len(durList[0]) == 1:
+        # fill up assuming 1-3-7 pattern comparing with durList[1]
+        durList[0] = np.asarray((1, 3, 7)) * durList[0][0] \
+                / (1, 3, 7)[np.abs(durList[0][0] - np.hstack(
+                    (durList[1], durList[1][0] * 4 + durList[1][1]))).argmin()]
+    elif len(durList[0]) == 2:
+        # fill up assuming 1-3-7 pattern by itself
+        insIdx = np.abs(durList[0][1] / durList[0][0] - np.asarray((7 / 3, 7, 3))).argmin()
+        durList[0] = np.insert(durList[0], insIdx, durList[0][0] * (1 / 3, 3, 7)[insIdx])
+    if args.verbose:
         print('characteristic lengths:')
         print('on',
-              ' '.join(f'{i * st[1]:.3g}s' for i in durList[1][1:]),
+              ' '.join(f'{i * st[1]:.3g}s' for i in durList[1]),
               '' if args.onLen is None else '(overridden)')
         print('off',
-              ' '.join(f'{i * st[1]:.3g}s' for i in durList[0][1:]),
+              ' '.join(f'{i * st[1]:.3g}s' for i in durList[0]),
               '' if args.offLen is None else '(overridden)')
+    for i in (0, 1):
+        durList[i] = np.hstack(((0,), durList[i]))
     # decoding
     sigBuff = list()
     decRes = list()
     startTime = None
-    for i in range(len(valGp)):
-        (sigType, sigDur) = valGp[i]
+    for i, (sigType, sigDur) in enumerate(valGp):
         currTime += sigDur
         durIdx = int(np.abs(durList[1 if sigType else 0] - sigDur).argmin())
         if durIdx == 0 or (not sigType and durIdx == 1):
@@ -196,12 +221,12 @@ def main():
         maxIdxLen = len(str(len(valGp)))
         print('Decoded signal:')
         for idx, tp, sig, msg in decRes:
-            m1 = timedelta(seconds=tp[0] * st[1])
-            m2 = timedelta(seconds=tp[1] * st[1])
+            t0 = timedelta(seconds=tp[0] * st[1])
+            t1 = timedelta(seconds=tp[1] * st[1])
             print(str(idx).ljust(maxIdxLen),
-                  f'{str(m1)[:-4] if m1.microseconds != 0 else str(m1)}',
+                  f'{str(t0)[:-4] if t0.microseconds != 0 else str(t0)}',
                   '-',
-                  f'{str(m2)[:-4] if m2.microseconds != 0 else str(m2)}',
+                  f'{str(t1)[:-4] if t1.microseconds != 0 else str(t1)}',
                   sig.ljust(maxSigLen),
                   msg)
     print(''.join(p[-1] for p in decRes))

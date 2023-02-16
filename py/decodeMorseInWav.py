@@ -8,6 +8,7 @@ from scipy.io import wavfile
 from scipy.stats import gaussian_kde
 import MorseCodeDict as MCD
 
+
 def getCliArg():
     parser = ArgumentParser(
             epilog="Work best on consistent intervals and without noise. "
@@ -91,6 +92,7 @@ def getCliArg():
         args.offLen.sort()
     return args
 
+
 def main():
     args = getCliArg()
     # get data
@@ -153,11 +155,13 @@ def main():
             (np.sort(tuple(
                 peakProps[tIdx][i][0]
                 for i in np.argpartition(tuple(p[1] for p in peakProps[tIdx]),
-                                        -min(len(peakProps[tIdx]),
-                                             maxCount))[-1:-(maxCount + 1):-1]))
+                                         -min(len(peakProps[tIdx]),
+                                              maxCount))[-1:-(maxCount + 1):-1]))
              if overrideLen is None
              else (np.asarray(overrideLen) / st[1]))[:maxCount]
-            for (tIdx, overrideLen, maxCount) in zip((0, 1), (args.offLen, args.onLen), (3, 2)))
+            for (tIdx, overrideLen, maxCount) in zip((0, 1),
+                                                     (args.offLen, args.onLen),
+                                                     (3, 2)))
     assert len(durList[1]) == 2, "Unable to determine unit signal length"
     if len(durList[0]) == 0:
         # fail to find peak, fallback with sorting
@@ -224,12 +228,13 @@ def main():
             t0 = timedelta(seconds=tp[0] * st[1])
             t1 = timedelta(seconds=tp[1] * st[1])
             print(str(idx).ljust(maxIdxLen),
-                  f'{str(t0)[:-4] if t0.microseconds != 0 else str(t0)}',
+                  str(t0)[:-4] if t0.microseconds != 0 else str(t0),
                   '-',
-                  f'{str(t1)[:-4] if t1.microseconds != 0 else str(t1)}',
+                  str(t1)[:-4] if t1.microseconds != 0 else str(t1),
                   sig.ljust(maxSigLen),
                   msg)
     print(''.join(p[-1] for p in decRes))
+
 
 if __name__ == '__main__':
     main()

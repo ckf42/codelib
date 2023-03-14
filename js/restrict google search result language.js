@@ -3,7 +3,7 @@
 // @namespace   userDefinedJavascript
 // @match       https://www.google.com/search
 // @grant       GM_registerMenuCommand
-// @version     1.0
+// @version     1.1
 // ==/UserScript==
 'use strict';
 
@@ -26,10 +26,14 @@ function chooseLanguage(langCode){
     window.location.href = currentURL.toString();
 }
 
-function addPendingLang(){
+function addCustomLang(){
     let newURL = new URL(window.location.href);
-    newURL.searchParams.delete('lr');
-    window.history.pushState('Added language filter', '', newURL.toString() + '&lr=lang_');
+	let langCode = prompt("Target language code?")
+	if (langCode !== null){
+		newURL.searchParams.delete('lr');
+		newURL.searchParams.set('lr', 'lang_' + langCode);
+		window.location.href = newURL.toString();
+	}
 }
 
 for (let localeName of langCodeDict.keys()){
@@ -42,5 +46,5 @@ if (new URL(window.location.href).searchParams.has('lr')){
                            ()=>chooseLanguage(null));
 }
 
-GM_registerMenuCommand("Pending language filter",
-                       addPendingLang);
+GM_registerMenuCommand("Add custom language filter",
+                       addCustomLang);

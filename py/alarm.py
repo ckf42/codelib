@@ -9,9 +9,10 @@ def getArgs() -> Namespace:
     def countdownLenConverter(arg: str) -> float:
         numRegex: str = r'\d+|\d*\.\d+'
         matches: Optional[Match] \
-                = match('|'.join(('^' + ''.join(f'(?:({numRegex}){sym})?'
-                                                for sym in "hms") + '$',
-                                  f'^({numRegex})$')),
+                = match('|'.join(map(lambda x: '^' + x + '$',
+                                     (''.join(f'(?:({numRegex}){sym})?'
+                                              for sym in 'hms'),
+                                      f'({numRegex})'))),
                         arg)
         assert matches is not None, f"Unable to parse argument: {arg}"
         return sum((float(a) if a is not None else 0) * b
@@ -118,3 +119,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+

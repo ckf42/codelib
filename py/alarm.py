@@ -61,7 +61,7 @@ def formatTime(timeInSecond: float) -> str:
     assert timeInSecond >= 0, "No negative time allowed"
     remainMinute, remainSecond = divmod(timeInSecond, 60)
     remainHour, remainMinute = divmod(remainMinute, 60)
-    return f"{remainHour:.0f}:{remainMinute:02.0f}:{remainSecond:02.0f}"
+    return f"{round(remainHour):.0f}:{round(remainMinute):02.0f}:{int(remainSecond):02}"
 
 def waitTime(
         timeInSecond: float,

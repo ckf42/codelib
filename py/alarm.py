@@ -7,7 +7,7 @@ from winsound import Beep
 
 def getArgs() -> Namespace:
     def countdownLenConverter(arg: str) -> float:
-        numRegex: str = r'\d+|\d*\.\d+'
+        numRegex: str = r'-?\d+|-?\d*\.\d+'
         matches: Optional[Match] \
                 = match('|'.join(map(lambda x: '^' + x + '$',
                                      (''.join(f'(?:({numRegex}){sym})?'
@@ -15,9 +15,11 @@ def getArgs() -> Namespace:
                                       f'({numRegex})'))),
                         arg)
         assert matches is not None, f"Unable to parse argument: {arg}"
-        return sum((float(a) if a is not None else 0) * b
-                   for (a, b) in zip(matches.groups(), (3600, 60, 1, 1),
-                                     strict=True))
+        resSecond: float = sum((float(a) if a is not None else 0) * b
+                               for (a, b) in zip(matches.groups(), (3600, 60, 1, 1),
+                                                 strict=True))
+        assert resSecond >= 0, f"Negative time: {resSecond}s"
+        return resSecond
 
     parser: ArgumentParser = ArgumentParser()
     parser.add_argument(
@@ -33,14 +35,15 @@ def getArgs() -> Namespace:
             "May specify multiple times for series of beeps. "
             "Defaults to 2200Hz and 1800Hz")
     parser.add_argument(
-            '--updateFreq',
+            '--updateFreq', '-uf',
             type=float,
             default=10.0,
             help="Timer update frequency, in Hz. "
             "The larger, the more accurate the timer is but the more work to do. "
+            "Should be meaningless to set this too high. "
             "Defaults to 10Hz")
     parser.add_argument(
-            '--beepLen',
+            '--beepLen', '-bl',
             type=float,
             default=0.5,
             help="Length of each beep, in seconds. "
@@ -61,7 +64,7 @@ def formatTime(timeInSecond: float) -> str:
     assert timeInSecond >= 0, "No negative time allowed"
     remainMinute, remainSecond = divmod(timeInSecond, 60)
     remainHour, remainMinute = divmod(remainMinute, 60)
-    return f"{round(remainHour):.0f}:{round(remainMinute):02.0f}:{int(remainSecond):02}"
+    return f"{round(remainHour)}:{round(remainMinute):02}:{int(remainSecond):02}"
 
 def waitTime(
         timeInSecond: float,

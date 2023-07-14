@@ -5,58 +5,61 @@ from time import monotonic, sleep
 from typing import Optional
 from winsound import Beep
 
-def getArgs() -> Namespace:
-    def countdownLenConverter(arg: str) -> float:
-        numRegex: str = r'-?\d+|-?\d*\.\d+'
-        matches: Optional[Match] \
-                = match('|'.join(map(lambda x: '^' + x + '$',
-                                     (''.join(f'(?:({numRegex}){sym})?'
-                                              for sym in 'hms'),
-                                      f'({numRegex})'))),
-                        arg)
-        assert matches is not None, f"Unable to parse argument: {arg}"
-        resSecond: float = sum((float(a) if a is not None else 0) * b
-                               for (a, b) in zip(matches.groups(), (3600, 60, 1, 1),
-                                                 strict=True))
-        assert resSecond >= 0, f"Negative time: {resSecond}s"
-        return resSecond
+def countdownLenConverter(arg: str) -> float:
+    numRegex: str = r'-?\d+|-?\d*\.\d+'
+    matches: Optional[Match] \
+            = match('|'.join(map(lambda x: '^' + x + '$',
+                                 (''.join(f'(?:({numRegex}){sym})?'
+                                          for sym in 'hms'),
+                                  f'({numRegex})'))),
+                    arg)
+    assert matches is not None, f"Unable to parse argument: {arg}"
+    resSecond: float = sum((float(a) if a is not None else 0) * b
+                           for (a, b) in zip(matches.groups(), (3600, 60, 1, 1),
+                                             strict=True))
+    return resSecond
 
+def getArgs() -> Namespace:
     parser: ArgumentParser = ArgumentParser()
     parser.add_argument(
             'countdownLen',
             type=countdownLenConverter,
             help="length of countdown, in second or in format like 1h2m3s. "
-            "Also allows float values like 1.5m")
+            "Also allows float values like 1.5m and negative parts like 1h-5s. "
+            "Total time must be positive")
     parser.add_argument(
             '--freq', '-f',
             action='append',
             type=int,
             help="frequency of beep, in integral Hz. "
+            "Must be in range [37, 32767] or is zero (for an empty segment). "
             "May specify multiple times for series of beeps. "
             "Defaults to 2200Hz and 1800Hz")
     parser.add_argument(
             '--updateFreq', '-uf',
             type=float,
-            default=10.0,
+            default=5.0,
             help="Timer update frequency, in Hz. "
             "The larger, the more accurate the timer is but the more work to do. "
             "Should be meaningless to set this too high. "
-            "Defaults to 10Hz")
+            "Defaults to 5Hz")
     parser.add_argument(
             '--beepLen', '-bl',
             type=float,
-            default=0.5,
+            default=0.4,
             help="Length of each beep, in seconds. "
             "Also reaction time to key press. "
             "Small values may lead to skipped beep sequence. "
-            "Defaults to 0.5s")
+            "Defaults to 0.4s")
     args: Namespace = parser.parse_args()
+    assert args.countdownLen > 0, "count down length must be positive"
     if args.freq is None:
         args.freq = (2200, 1800)
-    assert args.countdownLen > 0, "Only positive time is allowed"
     for freq in args.freq:
-        assert freq > 0, "Only positive frequency is allowed"
-    assert args.beepLen > 0, "Only positive beepLen is allowed"
+        if freq != 0:
+            assert 37 <= freq <= 32767, f"Invalid frequency: {freq}Hz"
+    assert args.updateFreq > 0, "updateFreq must be positive"
+    assert args.beepLen > 0, "beepLen must be positive"
     args.beepLenMs = int(args.beepLen * 1000)
     return args
 
@@ -66,7 +69,7 @@ def formatTime(timeInSecond: float) -> str:
     remainHour, remainMinute = divmod(remainMinute, 60)
     return f"{round(remainHour)}:{round(remainMinute):02}:{int(remainSecond):02}"
 
-def waitTime(
+def isToQuitInWaitTime(
         timeInSecond: float,
         sleepIntervalSecond: float,
         ) -> bool:
@@ -85,16 +88,16 @@ def waitTime(
         if kbhit() and getch() in b'q ':
             return True
         sleep(sleepIntervalSecond)
-        msg: str = "Remain time: " + formatTime(remainTime)
-        lastPrintLen = len(msg)
+        msg: str = "Remaining: " + formatTime(remainTime)
         print(msg + " " * max(0, lastPrintLen - len(msg)), end='\r')
+        lastPrintLen = len(msg)
     return False
 
 def main() -> None:
     args: Namespace = getArgs()
     print("Press CTRL-C, space, or q to quit")
     try:
-        if waitTime(args.countdownLen, 1.0 / args.updateFreq):
+        if isToQuitInWaitTime(args.countdownLen, 1.0 / args.updateFreq):
             raise KeyboardInterrupt  # same as C-C
         shouldBreak: bool = False
         lastPrintLen: int = 0
@@ -103,16 +106,22 @@ def main() -> None:
         overdueOffset: float = monotonic()
         while not shouldBreak:
             formattedTimeStr: str = formatTime(monotonic() - overdueOffset)
+            thisOutputLen: int = baseMsgLen + len(formattedTimeStr)
             print(baseMsg,
                   formattedTimeStr,
-                  " " * max(0, lastPrintLen - baseMsgLen - len(formattedTimeStr)),
+                  " " * max(0, lastPrintLen - thisOutputLen),
                   sep='',
                   end='\r')
+            lastPrintLen = thisOutputLen
             for freq in args.freq:
                 if kbhit() and getch() in b'q ':
                     shouldBreak = True
                     break
-                Beep(freq, args.beepLenMs)  # this is BLOCKING
+                # this part is BLOCKING
+                if freq != 0:
+                    Beep(freq, args.beepLenMs)
+                else:
+                    sleep(args.beepLen)
     except KeyboardInterrupt:
         # terminate on C-C, die gracefully
         pass

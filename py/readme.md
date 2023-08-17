@@ -67,10 +67,6 @@ Parse the given page and extract all links. Useful for discovering links in CTF.
 
 Some simple python script I have written for practising CTF.
 
-## ipythonInitScript.py
-
-Import some python packages in `ipython` for scicomp. Just run the script after `ipython` is initiated.
-
 ## MorseCodeDict.py
 
 Not a cli utility but a simple module that contains dict on converting simple Morse code and some helper functions

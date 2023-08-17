@@ -82,15 +82,12 @@ def isToQuitInWaitTime(
     BLOCKING
     """
     initTime: float = monotonic()
-    lastPrintLen: int = 0
     targetTime: float = initTime + timeInSecond
     while (remainTime := targetTime - monotonic()) >= 0:
         if kbhit() and getch() in b'q ':
             return True
         sleep(sleepIntervalSecond)
-        msg: str = "Remaining: " + formatTime(remainTime)
-        print(msg + " " * max(0, lastPrintLen - len(msg)), end='\r')
-        lastPrintLen = len(msg)
+        print("Remaining: " + formatTime(remainTime), end='\x1b[K\r')
     return False
 
 def main() -> None:
@@ -100,19 +97,10 @@ def main() -> None:
         if isToQuitInWaitTime(args.countdownLen, 1.0 / args.updateFreq):
             raise KeyboardInterrupt  # same as C-C
         shouldBreak: bool = False
-        lastPrintLen: int = 0
-        baseMsg: str = "Time's up. Overdue: "
-        baseMsgLen: int = len(baseMsg)
         overdueOffset: float = monotonic()
         while not shouldBreak:
-            formattedTimeStr: str = formatTime(monotonic() - overdueOffset)
-            thisOutputLen: int = baseMsgLen + len(formattedTimeStr)
-            print(baseMsg,
-                  formattedTimeStr,
-                  " " * max(0, lastPrintLen - thisOutputLen),
-                  sep='',
-                  end='\r')
-            lastPrintLen = thisOutputLen
+            print("Time's up. Overdue: " + formatTime(monotonic() - overdueOffset),
+                  end='\x1b[K\r')
             for freq in args.freq:
                 if kbhit() and getch() in b'q ':
                     shouldBreak = True

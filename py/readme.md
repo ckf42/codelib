@@ -6,7 +6,11 @@ Most scripts accept commandline arguments. For the details on these arguments, c
 
 ## alarm.py
 
-Commandline tool for a simple countdown alarm clock. Windows only
+Commandline tool for a simple countdown alarm clock. Uses `winsound` and so is Windows only
+
+## ansiescape.py
+
+A simple library for some helper functions that give ANSI escape sequences, mostly so that I do not need to keep looking back at references.
 
 ## bblToBib.py
 

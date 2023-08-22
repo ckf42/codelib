@@ -51,6 +51,10 @@ def getArgs() -> Namespace:
             "Also reaction time to key press. "
             "Small values may lead to skipped beep sequence. "
             "Defaults to 0.4s")
+    parser.add_argument(
+            '--blocky', '-b',
+            action='store_true',
+            help="Show remain time with 7-row blocky display")
     args: Namespace = parser.parse_args()
     assert args.countdownLen > 0, "count down length must be positive"
     if args.freq is None:
@@ -63,15 +67,35 @@ def getArgs() -> Namespace:
     args.beepLenMs = int(args.beepLen * 1000)
     return args
 
-def formatTime(timeInSecond: float) -> str:
+def formatTime(timeInSecond: float, omitHourIfOk: bool = True) -> str:
     assert timeInSecond >= 0, "No negative time allowed"
     remainMinute, remainSecond = divmod(timeInSecond, 60)
     remainHour, remainMinute = divmod(remainMinute, 60)
-    return f"{round(remainHour)}:{round(remainMinute):02}:{int(remainSecond):02}"
+    return ("" if omitHourIfOk and remainHour == 0 else f"{round(remainHour)}:") \
+            + f"{round(remainMinute):02}:{int(remainSecond):02}"
+
+blockyCharDict: dict[str, str] = {
+    '0': '011111001000100111110',
+    '1': '000000000000000111110',
+    '2': '010111001010100111010',
+    '3': '010101001010100111110',
+    '4': '011100000010000111110',
+    '5': '011101001010100101110',
+    '6': '011111001010100101110',
+    '7': '010000001000000111110',
+    '8': '011111001010100111110',
+    '9': '011101001010100111110',
+    ':': '0010100',
+}
+blockyCharDict = {
+    k: ' ' * 7 + ''.join('\u2588' if c == '1' else ' ' for c in v)
+    for k, v in blockyCharDict.items()
+}
 
 def isToQuitInWaitTime(
         timeInSecond: float,
         sleepIntervalSecond: float,
+        blocky: bool = False
         ) -> bool:
     """
     wait till `timeInSecond` seconds elapsed
@@ -83,18 +107,31 @@ def isToQuitInWaitTime(
     """
     initTime: float = monotonic()
     targetTime: float = initTime + timeInSecond
+    if blocky:
+        print("Remaining:\x1b[K" + '\n' * 7)
     while (remainTime := targetTime - monotonic()) >= 0:
         if kbhit() and getch() in b'q ':
             return True
+        if not blocky:
+            print("Remaining: " + formatTime(remainTime), end='\x1b[K\r')
+        else:
+            outBuff: str = ''.join(blockyCharDict[c] for c in formatTime(remainTime))
+            colCount: int = len(outBuff) // 7
+            print('\x1b[7F', end='')
+            for r in range(7):
+                for c in range(colCount):
+                    print(outBuff[r + 7 * c], end='')
+                print('\x1b[K')
         sleep(sleepIntervalSecond)
-        print("Remaining: " + formatTime(remainTime), end='\x1b[K\r')
     return False
 
 def main() -> None:
     args: Namespace = getArgs()
     print("Press CTRL-C, space, or q to quit")
     try:
-        if isToQuitInWaitTime(args.countdownLen, 1.0 / args.updateFreq):
+        if isToQuitInWaitTime(args.countdownLen,
+                              1.0 / args.updateFreq,
+                              blocky=args.blocky):
             raise KeyboardInterrupt  # same as C-C
         shouldBreak: bool = False
         overdueOffset: float = monotonic()
@@ -115,6 +152,7 @@ def main() -> None:
         pass
     finally:
         # print empty line to retain overdue time
+        # this gives an extra line for --blocky as the display already have one
         print("")
 
 if __name__ == '__main__':

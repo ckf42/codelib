@@ -108,12 +108,12 @@ def isToQuitInWaitTime(
     initTime: float = monotonic()
     targetTime: float = initTime + timeInSecond
     if blocky:
-        print("Remaining:\x1b[K" + '\n' * 7)
+        print("Remaining:\x1b[K" + "\n" * 7)
     while (remainTime := targetTime - monotonic()) >= 0:
         if kbhit() and getch() in b'q ':
             return True
         if not blocky:
-            print("Remaining: " + formatTime(remainTime), end='\x1b[K\r')
+            print("Remaining: " + formatTime(remainTime), end="\x1b[K\r")
         else:
             outBuff: str = ''.join(blockyCharDict[c] for c in formatTime(remainTime))
             colCount: int = len(outBuff) // 7
@@ -123,6 +123,9 @@ def isToQuitInWaitTime(
                     print(outBuff[r + 7 * c], end='')
                 print('\x1b[K')
         sleep(sleepIntervalSecond)
+    if blocky:
+        # clear blocky display after countdown
+        print('\x1b[1F\x1b[K' * 8, end='')
     return False
 
 def main() -> None:

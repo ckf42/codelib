@@ -1,9 +1,11 @@
-from argparse import Namespace, ArgumentParser
-from msvcrt import kbhit, getch
-from re import match, Match
+from argparse import ArgumentParser, Namespace
+from msvcrt import getch, kbhit
+from platform import system as systemName
+from re import Match, match
 from time import monotonic, sleep
 from typing import Optional
 from winsound import Beep
+
 
 def countdownLenConverter(arg: str) -> float:
     numRegex: str = r'-?\d+|-?\d*\.\d+'
@@ -65,6 +67,16 @@ def getArgs() -> Namespace:
     assert args.updateFreq > 0, "updateFreq must be positive"
     assert args.beepLen > 0, "beepLen must be positive"
     args.beepLenMs = int(args.beepLen * 1000)
+    # handle ansi
+    if systemName() == 'Windows':
+        try:
+            from colorama import just_fix_windows_console as jfwc
+            jfwc()
+        except (ModuleNotFoundError, ImportError):  # old colorama does not have jfwc
+            # https://stackoverflow.com/a/64222858
+            # apparently it is a bug https://bugs.python.org/issue30075
+            from os import system
+            system('')
     return args
 
 def formatTime(timeInSecond: float, omitHourIfOk: bool = True) -> str:

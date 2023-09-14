@@ -10,9 +10,9 @@ def getArgs() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('url', type=str, help="Target url")
     parser.add_argument('--port', '-p', type=int, help="Optional port number")
+    parser.add_argument('--quiet', '-q', action='store_true', help="Only print urls")
     return parser.parse_args()
 
-strainer = SoupStrainer(lambda _, attrd: any(x in attrd for x in ('href', 'src')))
 strainer = SoupStrainer(
         lambda _, attrd: \
                 'src' in attrd \
@@ -31,7 +31,8 @@ def main():
             parsedUrl.path if parsedUrl.netloc else '',
             *parsedUrl[3:]).geturl()
     res = rq.get(baseUrl)
-    print("Status code:", res.status_code)
+    if not args.quiet:
+        print("Status code:", res.status_code)
     seenLinks: set[str] = set()
     for link in BeautifulSoup(res.content,
                               features='html.parser',
@@ -42,7 +43,8 @@ def main():
             seenLinks.add(urllib.parse.urljoin(baseUrl, link['src']))
     for link in sorted(seenLinks):
         print(link)
-    print(f"Total: {len(seenLinks)}")
+    if not args.quiet:
+        print(f"Total: {len(seenLinks)}")
 
 if __name__ == '__main__':
     main()

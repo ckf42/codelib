@@ -96,7 +96,7 @@ def getCliArg():
 def main():
     args = getCliArg()
     # get data
-    filepath = Path(args.file)
+    filepath = Path(args.file).expanduser().resolve()
     assert filepath.is_file(), "Not a valid file"
     sampleRate, data = wavfile.read(filepath)
     if data.ndim >= 2:

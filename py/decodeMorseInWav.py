@@ -1,22 +1,23 @@
-from argparse import ArgumentParser
-from pathlib import Path
-from itertools import groupby
+from argparse import ArgumentParser, Namespace
 from datetime import timedelta
-import numpy as np
-from scipy.signal import welch, stft, find_peaks
+from itertools import groupby
+from pathlib import Path
 from scipy.io import wavfile
+from scipy.signal import welch, stft, find_peaks
 from scipy.stats import gaussian_kde
+import numpy as np
+from typing import Optional
 import MorseCodeDict as MCD
 
-
-def getCliArg():
+def getArgs(argStr: Optional[str]) -> Namespace:
     parser = ArgumentParser(
             epilog="Work best on consistent intervals and without noise. "
             "Should still work if signal not too corrupted. "
             "May need to cleanup signal and test with different arguments "
             "to get accurate result")
     parser.add_argument(
-            'file', type=str,
+            'file',
+            type=str,
             help="Path to wav file. Must be in PCM or float format")
     parser.add_argument(
             '--freq', '-f',
@@ -65,11 +66,23 @@ def getCliArg():
             "will attempt to fill up the remaining lengths "
             "with the (1, 3, 7) pattern")
     parser.add_argument(
+        '--lang',
+        type=str,
+        choices=MCD.SUPPORTED_LANG,
+        default='en',
+        help="The language variant of Morse code to use. Defautls to en"
+    )
+    parser.add_argument(
             '--verbose', '-v',
             action='count',
             default=0,
             help="Verbosity for diagnostic info. May repeat at most twice")
-    args = parser.parse_args()
+    args = parser.parse_args(None if argStr is None else argStr.split())
+    args.file = Path(args.file).expanduser().resolve()
+    if not args.file.is_file():
+        parser.error(f"file {str(args.file)} is not a valid file")
+    if args.freq is not None and args.freq <= 0:
+        parser.error(f"frequency {args.freq} is not a positive number")
     # process lengths
     if args.onLen is not None:
         assert 1 <= len(args.onLen) <= 2
@@ -90,46 +103,48 @@ def getCliArg():
         if len(args.offLen) == 2:
             args.offLen.append(min(args.offLen) * 7)
         args.offLen.sort()
+    args.morseDict = MCD.MorseDict(lang=args.lang)
     return args
 
-
-def main():
-    args = getCliArg()
-    # get data
-    filepath = Path(args.file).expanduser().resolve()
-    assert filepath.is_file(), "Not a valid file"
-    sampleRate, data = wavfile.read(filepath)
+def getFileAndPreprocess(args: Namespace) -> tuple[int, np.ndarray]:
+    sampleRate: int
+    data: np.ndarray
+    sampleRate, data = wavfile.read(args.file)
     if data.ndim >= 2:
         data = data[:, args.channel]
     if args.verbose:
-        print(f'filepath={str(filepath.resolve())}')
+        print(f'file={str(args.file)}')
         print(f'{sampleRate=}')
-    # normalized
-    xNormalized = np.subtract(data,
-                              np.mean(data, dtype=np.float32),
-                              dtype=np.float32)
+    xNormalized: np.ndarray = np.subtract(
+            data, np.mean(data, dtype=np.float32), dtype=np.float32)
     np.divide(xNormalized, np.max(np.abs(xNormalized)), out=xNormalized)
     if args.verbose:
         print(f'length={xNormalized.size / sampleRate:.2f}s')
-    # find signal freq
-    freq = args.freq
-    if freq is None:
-        wfq1, Pxx1 = welch(xNormalized, sampleRate,
-                           nperseg=args.nperseg, average='mean')
-        wfq2, Pxx2 = welch(xNormalized, sampleRate,
-                           nperseg=args.nperseg, average='median')
-        freq = wfq1[Pxx1.argmax()] if Pxx1.max() >= Pxx2.max() else wfq2[Pxx2.argmax()]
+    return (sampleRate, xNormalized)
+
+def getFreq(data: np.ndarray, sampleRate: int, args: Namespace) -> float:
+    if args.freq is not None:
         if args.verbose:
-            print(f'{freq=:.2f}')
-    elif args.verbose:
-        assert freq > 0
-        print(f'{freq=} (overridden)')
-    assert freq is not None
-    # convert to digital
-    fq, st, Zxx = stft(xNormalized, sampleRate, nperseg=args.nperseg)
+            print(f"freq={args.freq} (overridden)")
+        return args.freq
+    wfq, Pxx = welch(data, fs=sampleRate,
+                     nperseg=args.nperseg, average='median')
+    freq = wfq[Pxx.argmax()]
+    if args.verbose:
+        print(f"{freq=}")
+    return freq
+
+def digitalize(data: np.ndarray,
+               freq: float,
+               sampleRate: float,
+               args: Namespace) -> tuple[float, float, tuple[tuple[bool, int], ...]]:
+    # fq, st, Zxx = stft(data, sampleRate, nperseg=args.nperseg, scaling='psd')
+    # Zxx = np.power(np.abs(Zxx), 2)
+    # np.divide(Zxx, Zxx.sum(axis=0), out=Zxx)
+    fq, st, Zxx = stft(data, sampleRate, nperseg=args.nperseg)
     fqp = np.abs(Zxx)[np.argmin(np.abs(fq - freq)), :]
     valGp = list((k, len(tuple(v))) for k, v in groupby(fqp >= np.mean(fqp)))
-    currTime = 0
+    currTime = 0.0
     if not valGp[0][0]:
         currTime = valGp[0][1]
         valGp.pop(0)
@@ -138,18 +153,25 @@ def main():
     if args.verbose >= 2:
         print(f'consecutive segment count={len(valGp)}')
         print(f'unit len={st[1]:.3g}s')
-    # find signal lengths
-    onVal = np.asarray(tuple(v for k, v in valGp if k))
-    offVal = np.asarray(tuple(v for k, v in valGp if not k))
+    return (currTime, st[1], tuple(valGp))
+
+def getCharLen(sigLst: tuple[tuple[bool, int], ...],
+               segTime: float,
+               args: Namespace) -> list[np.ndarray]:
+    onVal = np.asarray(tuple(v for k, v in sigLst if k))
+    offVal = np.asarray(tuple(v for k, v in sigLst if not k))
     epdfs = (gaussian_kde(offVal), gaussian_kde(onVal))
-    xRanges = tuple(np.linspace(min(vList) - 3, max(vList) + 3, len(frozenset(vList)) * 10)
+    xRanges = tuple(np.linspace(min(vList) - 3,
+                                max(vList) + 3,
+                                len(frozenset(vList)) * 10)
                     for vList in (offVal, onVal))
     peakProps = tuple(
-            tuple((peakVal, pProp)
-                  for peakVal in xRanges[tIdx][find_peaks(epdfs[tIdx](xRanges[tIdx]))[0]]
-                  if (pProp := epdfs[tIdx].integrate_box_1d(peakVal - 3, peakVal + 3)) \
-                          >= 0.01 * epdfs[tIdx].integrate_box_1d(xRanges[tIdx][0],
-                                                                 xRanges[tIdx][-1]))
+            tuple(
+                (peakVal, pProp)
+                for peakVal in xRanges[tIdx][find_peaks(epdfs[tIdx](xRanges[tIdx]))[0]]
+                if (pProp := epdfs[tIdx].integrate_box_1d(peakVal - 3, peakVal + 3)) \
+                        >= 0.01 * epdfs[tIdx].integrate_box_1d(xRanges[tIdx][0],
+                                                               xRanges[tIdx][-1]))
             for tIdx in (0, 1))
     durList = list(
             (np.sort(tuple(
@@ -158,7 +180,7 @@ def main():
                                          -min(len(peakProps[tIdx]),
                                               maxCount))[-1:-(maxCount + 1):-1]))
              if overrideLen is None
-             else (np.asarray(overrideLen) / st[1]))[:maxCount]
+             else (np.asarray(overrideLen) / segTime))[:maxCount]
             for (tIdx, overrideLen, maxCount) in zip((0, 1),
                                                      (args.offLen, args.onLen),
                                                      (3, 2)))
@@ -184,20 +206,27 @@ def main():
     if args.verbose:
         print('characteristic lengths:')
         print('on',
-              ' '.join(f'{i * st[1]:.3g}s' for i in durList[1]),
+              ' '.join(f'{i * segTime:.3g}s' for i in durList[1]),
               '' if args.onLen is None else '(overridden)')
         print('off',
-              ' '.join(f'{i * st[1]:.3g}s' for i in durList[0]),
+              ' '.join(f'{i * segTime:.3g}s' for i in durList[0]),
               '' if args.offLen is None else '(overridden)')
     for i in (0, 1):
         durList[i] = np.hstack(((0,), durList[i]))
-    # decoding
+    return durList
+
+def decodeSignal(signalLst: tuple[tuple[bool, int], ...],
+                 charLen: tuple[np.ndarray, np.ndarray],
+                 segTime: float,
+                 initTime: float,
+                 args: Namespace) -> str:
     sigBuff = list()
     decRes = list()
     startTime = None
-    for i, (sigType, sigDur) in enumerate(valGp):
+    currTime = initTime
+    for i, (sigType, sigDur) in enumerate(signalLst):
         currTime += sigDur
-        durIdx = int(np.abs(durList[1 if sigType else 0] - sigDur).argmin())
+        durIdx = int(np.abs(charLen[1 if sigType else 0] - sigDur).argmin())
         if durIdx == 0 or (not sigType and durIdx == 1):
             # too short, probably noise; or short pause, sep for sig
             continue
@@ -208,7 +237,7 @@ def main():
         elif len(sigBuff) != 0:
             sig = ''.join(sigBuff)
             sigBuff.clear()
-            sym = MCD.reverse_dict.get(sig, '{' + sig + '}')
+            sym = args.morseDict.reverse_dict.get(sig, '{' + sig + '}')
             assert startTime is not None
             decRes.append((i - 1, (startTime, currTime - sigDur), sig, sym))
             startTime = None
@@ -217,25 +246,36 @@ def main():
                 decRes.append((i, (currTime - sigDur, currTime), 'PAUSE', ' '))
     if len(sigBuff) != 0:
         sig = ''.join(sigBuff)
-        sym = MCD.reverse_dict.get(sig, '{' + sig + '}')
+        sym = args.morseDict.reverse_dict.get(sig, '{' + sig + '}')
         assert startTime is not None
-        decRes.append((len(valGp) - 1, (startTime, currTime), sig, sym))
+        decRes.append((len(signalLst) - 1, (startTime, currTime), sig, sym))
     if args.verbose >= 2:
         maxSigLen = max(len(p[2]) for p in decRes)
-        maxIdxLen = len(str(len(valGp)))
+        maxIdxLen = len(str(len(signalLst)))
         print('Decoded signal:')
         for idx, tp, sig, msg in decRes:
-            t0 = timedelta(seconds=tp[0] * st[1])
-            t1 = timedelta(seconds=tp[1] * st[1])
+            t0 = timedelta(seconds=tp[0] * segTime)
+            t1 = timedelta(seconds=tp[1] * segTime)
             print(str(idx).ljust(maxIdxLen),
                   str(t0)[:-4] if t0.microseconds != 0 else str(t0),
                   '-',
                   str(t1)[:-4] if t1.microseconds != 0 else str(t1),
                   sig.ljust(maxSigLen),
                   msg)
-    print(''.join(p[-1] for p in decRes))
+    return ''.join(p[-1] for p in decRes)
 
+def main():
+    args: Namespace = getArgs(None)
+    sampleRate: int
+    data: np.ndarray
+    sampleRate, data = getFileAndPreprocess(args)
+    freq: float = getFreq(data, sampleRate, args)
+    startTime: float
+    segTime: float
+    signalLst: tuple[tuple[bool, int], ...]
+    startTime, segTime, signalLst = digitalize(data, freq, sampleRate, args)
+    charLen: tuple[np.ndarray, np.ndarray] = tuple(getCharLen(signalLst, segTime, args))
+    print(decodeSignal(signalLst, charLen, segTime, startTime, args))
 
 if __name__ == '__main__':
     main()
-

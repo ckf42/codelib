@@ -36,12 +36,6 @@ class CFR:
         self.code: str = ''.join(c for c in code.upper() if c in 'CFR[]')
         self.isValid: bool = True
         self.isReportProgress: bool = reportProress
-        if len(self.code) > 256:
-            print("Code too long")
-            self.isValid = False
-        if not self.verify():
-            print("Bracket mismatch")
-            self.isValid = False
         self.x: int = 127
         self.y: int = 127
         self.dirPtr: int = 0
@@ -51,6 +45,14 @@ class CFR:
         self.blockStack: list[int] = list()
         self.isRunning: bool = True
         self.stepCount: int = 0
+        if len(self.code) > 256:
+            print("Code too long")
+            self.isValid = False
+            self.isRunning = False
+        if not self.verify():
+            print("Bracket mismatch")
+            self.isValid = False
+            self.isRunning = False
 
     def verify(self, strict: bool = False) -> bool:
         """
@@ -82,7 +84,7 @@ class CFR:
                     stack[-1] += stacktop * 2
                 case _:
                     stack[-1] += 1
-        return stack[-1]
+        return sum(stack)
 
     def __iter__(self):
         return self
@@ -98,7 +100,7 @@ class CFR:
                     self.x = (self.x + dirPalette[self.dirPtr][0]) & 255
                     self.y = (self.y + dirPalette[self.dirPtr][1]) & 255
                     # pg y-axis is top to bottom
-                    buffer = ((self.x, 256 - self.y),
+                    buffer = ((self.x, 255 - self.y),
                               colorPalette[self.colorPtr])
                     self.stepCount += 1
                 case 'R':
@@ -131,6 +133,7 @@ class App:
         print("initiating")
         # game internal
         self.isRunning: bool = True
+        self.isPaused: bool = False
         self.isReportProgress: bool = reportProress
         self.interpreter: CFR = CFR(code, reportProress)
         print(f"Total steps: {self.interpreter.codeTotalLen}")
@@ -147,6 +150,10 @@ class App:
             elif e.type == pg.KEYDOWN:
                 if e.key == pg.K_q:
                     self.isRunning = False
+                elif e.key == pg.K_SPACE and self.interpreter.isRunning:
+                    # disable pausing after drawing done
+                    self.isPaused = not self.isPaused
+                    print("\n" + ("Paused" if self.isPaused else "Resumed"))
 
     def run(self, fastDraw: bool = False) -> None:
         """
@@ -156,18 +163,21 @@ class App:
         isHaltedReported: bool = False
         while self.isRunning:
             self.processEvent()
+            if self.isPaused:
+                self.clock.tick(self.fps)
+                continue
             if not self.interpreter.isValid:
                 self.screen.fill(Color.RED.value)
                 pg.display.update()
-                self.interpreter.isRunning = False
             if self.interpreter.isRunning \
                     and (inst := next(self.interpreter, None)) is not None:
                 self.screen.set_at(inst[0], inst[1].value)
-                pg.display.update()
+                pg.display.update(*inst[0], 1, 1)
             elif not isHaltedReported:
                 print("halted")
                 isHaltedReported = True
                 fastDraw = False
+                self.isPaused = False
             if not fastDraw:
                 self.clock.tick(self.fps)
         pg.quit()

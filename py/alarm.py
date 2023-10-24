@@ -4,7 +4,32 @@ from platform import system as systemName
 from re import Match, match
 from time import monotonic, sleep
 from typing import Optional
-from winsound import Beep
+
+hasWinsound: bool = False
+try:
+    from winsound import Beep
+    hasWinsound = True
+except ImportError:
+    pass
+
+def beep(freq: int, lenMs: int, p, usePA) -> None:
+    if hasWinsound and not usePA:
+        Beep(freq, lenMs)
+    else:
+        import pyaudio as pa
+        import array
+        from math import sin, pi
+        assert p is not None
+        data = array.array('f',
+                           (sin(2 * pi * i * freq / 44100)
+                            for i in range(int(lenMs * 44.1)))).tobytes()
+        stream = p.open(format=pa.paFloat32,
+                        channels=1,
+                        rate=44100,
+                        output=True)
+        stream.write(data)
+        stream.stop_stream()
+        stream.close()
 
 
 def countdownLenConverter(arg: str) -> float:
@@ -57,6 +82,13 @@ def getArgs() -> Namespace:
             '--blocky', '-b',
             action='store_true',
             help="Show remain time with 7-row blocky display")
+    parser.add_argument(
+            '--pa',
+            action='store_true',
+            help="Use PyAudio instead of winsound if possible. "
+            "winsound is always used unless this is set. "
+            "On where winsound is not available, PyAudio is always used. "
+            "The audio cutoff is more audible for PyAudio")
     args: Namespace = parser.parse_args()
     assert args.countdownLen > 0, "count down length must be positive"
     if args.freq is None:
@@ -142,6 +174,12 @@ def isToQuitInWaitTime(
 
 def main() -> None:
     args: Namespace = getArgs()
+    p = None
+    if not hasWinsound or args.pa:
+        import pyaudio as pa
+        import array
+        from math import sin, pi
+        p = pa.PyAudio()
     print("Press CTRL-C, space, or q to quit")
     try:
         if isToQuitInWaitTime(args.countdownLen,
@@ -159,7 +197,7 @@ def main() -> None:
                     break
                 # this part is BLOCKING
                 if freq != 0:
-                    Beep(freq, args.beepLenMs)
+                    beep(freq, args.beepLenMs, p, args.pa)
                 else:
                     sleep(args.beepLen)
     except KeyboardInterrupt:
@@ -169,6 +207,8 @@ def main() -> None:
         # print empty line to retain overdue time
         # this gives an extra line for --blocky as the display already have one
         print("")
+    if p is not None:
+        p.terminate()
 
 if __name__ == '__main__':
     main()

@@ -16,7 +16,7 @@ You need to change the variables manually to something that match your machine.
 
 Note that Windows path separator `\` needs to be escaped as `\\`.
 
-All these scripts target MS Windows OS and TeXStudio version 4.0.x. No sure if they work elsewhere.
+All these scripts target MS Windows OS and TeXStudio version 4.x.x. No sure if they work elsewhere.
 
 ## Content
 
@@ -47,8 +47,6 @@ Calls `LTeX-LS` on the current editor content and prints output in TXS console.
 
 Requires `LTeX-LS` installed first.
 
-Works by writing editor content to a file in `temp`.
-
 #### config
 
 * `ltexVSMainPath` = `"%USERPROFILE%\\.vscode-oss\\extensions"`
@@ -61,6 +59,11 @@ Works by writing editor content to a file in `temp`.
     * Ignored if `ltexVSMainPath` is set to some nonempty string
 * `configPath` = `""`
     * Path to the json config file used by `LTeX-CLI`
+* `writeToTemp` = `false`
+    * Determine if we should check buffer content by writing it to a temp file.
+        * If `true`, will write buffer content to a temp file (this is old behavior).
+        * If `false` (default), will only check current file. Changes that are not saved will not be checked.
+    * **WARNING** This script relies on undocumented (in [the official manual](https://texstudio-org.github.io/advanced.html#script-macros)) `standardOutputRead.connect`of `ProcessX` object returned from `system` command. As it is subject to change in different versions, setting `writeToTemp` to `true` may lead to unexpected result (due to the number of `system` calls in this code path). If you want to enable this, the suggestion is to step through all privilege alert (the one dialog with `Yes, allow this call` and `No, abort the call`) on the first run of each texstudio update.
 
 ### inlineToEquationStar.js
 

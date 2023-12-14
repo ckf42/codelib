@@ -15,11 +15,15 @@ let debugPrint = (scriptCfg.debugVerbose ? (x)=>console.log(`[${GM_info.script.n
 
 debugPrint("Script starting ...");
 
-document.querySelectorAll('pre.stats > a span.stats-both:nth-child(1)').forEach(function(pre){
-    let twoStar = parseInt(pre.textContent);
-    let oneStar = parseInt(pre.nextElementSibling.textContent);
-    let valStr = (twoStar / (oneStar + twoStar) * 100).toFixed(1);
-    debugPrint(parseInt(pre.previousSibling.textContent) + " " + valStr);
-    pre.textContent += ` (${valStr}%)`;
+debugPrint("Adding two star ratio");
+document.querySelectorAll('pre.stats > a span.stats-both:nth-child(1)').forEach(function(span){
+    let twoStar = parseInt(span.textContent);
+    let oneStar = parseInt(span.nextElementSibling.textContent);
+	let total = twoStar + oneStar;
+    let valStr = (twoStar / total * 100).toFixed(1);
+    debugPrint(`${span.previousSibling.textContent}: ${valStr}% / ${total}`);
+    span.textContent += ` (${valStr}%)`;
+	span.parentNode.append(document.createTextNode(" "));
+	span.parentNode.append(document.createTextNode(`${total}`));
 });
 

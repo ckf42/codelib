@@ -45,7 +45,7 @@
         "    writeFile(filePathToCheck, editor.text());",
         "}",
         "",
-        "getSystemStdout([ltexScriptPath, configPath, filePathToCheck].join(\" \"));",
+        "getSystemStdout([ltexScriptPath, configPath, '\"' + filePathToCheck + '\"'].join(\" \"));",
         "",
         "if (writeToTemp){",
         "    system([\"cmd\", \"/c\", \"del\", filePathToCheck].join(\" \"), filePathToCheck.replace(/\\\\[^\\\\]+$/, \"\"));",

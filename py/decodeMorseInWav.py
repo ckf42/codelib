@@ -1,3 +1,9 @@
+"""
+slightly modularized rewrite of decodeMorseInWav.old.py
+not much different from the old one
+mostly for debugging
+"""
+
 from argparse import ArgumentParser, Namespace
 from datetime import timedelta
 from itertools import groupby
@@ -68,7 +74,7 @@ def getArgs(argStr: Optional[str]) -> Namespace:
     parser.add_argument(
         '--lang',
         type=str,
-        choices=MCD.SUPPORTED_LANG,
+        choices=MCD._SUPPORTED_LANG,
         default='en',
         help="The language variant of Morse code to use. Defautls to en"
     )

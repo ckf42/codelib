@@ -28,12 +28,12 @@ dirPalette: tuple[tuple[int, int], ...] = (
 )
 
 
-class CFR:
+class CFRS:
     def __init__(self, code: str, reportProress: bool) -> None:
         """
         setting reportProress True may slow down process on long code
         """
-        self.code: str = ''.join(c for c in code.upper() if c in 'CFR[]')
+        self.code: str = ''.join(c for c in code.upper() if c in 'CFRS[]')
         self.isValid: bool = True
         self.isReportProgress: bool = reportProress
         self.x: int = 127
@@ -57,7 +57,7 @@ class CFR:
     def verify(self, strict: bool = False) -> bool:
         """
         strict checks if all opening brackets are closed
-        [Spec](https://github.com/susam/cfr#code-normalisation-and-validation)
+        [Spec](https://github.com/susam/cfrs#code-normalisation-and-validation)
             does not require them to be closed
         """
         counter = 0
@@ -72,6 +72,9 @@ class CFR:
 
     @cached_property
     def codeTotalLen(self) -> int:
+        """
+        Returns number of commands (CFRS) after unrolling loops
+        """
         if not self.isValid:
             return 0
         stack: list[int] = [0]
@@ -90,6 +93,11 @@ class CFR:
         return self
 
     def __next__(self) -> tuple[tuple[int, int], Color]:
+        """
+        Returns the location of next pixel to modify and its new color
+
+        TODO: batch commit change
+        """
         buffer: tuple[tuple[int, int], Color] | None = None
         while self.codePtr < self.codeSize and buffer is None:
             match self.code[self.codePtr]:
@@ -106,6 +114,9 @@ class CFR:
                 case 'R':
                     self.dirPtr = (self.dirPtr + 1) & 7
                     self.stepCount += 1
+                case 'S':
+                    pg.time.wait(20)
+                    self.stepCount += 1
                 case '[':
                     self.blockStack.append(self.codePtr)
                 case ']':
@@ -121,25 +132,25 @@ class CFR:
             return buffer
         else:
             self.isRunning = False
-            print("")
+            print("", flush=True)
             raise StopIteration
 
 
 class App:
     def __init__(self, code: str, reportProress: bool = True) -> None:
         """
-        reportProress is passed to CFR
+        reportProress is passed to CFRS
         """
         print("initiating")
         # game internal
         self.isRunning: bool = True
         self.isPaused: bool = False
         self.isReportProgress: bool = reportProress
-        self.interpreter: CFR = CFR(code, reportProress)
+        self.interpreter: CFRS = CFRS(code, reportProress)
         print(f"Total steps: {self.interpreter.codeTotalLen}")
         # pg internal
         pg.init()
-        self.fps: int | float = 30
+        self.fps: int | float = 10
         self.clock: pg.time.Clock = pg.time.Clock()
         self.screen: pg.Surface = pg.display.set_mode((256, 256))
 
@@ -155,10 +166,7 @@ class App:
                     self.isPaused = not self.isPaused
                     print("\n" + ("Paused" if self.isPaused else "Resumed"))
 
-    def run(self, fastDraw: bool = False) -> None:
-        """
-        setting fastDraw False waits for each tick
-        """
+    def run(self) -> None:
         print("Running")
         isHaltedReported: bool = False
         while self.isRunning:
@@ -176,9 +184,7 @@ class App:
             elif not isHaltedReported:
                 print("halted")
                 isHaltedReported = True
-                fastDraw = False
                 self.isPaused = False
-            if not fastDraw:
-                self.clock.tick(self.fps)
+            # self.clock.tick(self.fps)
         pg.quit()
 

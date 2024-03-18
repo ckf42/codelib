@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import requests as rq
+from random import sample
 
 def getArgs() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -8,8 +9,8 @@ def getArgs() -> argparse.Namespace:
             "European Central Bank (ecb) (seemingly) only has API to convert from EUR. "
             "Non-EUR conversion is done by converting to EUR first, "
             "and the result may be inaccuracy. "
-            "Currency-API (https://github.com/fawazahmed0/currency-api) also has "
-            "exchange rates for cryptocurrencies. "
+            "Exchange-api (https://github.com/fawazahmed0/exchange-api, formerly Currency-api) "
+            "also has exchange rates for cryptocurrencies. "
             "Exchange Rate API (https://www.exchangerate-api.com) "
             "is queried via their open access endpoint, "
             "which has a 20-minute IP-based rate limit. "
@@ -50,13 +51,22 @@ def getArgs() -> argparse.Namespace:
             help="The backend API to query. "
             "Affects what currencies are supported. "
             "Currently support ecb (European Central Bank), "
-            "curr-api (currency-api), and er-api (Exchange Rate API). "
+            "curr-api (exchange-api, formerly currency-api), "
+            "and er-api (Exchange Rate API). "
             "Defaults to ecb")
     backendGp.add_argument(
             '--tryAll', '-a',
             action='store_true',
             help="Try all backends and report the first one that responses")
-    return parser.parse_args()
+    parser.add_argument(
+            '--random', '-r',
+            action='store_true',
+            help="Try all backends in random order. "
+            "Ignored if presents without --tryAll")
+    args = parser.parse_args()
+    if args.random and not args.tryAll:
+        parser.error("Cannot specify --random without --tryAll")
+    return args
 
 
 def formatAmount(amount: float, args: argparse.Namespace) -> str:
@@ -119,20 +129,25 @@ def ecbQuery(fromCurr: str, toCurr: str) -> dict:
             'time': min(exch1['time'], exch2['time'])}
 
 def currApiQuery(fromCurr: str, toCurr: str) -> dict:
-    # thanks https://github.com/fawazahmed0/currency-api 
+    # thanks exchange-api (https://github.com/fawazahmed0/exchange-api)
+    # formerly currency-api (https://github.com/fawazahmed0/currency-api) 
     # for open access without needing a key
-    apiAddr = f'https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{fromCurr.lower()}/{toCurr.lower()}.min.json'
+    # apiAddr = f'https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{fromCurr.lower()}/{toCurr.lower()}.min.json'
+    apiAddr = f'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/{fromCurr.lower()}.min.json'
+    # TODO: how to check when fallback is needed?
+    # fallback_apiAddr = f'https://latest.currency-api.pages.dev/v1/currencies/{fromCurr.lower()}.min.json'
     resp = rq.get(apiAddr)
     if resp.status_code == 403:
-        raise RuntimeError({
-            'msg': f"Currencies may not be supported: {fromCurr.lower()} and {toCurr.lower()}"
-            })
+        raise RuntimeError({'msg': f"Currency may not be supported: {fromCurr.lower()}"})
     try:
         respJs = resp.json()
-        return {'time': respJs['date'], 'rate': respJs[toCurr.lower()]}
+        return {'time': respJs['date'], 'rate': respJs[fromCurr.lower()][toCurr.lower()]}
     except rq.exceptions.JSONDecodeError as e:
         raise RuntimeError({'msg': "Failed parsing response",
                             'respContent': resp.content}) from e
+    except KeyError as e:
+        raise RuntimeError({'msg': f"No record from {fromCurr.lower()} to {toCurr.lower()}"}) \
+            from e
 
 def erApiQuery(fromCurr: str, toCurr: str) -> dict:
     # thanks https://www.exchangerate-api.com for providing open access endpoint
@@ -172,7 +187,8 @@ def main():
     }
     if args.tryAll:
         querySucceed = False
-        for backend in backendDict:
+        for backend in (sample(tuple(backendDict.keys()), k=len(backendDict))
+                        if args.random else backendDict):
             print(f"Querying backend {backend}")
             try:
                 resDict = backendDict[backend](args.fromCurr, args.toCurr)

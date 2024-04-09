@@ -12,3 +12,16 @@ By default, the makefile builds a small executable (~500KB) that can probably ru
 
 Built with [FLTK](https://www.fltk.org/), so install [it](https://packages.msys2.org/base/mingw-w64-fltk) first before building.
 
+## cfrs
+
+Another (horrible) implementation of [CFRS](https://github.com/susam/cfrs). A bit buggy at the moment
+
+Usage: `cfrs $CODE`
+
+Issues:
+* step counter flickers
+* `S` pauses the whole process instead of pausing the drawing
+* `CTRL-C` does not work well to terminate process, even when focus is on terminal
+
+Built with [FLTK](https://www.fltk.org/)
+

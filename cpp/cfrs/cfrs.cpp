@@ -192,14 +192,14 @@ public:
 };
 
 
-int main(int argv, char **argc) {
-    if (argv != 2) {
-        Fl::fatal("Usage: %s CODE", argc[0]);
+int main(int argc, char **argv) {
+    if (argc != 2) {
+        Fl::fatal("Usage: %s CODE", argv[0]);
         return 1;
     }
     Fl_Window win(0, 0, 256, 256 + counterDrawHeight, "Testing");
     win.begin();
-        CFRS c(0, 0, 256, 256 + counterDrawHeight, argc[1]);
+        CFRS c(0, 0, 256, 256 + counterDrawHeight, argv[1]);
     win.end();
     win.show();
     return Fl::run();

@@ -6,6 +6,9 @@
 #include <Fl/Fl_Widget.H>
 #include <Fl/Fl_draw.H>
 
+constexpr double minSleepTime_s = 0.0625;
+
+// do not want to include <algorithm> for these two
 inline double max(const double &a, const double &b) { return a > b ? a : b; }
 inline double min(const double &a, const double &b) { return a < b ? a : b; }
 
@@ -54,6 +57,10 @@ private:
         fl_end_polygon();
     }
 
+    inline static constexpr uint8_t segmentBitMask(uint8_t segIdx) {
+        return 1 << segIdx;
+    }
+
     inline void drawDigit(
             double topLeftX, double topLeftY, 
             double digW, double digH,
@@ -67,37 +74,37 @@ private:
                 topLeftX + halfSegWidth + halfHoriSegLen,
                 topLeftY + halfSegWidth,
                 halfHoriSegLen, halfSegWidth,
-                true, state & 1);
+                true, state & segmentBitMask(0));
         drawSegment(
                 topLeftX + halfSegWidth,
                 topLeftY + halfSegWidth + halfVertSegLen,
                 halfVertSegLen, halfSegWidth,
-                false, state & 2);
+                false, state & segmentBitMask(1));
         drawSegment(
                 topLeftX + halfSegWidth + halfHoriSegLen * 2,
                 topLeftY + halfSegWidth + halfVertSegLen,
                 halfVertSegLen, halfSegWidth,
-                false, state & 4);
+                false, state & segmentBitMask(2));
         drawSegment(
                 topLeftX + halfSegWidth + halfHoriSegLen,
                 topLeftY + halfSegWidth + halfVertSegLen * 2,
                 halfHoriSegLen, halfSegWidth,
-                true, state & 8);
+                true, state & segmentBitMask(3));
         drawSegment(
                 topLeftX + halfSegWidth,
                 topLeftY + halfSegWidth + halfVertSegLen * 3,
                 halfVertSegLen, halfSegWidth,
-                false, state & 16);
+                false, state & segmentBitMask(4));
         drawSegment(
                 topLeftX + halfSegWidth + halfHoriSegLen * 2,
                 topLeftY + halfSegWidth + halfVertSegLen * 3,
                 halfVertSegLen, halfSegWidth,
-                false, state & 32);
+                false, state & segmentBitMask(5));
         drawSegment(
                 topLeftX + halfSegWidth + halfHoriSegLen,
                 topLeftY + halfSegWidth + halfVertSegLen * 4,
                 halfHoriSegLen, halfSegWidth,
-                true, state & 64);
+                true, state & segmentBitMask(6));
     }
 
     inline void drawColon(
@@ -121,6 +128,17 @@ private:
         fl_end_polygon();
     }
 
+    static void static_updateClock_cb(void *widgetPtr) {
+        reinterpret_cast<Clock *>(widgetPtr)->updateClock_cb();
+    }
+
+    void updateClock_cb(void) {
+        double currTimeSubSec_s = updateTimeStates();
+        Fl::repeat_timeout(
+                1.0 + minSleepTime_s - currTimeSubSec_s,
+                static_updateClock_cb, this);
+    }
+
 public:
     Clock(
             int X, int Y, int W, int H,
@@ -130,14 +148,18 @@ public:
             const char *L = nullptr): 
         Fl_Widget(X, Y, W, H, L), 
         minSegWidth(minSegmentWidth), 
-        fillColorOn(colorOn), fillColorOff(colorOff) {}
+        fillColorOn(colorOn), fillColorOff(colorOff) { 
+            Fl::add_timeout(0.3, static_updateClock_cb, this);  // startup time
+        }
 
     inline double updateTimeStates(void) {
+        // update internal timer stat and force redraw to happen
         // return millisecond part of current time
         // cpp17
         auto tp = std::chrono::system_clock::now();
         time_t t = std::chrono::system_clock::to_time_t(tp);
         tm local_tm = *std::localtime(&t);
+        // TODO: can we optimize these?
         segStates[0] = onSegments[local_tm.tm_hour / 10];
         segStates[1] = onSegments[local_tm.tm_hour % 10];
         segStates[2] = onSegments[local_tm.tm_min / 10];
@@ -145,13 +167,13 @@ public:
         segStates[4] = onSegments[local_tm.tm_sec / 10];
         segStates[5] = onSegments[local_tm.tm_sec % 10];
         redraw();
-        auto epochTp_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(tp);
-        return (epochTp_ms.time_since_epoch().count() % 1000) / 1000.0;
+        // TODO: better way?
+        return (std::chrono::time_point_cast<std::chrono::milliseconds>(tp)
+                .time_since_epoch().count() % 1000) / 1000.0;
     }
 
     void draw(void) {
         // cannot precompute: must change with resize
-        // double to keep sub-int accuracy?
         constexpr double 
             digitWidthRatio = 1.0 / 9,
             digitSepWidthRatio = 1.0 / 40,
@@ -183,13 +205,6 @@ public:
     }
 };
 
-constexpr double minSleepTime_s = 0.08;  // overhaul, ~1/12s
-
-void updateClock_cb(void *data) {
-    double currTimeSubSec_s = reinterpret_cast<Clock *>(data)->updateTimeStates();
-    Fl::add_timeout(1.0 + minSleepTime_s - currTimeSubSec_s, updateClock_cb, data);
-}
-
 int main(int, char **) {
     int w = 800, h = 330;
     Fl_Window win(0, 0, w, h, "Clock");
@@ -197,7 +212,7 @@ int main(int, char **) {
         Clock c(0, 0, w, h);
     win.end();
     win.resizable(&c);
-    Fl::add_timeout(0.3, updateClock_cb, &c);  // startup time
     win.show();
     return Fl::run();
 }
+

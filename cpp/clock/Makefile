@@ -13,6 +13,7 @@ LDFLAGS += -Wl,-as-needed
 clock: clock.cpp
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
+.PHONY: clean
 clean:
 	rm -f clock
 

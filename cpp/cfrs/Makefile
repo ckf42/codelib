@@ -18,6 +18,7 @@ $(TARGET): $(TARGET).cpp
 .PHONY: test clean
 test:
 	# offical demos
+	./$(TARGET) ]
 	./$(TARGET) [[[[[[[[[[[[[[[FF]]]]C]]]SRRF[RRR]F]]]]]]]]
 	./$(TARGET) R[[[[[[[[[[[[[[FF]]]]]]]RRF[RRR]SC]]]]]]]
 	./$(TARGET) [[[[[[[[[[[[[[[FF]]]]]]]SRRF[RRR]]]]]]C]]]

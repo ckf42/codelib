@@ -14,14 +14,9 @@ Built with [FLTK](https://www.fltk.org/), so install [it](https://packages.msys2
 
 ## cfrs
 
-Another (horrible) implementation of [CFRS](https://github.com/susam/cfrs). A bit buggy at the moment
+Another (horrible) implementation of [CFRS](https://github.com/susam/cfrs).
 
 Usage: `cfrs $CODE`
-
-Issues:
-* step counter flickers
-* `S` pauses the whole process instead of pausing the drawing
-* `CTRL-C` does not work well to terminate process, even when focus is on terminal
 
 Built with [FLTK](https://www.fltk.org/)
 

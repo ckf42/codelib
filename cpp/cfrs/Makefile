@@ -12,11 +12,16 @@ LDFLAGS += -Wl,-as-needed
 
 TARGET = cfrs
 
+.PHONY: test clean cfr
+
 $(TARGET): $(TARGET).cpp
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS)
 
-.PHONY: test clean
-test:
+# old cfr[] mode: do not wait for s
+cfr: CXXFLAGS += -DCFR
+cfr: $(TARGET)
+
+test: $(TARGET)
 	# offical demos
 	./$(TARGET) ]
 	./$(TARGET) [[[[[[[[[[[[[[[FF]]]]C]]]SRRF[RRR]F]]]]]]]]

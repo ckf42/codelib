@@ -1,5 +1,6 @@
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <mutex>
 #include <queue>
 #include <stack>
@@ -42,29 +43,26 @@ private:
         while (codeIdx < codeStr.size() && !isCodeEnded) {
             switch (codeStr[codeIdx]) {
                 case 'C':
-                    ++stepCounter;
                     ++turtleColor;
                     turtleColor &= 7;
                     break;
                 case 'F':
-                    ++stepCounter;
                     turtleX += dx[turtleDir];
                     turtleY += dy[turtleDir];
                     pixelQueue_lk.lock();
                     pixelQueue.emplace(turtleX, turtleY, turtleColor);
                     redraw();
+                    // buffer: do not frequently ask to refresh
                     if (pixelQueue.size() > 10) {
                         Fl::awake();
                     }
                     pixelQueue_lk.unlock();
                     break;
                 case 'R':
-                    ++stepCounter;
                     ++turtleDir;
                     turtleDir &= 7;
                     break;
                 case 'S':
-                    ++stepCounter;
                     std::this_thread::sleep_for(std::chrono::milliseconds(20));
                     break;
                 case '[':
@@ -79,9 +77,11 @@ private:
                     break;
             }
             ++codeIdx;
+            ++stepCounter;
         }
         isCodeEnded = true;
         redraw();
+        Fl::awake();  // force last steps are drawn
     }
 
     static void startInterpreterThread(void *obj) {
@@ -95,6 +95,7 @@ public:
     CFRS_Widget(
             int x, int y, int w, int h,
             const char *codePtr,
+            bool startInterpreter = true,
             const char *l = nullptr):
         Fl_Widget(x, y, w, h, l),
         codeStr(),
@@ -109,7 +110,9 @@ public:
                 case 'C':
                 case 'F':
                 case 'R':
+#ifndef CFR
                 case 'S':
+#endif
                 case '[':
                 case ']':
                     codeStr += c;
@@ -137,7 +140,7 @@ public:
         }
         pixelQueue.emplace(0, 0, isCodeValid ? 1 : 5);
         fl_font(FL_HELVETICA, 14);
-        if (isCodeValid) {
+        if (isCodeValid && startInterpreter) {
             Fl::add_timeout(
                     0.1,
                     CFRS_Widget::startInterpreterThread,

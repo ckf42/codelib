@@ -81,7 +81,7 @@ private:
         }
         isCodeEnded = true;
         redraw();
-        Fl::awake();  // force last steps are drawn
+        Fl::awake();  // force last pixels to draw immediately
     }
 
     static void startInterpreterThread(void *obj) {

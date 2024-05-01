@@ -22,9 +22,10 @@ Built with [FLTK](https://www.fltk.org/) 1.3.9
 
 ## minesweeper
 
-Another crappy half-baked clone of minesweeper clone. Modeled after XP.
+Another crappy half-baked minesweeper clone. Modelled after XP minesweeper.
 
 Note that at the moment,
+* Looks horrible
 * No record saving
 * No config saving, so no resuming previous board config
 * No Mark (`?`), no color toggling, no sound

@@ -10,7 +10,7 @@ A digital 7-segment 24-hour clock that syncs with system time. That's all.
 
 By default, the makefile builds a small executable (~500KB) that can probably run as a standalone. Have not checked yet.
 
-Built with [FLTK](https://www.fltk.org/), so install [it](https://packages.msys2.org/base/mingw-w64-fltk) first before building.
+Built with [FLTK](https://www.fltk.org/) 1.3.9, so install [it](https://packages.msys2.org/base/mingw-w64-fltk) first before building.
 
 ## cfrs
 
@@ -18,5 +18,19 @@ Another (horrible) implementation of [CFRS](https://github.com/susam/cfrs).
 
 Usage: `cfrs $CODE`
 
-Built with [FLTK](https://www.fltk.org/)
+Built with [FLTK](https://www.fltk.org/) 1.3.9
+
+## minesweeper
+
+Another crappy half-baked clone of minesweeper clone. Modeled after XP.
+
+Note that at the moment,
+* No record saving
+* No config saving, so no resuming previous board config
+* No Mark (`?`), no color toggling, no sound
+* No Help menu
+* Icons are Unicode emoji
+* Opening a large blank space lags a little
+
+Built with [FLTK](https://www.fltk.org/) 1.3.9
 

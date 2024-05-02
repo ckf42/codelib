@@ -16,6 +16,19 @@
 #include <Fl/Fl_Window.H>
 
 class MineTile : public Fl_Button {
+private:
+    inline void _showLabel(void) {
+        if (m_hasMine) {
+            this->copy_label("\U0001F4A3");  // bomb
+        } else if (m_nearbyMineCount != 0) {
+            this->labelfont(FL_HELVETICA_BOLD);
+            this->labelsize(16);
+            this->copy_label(std::to_string(m_nearbyMineCount).c_str());
+            this->labelcolor(digitColor[m_nearbyMineCount]);
+        }
+        this->redraw_label();
+    }
+
 public:
     constexpr static int TILE_SIZE = 16;
     constexpr static Fl_Color digitColor[9] = {
@@ -37,17 +50,6 @@ public:
         m_state(TileState::HIDDEN), m_hasMine(false),
         m_nearbyMineCount(0), m_nearbyFlagCount(0) {};
 
-    inline void showLabel(void) {
-        if (m_hasMine) {
-            this->copy_label("\U0001F4A3");  // bomb
-        } else if (m_nearbyMineCount != 0) {
-            this->labelfont(FL_HELVETICA_BOLD);
-            this->labelsize(16);
-            this->copy_label(std::to_string(m_nearbyMineCount).c_str());
-            this->labelcolor(digitColor[m_nearbyMineCount]);
-        }
-        this->redraw_label();
-    }
 
     bool openTile(void) {
         // returns if opened a block with mine
@@ -56,7 +58,7 @@ public:
         }
         m_state = TileState::OPENED;
         this->set();
-        this->showLabel();
+        this->_showLabel();
         return m_hasMine;
     }
 
@@ -94,8 +96,8 @@ public:
     };
 
     static constexpr int EVENT_STATE_UPDATED = 419;  // Expired
-    static constexpr int EVENT_FIELD_PRESSED = 420;  // Expired
-    static constexpr int EVENT_FIELD_RELEASED = 421;  // Expired
+    static constexpr int EVENT_FIELD_PRESSED = 420;
+    static constexpr int EVENT_FIELD_RELEASED = 421;
 
 private:
     // do not want to #include <algorithm> for this
@@ -108,6 +110,7 @@ private:
     bool m_isGameStarted, m_ignoreNextRelease;
     GameState  m_state;
 
+    // do not want to include <tuple> or <utility> for pair
     struct _GridCoor {
         int i, j;
         _GridCoor(int ii, int jj): i(ii), j(jj) {}
@@ -138,14 +141,14 @@ private:
     }
 
     void _moveMine(int i, int j) {
-        if (m_isGameStarted || !tile(i, j).m_hasMine) {
+        if (m_isGameStarted || !_tile(i, j).m_hasMine) {
             return;
         }
         for (int idx = 0; idx < m_wCount * m_hCount; ++idx) {
-            if (!tile(idx).m_hasMine) {
-                tile(idx).m_hasMine = true;
-                _onNearbyIndices(toGridI(idx), toGridJ(idx), [this](int ii, int jj) {
-                    ++tile(ii, jj).m_nearbyMineCount;
+            if (!_tile(idx).m_hasMine) {
+                _tile(idx).m_hasMine = true;
+                _onNearbyIndices(_toGridI(idx), _toGridJ(idx), [this](int ii, int jj) {
+                    ++_tile(ii, jj).m_nearbyMineCount;
                 });
 #ifdef DEBUG
                 tile(idx).copy_label("x");
@@ -155,13 +158,37 @@ private:
                 break;
             }
         }
-        tile(i, j).m_hasMine = false;
+        _tile(i, j).m_hasMine = false;
 #ifdef DEBUG
         tile(i, j).copy_label("");
 #endif
         _onNearbyIndices(i, j, [this](int ii, int jj){
-            --tile(ii, jj).m_nearbyMineCount;
+            --_tile(ii, jj).m_nearbyMineCount;
         });
+    }
+
+    inline int _toTileIdx(int i, int j) const {
+        return j * m_wCount + i;
+    }
+
+    inline int _toGridI(int idx) const {
+        return idx % m_wCount;
+    }
+
+    inline int _toGridJ(int idx) const {
+        return idx / m_wCount;
+    }
+
+    inline MineTile& _tile(int idx) const {
+        return *reinterpret_cast<MineTile *>(child(idx));
+    }
+
+    inline MineTile& _tile(int i, int j) const {
+        return _tile(_toTileIdx(i, j));
+    }
+
+    inline bool _isTileInbound(int i, int j) const {
+        return i >= 0 && i < m_wCount && j >= 0 && j < m_hCount;
     }
 
 public:
@@ -190,7 +217,7 @@ public:
         // NOTE: XP minesweeper cap mine as follows
         m_mineCount = _capVal(mineCount, 10, (m_wCount - 1) * (m_hCount - 1));
         // decide where to put mines
-        // https://bastian.rieck.me/blog/2017/selection_sampling/
+        // https://stackoverflow.com/a/311716
         std::random_device dev;
         std::mt19937 ranGen(dev());
         int population = m_wCount * m_hCount, chosenCount = 0;
@@ -200,13 +227,13 @@ public:
             }
             if (_bernoulliTrial(m_mineCount - chosenCount, population - tileIdx, ranGen)) {
                 ++chosenCount;
-                tile(tileIdx).m_hasMine = true;
-                int i = toGridI(tileIdx), j = toGridJ(tileIdx);
+                _tile(tileIdx).m_hasMine = true;
+                int i = _toGridI(tileIdx), j = _toGridJ(tileIdx);
 #ifdef DEBUG
                 tile(tileIdx).copy_label("x");
 #endif
                 _onNearbyIndices(i, j, [this](int ii, int jj) {
-                    ++tile(ii, jj).m_nearbyMineCount;
+                    ++_tile(ii, jj).m_nearbyMineCount;
                 });
             }
         }
@@ -236,37 +263,13 @@ public:
         return m_flagCount;
     }
 
-    inline int toTileIdx(int i, int j) const {
-        return j * m_wCount + i;
-    }
-
-    inline int toGridI(int idx) const {
-        return idx % m_wCount;
-    }
-
-    inline int toGridJ(int idx) const {
-        return idx / m_wCount;
-    }
-
-    inline MineTile& tile(int idx) const {
-        return *reinterpret_cast<MineTile *>(child(idx));
-    }
-
-    inline MineTile& tile(int i, int j) const {
-        return tile(toTileIdx(i, j));
-    }
-
-    inline bool isTileInbound(int i, int j) const {
-        return i >= 0 && i < m_wCount && j >= 0 && j < m_hCount;
-    }
-
     inline void setBlockVal(int i, int j, int val, bool isLargeBlock) {
-        _onNearbyIndices(i, j, [this, val](int ii, int jj){
-            if (tile(ii, jj).m_state == MineTile::TileState::HIDDEN) {
+        _onNearbyIndices(i, j, [this, val](int ii, int jj) {
+            if (_tile(ii, jj).m_state == MineTile::TileState::HIDDEN) {
 #ifdef DEBUG
                 std::printf("set (%d, %d) to %d\n", ii, jj, val);
 #endif
-                tile(ii, jj).value(val);
+                _tile(ii, jj).value(val);
             }
         }, isLargeBlock ? 1 : 0);
     }
@@ -274,7 +277,7 @@ public:
     void openBlock(int i, int j, bool isLargeBlock) {
         std::stack<_GridCoor> ptsToOpen;
         _onNearbyIndices(i, j, [this, &ptsToOpen](int ii, int jj) {
-            if (tile(ii, jj).m_state == MineTile::TileState::HIDDEN) {
+            if (_tile(ii, jj).m_state == MineTile::TileState::HIDDEN) {
                 _moveMine(ii, jj);
                 ptsToOpen.emplace(ii, jj);
             }
@@ -286,7 +289,7 @@ public:
         while (!ptsToOpen.empty()) {
             _GridCoor coor = ptsToOpen.top();
             ptsToOpen.pop();
-            MineTile &mTile = tile(coor.i, coor.j);
+            MineTile &mTile = _tile(coor.i, coor.j);
             if (mTile.m_state != MineTile::TileState::HIDDEN) {
                 continue;
             }
@@ -303,7 +306,7 @@ public:
                 break;
             } else if (mTile.m_nearbyMineCount == 0) {
                 _onNearbyIndices(coor.i, coor.j, [this, &ptsToOpen](int ii, int jj) {
-                    if (tile(ii, jj).m_state == MineTile::TileState::HIDDEN) {
+                    if (_tile(ii, jj).m_state == MineTile::TileState::HIDDEN) {
                         ptsToOpen.emplace(ii, jj);
                     }
                 });
@@ -326,14 +329,14 @@ public:
 
     // returns if flag count changes
     inline bool toggleFlag(int i, int j) {
-        MineTile &mTile = tile(i, j);
+        MineTile &mTile = _tile(i, j);
         if (mTile.m_state == MineTile::TileState::OPENED) {
             return false;
         }
         bool wasOnFlagged = mTile.m_state == MineTile::TileState::FLAGED;
         mTile.toggleFlag();
         _onNearbyIndices(i, j, [this, wasOnFlagged](int ii, int jj) {
-            tile(ii, jj).m_nearbyFlagCount += (wasOnFlagged ? -1 : 1);
+            _tile(ii, jj).m_nearbyFlagCount += (wasOnFlagged ? -1 : 1);
         });
         m_flagCount += (wasOnFlagged ? -1 : 1);
 #ifdef DEBUG
@@ -344,12 +347,12 @@ public:
         return true;
     }
 
-    inline void showAnswer(void) {
+    inline void showAnswer(void) const {
 #ifdef DEBUG
         std::printf("showing answers\n");
 #endif
         for (int idx = 0; idx < m_wCount * m_hCount; ++idx) {
-            MineTile &mTile = tile(idx);
+            MineTile &mTile = _tile(idx);
             if (mTile.m_hasMine) {
                 if (m_state == MineField::GameState::WON
                         && mTile.m_state == MineTile::TileState::HIDDEN) {
@@ -445,10 +448,10 @@ public:
                     case FL_BUTTON3:
                         break;
                     case FL_BUTTON1 | FL_BUTTON3:
-                        if (isTileInbound(mi, mj)
-                                && tile(mi, mj).m_state == MineTile::TileState::OPENED
-                                && tile(mi, mj).m_nearbyMineCount != 0
-                                && tile(mi, mj).m_nearbyFlagCount == tile(mi, mj).m_nearbyMineCount) {
+                        if (_isTileInbound(mi, mj)
+                                && _tile(mi, mj).m_state == MineTile::TileState::OPENED
+                                && _tile(mi, mj).m_nearbyMineCount != 0
+                                && _tile(mi, mj).m_nearbyFlagCount == _tile(mi, mj).m_nearbyMineCount) {
                             openBlock(mi, mj, true);
                             this->parent()->handle(EVENT_STATE_UPDATED);
                         } else {

@@ -209,14 +209,14 @@ public:
                     );
 #endif
             if (event == FL_PUSH && Fl::event_button1() != 0) {
-                m_btn->setMode(MidButton::BtnMode::SURPEISED);
+                m_btn->setMode(MidButton::BtnMode::SURPRISED);
             } else if (event == FL_RELEASE) {
                 m_btn->setMode(MidButton::BtnMode::NORMAL);
             }
         }
         switch (event) {
             case MineField::EVENT_FIELD_PRESSED:
-                m_btn->setMode(MidButton::BtnMode::SURPEISED);
+                m_btn->setMode(MidButton::BtnMode::SURPRISED);
                 return 1;
             case MineField::EVENT_FIELD_RELEASED:
                 m_btn->setMode(MidButton::BtnMode::NORMAL);

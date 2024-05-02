@@ -71,11 +71,6 @@ public:
         _showValue();
     }
 
-    inline void decVal(void) {
-        m_val = (m_val == minVal) ? minVal : (m_val - 1);
-        _showValue();
-    }
-
     static void increTimer_cb(void *wig) {
         ValueDisplay *ptr = reinterpret_cast<ValueDisplay *>(wig);
         if (ptr->m_timerActive) {

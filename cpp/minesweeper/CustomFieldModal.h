@@ -1,10 +1,10 @@
 #ifndef CustomFieldModal_h
 #define CustomFieldModal_h
 
+#include <FL/Fl_Button.H>
+#include <FL/Fl_Value_Input.H>
 #include <FL/Fl_Widget.H>
 #include <FL/Fl_Window.H>
-#include <FL/Fl_Value_Input.H>
-#include <FL/Fl_Button.H>
 
 class CustomFieldModal : public Fl_Window {
 private:
@@ -48,10 +48,10 @@ public:
             m_btnCancel = new Fl_Button(
                     winW - btnXOffset - btnW, inputYOffset + (inputH + inputYGap) * 2 + inputH - btnH,
                     btnW, btnH, "Cancel");
-            this->end();
+        this->end();
         this->set_modal();
         m_btnConfirm->callback(userComfirmed_cb, this);
-        m_btnCancel->callback(userCancaled_cb, this);
+        m_btnCancel->callback(userCancelled_cb, this);
     }
 
     CustomFieldModal& operator=(const CustomFieldModal&) = delete;
@@ -63,7 +63,7 @@ public:
         ptr->hide();
     }
 
-    static void userCancaled_cb(Fl_Widget *, void* data) {
+    static void userCancelled_cb(Fl_Widget *, void* data) {
         CustomFieldModal *ptr = reinterpret_cast<CustomFieldModal *>(data);
         ptr->m_submitted = false;
         ptr->hide();
@@ -84,7 +84,6 @@ public:
     inline int getMine(void) const {
         return static_cast<int>(m_mInput->value());
     }
-
 
 };
 

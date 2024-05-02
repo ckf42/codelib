@@ -12,7 +12,7 @@ class MidButton : public Fl_Button {
 public:
     enum struct BtnMode : uint8_t {
         NORMAL = 0,
-        SURPEISED = 1,
+        SURPRISED = 1,
         WON = 2,
         DEAD = 3,
     };
@@ -21,9 +21,9 @@ private:
     static constexpr char labelArr[][5] = {
         "\U0001F642",  // normal
         "\U0001F62E",  // surprised
-        "\U0001F60E",  // win
+        "\U0001F60E",  // won
         "\U0001F635",  // dead
-    };  // all 4byte (+ '\0') long
+    };  // all 4 bytes (+ '\0') long
 
     BtnMode m_mode;
 

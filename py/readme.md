@@ -44,7 +44,9 @@ Requires `pandoc` in path for file format transforming.
 
 ## extractBib.py
 
-Extract entries in a `bib` file that are cited in the given `TeX` file and put them to `stdout` or put them in a separete file.
+Extract entries in a `bib` file that are cited in the given `TeX` file and put them to `stdout` or put them in a separate file.
+
+Requires `bibtexparser~1.0`
 
 ## extractUMM.py
 
@@ -93,7 +95,7 @@ Same as `personalPylib.py` but relies on `numpy`
 
 ## paperNameNormalizer.py
 
-Same as `fetchDocMetadata.py` but for geting the `autoname`. Also for debugging `shdl`
+Same as `fetchDocMetadata.py` but for getting the `autoname`. Also for debugging `shdl`
 
 ## personalPylib_audio.py
 
@@ -119,7 +121,7 @@ A python script to check the dependencies of packages. Depends on `pip` and `pip
 
 ## ReplotOnZoom.py
 
-A simple class that replots the bitmap on zooming and paning
+A simple class that replots the bitmap on zooming and panning
 
 ## wormholeQR.py
 

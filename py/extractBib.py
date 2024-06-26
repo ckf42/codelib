@@ -107,7 +107,9 @@ def main() -> None:
         with bibPath.open('rt', encoding='utf-8') as bibFile:
             db = bibtexparser.load(bibFile, parser=bibParser)
         assert db is not None, f"Cannot open bib file {str(bibPath)}"
-        for k, v in db.entries_dict.items():
+        entryDict = db.entries_dict
+        relatedEntries: set[str] = set()
+        for k, v in entryDict.items():
             if k in citedKeyList:
                 if k in citedEntryDict:
                     print(f"{k} already exists. "
@@ -115,8 +117,10 @@ def main() -> None:
                 citedEntryDict[k] = v
                 if 'related' in v:
                     print(f"{k} contains related key(s) {v['related']}. Adding ...")
-                    for rKey in v['related'].split(','):
-                        citedEntryDict[rKey] = db.entries_dict[rKey]
+                    relatedEntries.update(v['related'].split(','))
+        for rKey in relatedEntries:
+            if rKey not in citedEntryDict:
+                citedEntryDict[rKey] = entryDict[rKey]
     notFoundKeys = citedKeyList.difference(citedEntryDict.keys())
     if len(notFoundKeys) != 0:
         print("These keys are not found in any bib:")

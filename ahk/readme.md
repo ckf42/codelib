@@ -6,7 +6,7 @@ Being ahk scripts, they are Windows only. Still, I may have hardcoded some const
 
 ## MsgGui.ahk
 
-A simple class that shows a simple popup window display text then fades away.
+A simple class that shows a simple popup window that displays text then fades away.
 
 ## soundControl.ahk
 

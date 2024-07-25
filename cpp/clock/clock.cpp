@@ -18,7 +18,7 @@ private:
 
     int minSegWidth;
     Fl_Color fillColorOn, fillColorOff;
-    uint8_t segStates[6] = {8, 8, 8, 8, 8, 8};
+    uint8_t segStates[6] = {127, 127, 127, 127, 127, 127};
 
     // inst static buffer for drawSegment
     double _xCoorBuff[6] = {0.0}, _yCoorBuff[6] = {0.0};

@@ -46,7 +46,7 @@ Requires `pandoc` in path for file format transforming.
 
 Extract entries in a `bib` file that are cited in the given `TeX` file and put them to `stdout` or put them in a separate file.
 
-Requires `bibtexparser~1.0`
+Requires `bibtexparser~=1.0`
 
 ## extractUMM.py
 

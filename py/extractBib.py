@@ -16,8 +16,18 @@ def getArgs() -> argparse.Namespace:
     parser.add_argument(
             '--out',
             type=str,
-            help="Path to output bib file. "
+            help="Path to output bib file, relative to cwd. "
             "Defaults to stdout")
+    parser.add_argument(
+            '--addref',
+            type=str,
+            action='append',
+            default=list(),
+            help="Path to additional ref bib file to query, relative to cwd. "
+            "May specify multiple times for multiple files. "
+            "These are only queried when the bib included in tex file "
+            "does not contain the required reference "
+            "and are queried in the order they are given")
     parser.add_argument(
             '--overwrite',
             action='store_true',
@@ -54,7 +64,21 @@ def getArgs() -> argparse.Namespace:
             parser.error(
                     f"Output path ({args.out}) exists but --overwrite is not given")
         args.out = outPath
+    validBibPaths = []
+    for p in args.addref:
+        bibPath = pathlib.Path(pathlib.Path.cwd() / p).resolve(strict=False)
+        if not bibPath.exists():
+            print(f"Additional bib path {str(bibPath)} does not exist. Ignored")
+        else:
+            validBibPaths.append(bibPath)
+    args.addref = validBibPaths
     return args
+
+def getBibParser() -> bibtexparser.bparser.BibTexParser:
+    return bibtexparser.bparser.BibTexParser(
+            ignore_nonstandard_types=False,
+            interpolate_strings=False,
+            add_missing_from_crossref=True)
 
 def main() -> None:
     args = getArgs()
@@ -63,6 +87,8 @@ def main() -> None:
     citedEntryDict: dict[str, dict] = dict()
     with args.tex.open('rt', encoding='utf-8') as texFile:
         for line in texFile:
+            if line.lstrip().startswith('%'):
+                continue
             if line.lstrip().startswith(r'\addbibresource{'):
                 gp = re.match(r'\\addbibresource\{(.+?\.bib)\}', line)
                 assert gp is not None, f"Unable to parse line: {line}"
@@ -91,13 +117,9 @@ def main() -> None:
         for bib in usedBib:
             print(bib)
             print("")
-    else:
+    elif len(args.addref) == 0:
         print("No bib is included")
         return
-    bibParser = bibtexparser.bparser.BibTexParser(
-            ignore_nonstandard_types=False,
-            interpolate_strings=False,
-            add_missing_from_crossref=True)
     for bib in usedBib:
         bibPath = (args.tex.parent / bib).resolve(strict=False)
         if not bibPath.exists():
@@ -105,7 +127,7 @@ def main() -> None:
             continue
         db = None
         with bibPath.open('rt', encoding='utf-8') as bibFile:
-            db = bibtexparser.load(bibFile, parser=bibParser)
+            db = bibtexparser.load(bibFile, parser=getBibParser())
         assert db is not None, f"Cannot open bib file {str(bibPath)}"
         entryDict = db.entries_dict
         relatedEntries: set[str] = set()
@@ -123,6 +145,31 @@ def main() -> None:
                 citedEntryDict[rKey] = entryDict[rKey]
     notFoundKeys = citedKeyList.difference(citedEntryDict.keys())
     if len(notFoundKeys) != 0:
+        print("These keys are not found in included bib:")
+        for k in notFoundKeys:
+            print(k)
+        print("")
+    for bibPath in args.addref:
+        if len(notFoundKeys) == 0:
+            break
+        db = None
+        with bibPath.open('rt', encoding='utf-8') as bibFile:
+            db = bibtexparser.load(bibFile, parser=getBibParser())
+        assert db is not None, f"Cannot open bib file {str(bibPath)}"
+        entryDict = db.entries_dict
+        relatedEntries = set()
+        for k, v in entryDict.items():
+            if k in notFoundKeys:
+                print(f"{k} is found in {bibPath.name}")
+                notFoundKeys.remove(k)
+                citedEntryDict[k] = v
+                if 'related' in v:
+                    print(f"{k} contains related key(s) {v['related']}. Adding ...")
+                    relatedEntries.update(v['related'].split(','))
+        for rKey in relatedEntries:
+            if rKey not in citedEntryDict:
+                citedEntryDict[rKey] = entryDict[rKey]
+    if len(args.addref) != 0 and len(notFoundKeys) != 0:
         print("These keys are not found in any bib:")
         for k in notFoundKeys:
             print(k)

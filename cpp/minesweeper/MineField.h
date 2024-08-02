@@ -151,16 +151,16 @@ private:
                     ++_tile(ii, jj).m_nearbyMineCount;
                 });
 #ifdef DEBUG
-                tile(idx).copy_label("x");
+                _tile(idx).copy_label("x");
                 std::printf("moving mine from (%d, %d) to (%d, %d)\n",
-                        i, j, toGridI(idx), toGridJ(idx));
+                        i, j, _toGridI(idx), _toGridJ(idx));
 #endif
                 break;
             }
         }
         _tile(i, j).m_hasMine = false;
 #ifdef DEBUG
-        tile(i, j).copy_label("");
+        _tile(i, j).copy_label("");
 #endif
         _onNearbyIndices(i, j, [this](int ii, int jj){
             --_tile(ii, jj).m_nearbyMineCount;
@@ -230,7 +230,7 @@ public:
                 _tile(tileIdx).m_hasMine = true;
                 int i = _toGridI(tileIdx), j = _toGridJ(tileIdx);
 #ifdef DEBUG
-                tile(tileIdx).copy_label("x");
+                _tile(tileIdx).copy_label("x");
 #endif
                 _onNearbyIndices(i, j, [this](int ii, int jj) {
                     ++_tile(ii, jj).m_nearbyMineCount;

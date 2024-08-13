@@ -136,6 +136,7 @@ def getArgs() -> argparse.Namespace:
                     print(f"Input for {hName} looks like a URL")
                 print("Fetched content:")
                 print(sigContent)
+                print()
             setattr(args, hName, sigContent)
     if args.sig is not None:
         if which(args.gpgpath) is None:
@@ -153,6 +154,7 @@ def getArgs() -> argparse.Namespace:
             print("Input for GPG looks like a URL")
             print("Fetched content:")
             print(gpgContent)
+            print()
             args._sigIsFile = False
             args.sig = gpgContent
     return args
@@ -163,8 +165,9 @@ def displayFileSig(fileLoc: pathlib.Path, enc: str) -> None:
     fileSigStatus: str = run(
         ['powershell', '-Command',
          '(', 'Get-AuthenticodeSignature',
-         '-FilePath', str(fileLoc.resolve()), ').Status'],
+         '-FilePath', f'"{str(fileLoc.resolve())}"', ').Status'],
         stdout=PIPE,
+        shell=True,
         text=True).stdout.strip()
     print("File signature status:", fileSigStatus)
     if fileSigStatus != 'NotSigned':
@@ -172,10 +175,11 @@ def displayFileSig(fileLoc: pathlib.Path, enc: str) -> None:
         print(run(
             ['powershell', '-Command', '(',
              'Get-AuthenticodeSignature',
-             '-FilePath', str(fileLoc.resolve()), ').SignerCertificate',
+             '-FilePath', f'"{str(fileLoc.resolve())}"', ').SignerCertificate',
              '|', 'Format-List'],
             stdout=PIPE,
             text=True,
+            shell=True,
             encoding=enc).stdout.strip())
 
 
@@ -206,7 +210,7 @@ def checkHashMatch(computedDigest: str, providedDigest: str) -> bool:
     hasMatch: bool = False
     for line in providedDigest.splitlines():
         if line.strip().lower().startswith(computedDigest):
-            print(f"Matching line: {line}")
+            print(f"\tMatching line:\n\t{line}")
             hasMatch = True
             break
     return hasMatch
@@ -222,19 +226,20 @@ def verifyGpgSig(
     verifyCommand = f'{gpgExe} --verify '
     if sigIsFile:
         assert isinstance(sig, pathlib.Path)
-        verifyCommand += str(sig.resolve())
+        verifyCommand += f'"{str(sig.resolve())}"'
     else:
         assert isinstance(sig, bytes)
         commandInput = sig
         verifyCommand += '-'
-    verifyCommand += f" {fileLoc.resolve()}"
+    verifyCommand += f' "{fileLoc.resolve()}"'
     p = run(verifyCommand,
             stdout=PIPE, stderr=PIPE,
-            input=commandInput, encoding=enc if commandInput is None else None)
+            input=commandInput,
+            encoding=enc if commandInput is None else None)
     _, serrData = p.stdout, p.stderr
     publicKeyID: list[str] = []
     lastKey: str | None = None
-    for line in serrData.decode(enc).splitlines():
+    for line in (serrData.decode(enc) if isinstance(serrData, bytes) else serrData).splitlines():
         print(line)
         if 'using ' in line[4:].strip(' '):
             lastKey = line.split('key ')[1]

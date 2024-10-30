@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "djvu2rga"
+version = "0.0.1"
+description = "A python implementation of djvutorga bash script for ripgrep-all"
+authors = [
+    { name = "ckf42", email = "31157514+ckf42@users.noreply.github.com" },
+]
+dependencies = [
+]
+
+[project.scripts]
+djvu2rga = "djvu2rga.__main__:main"

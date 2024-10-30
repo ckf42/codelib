@@ -36,6 +36,14 @@ Decode the Morse code in a `wav` file and translate it to text. Still has some i
 
 Requires `numpy`, `scipy`, and uses `MorseCodeDict.py`
 
+## djvu2rga
+
+A direct python port of [the djvu adapter](https://github.com/phiresky/ripgrep-all/discussions/166#discussioncomment-6435402) for [ripgrep-all](https://github.com/phiresky/ripgrep-all). Does not do any check on file type, permission, etc.
+
+Assumes `djvused` from [DjVuLibre](https://djvu.sourceforge.net/) (or other conforming tool) exists in the PATH. Probably can go with [python-djvulibre](https://pypi.org/project/python-djvulibre/) binding to make it standalone, but have not figured out how to build it on a Windows machine.
+
+Written as a package so you can install it with pipx. Should also work without installing if you make rga call python directly, but I am not bothered enough to check.
+
 ## expandMdMathMacro.py
 
 Read a `Markdown` file that uses math macros (stored as `json` format) and transform to plain math `KaTeX` math commands. Also allow transforming math commands with image links, or transform the file into a `HTML` file that can be rendered with `MathML` or GitHub-previewable `IPython` notebook.

@@ -1,7 +1,13 @@
 @echo off
 setlocal EnableDelayedExpansion
 
+set explorerCmd=explorer 
 set para=
+
+if ["%~1"]==["/select"] (
+    set explorerCmd=!explorerCmd!/select,
+    shift /1
+)
 
 :paraProcessing
 if ["%~1"]==[""] goto endParaProcessing
@@ -15,10 +21,16 @@ goto paraProcessing
 :endParaProcessing
 
 if [!para!]==[] exit /b
-set para="!para!"
+call :normalizePath "!para!"
 if exist !para! (
-    explorer /select,!para!
+    !explorerCmd!!para!
 ) else (
     echo !para! does not exist
 )
+
+exit /b
+:normalizePath
+@REM https://stackoverflow.com/a/33404867
+set para=%~f1
+exit /b
 

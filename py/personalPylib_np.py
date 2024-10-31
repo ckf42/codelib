@@ -214,3 +214,14 @@ def sierpinskiCarpet(xmin: float = 0.,
                 ((lambda x, y: x > 2 / 3, lambda x, y: x < 1, lambda x, y: y > 2 / 3, lambda x, y: y < 1),
                  lambda v: v * 3 - [[2], [2]]),
             ))
+
+def genUnimodularMatrix(d, minV=-3, maxV=3):
+    # modified from https://nathanbrixius.wordpress.com/2013/09/13/generating-random-unimodular-matrices-with-a-column-of-ones/
+    import sympy as sp
+    m: sp.Matrix = sp.randMatrix(d, min=minV, max=maxV)
+    u: sp.Matrix = m.upper_triangular()
+    l: sp.Matrix = m.lower_triangular()
+    u += sp.eye(d) - sp.diag(*u.diagonal())
+    l += sp.eye(d) - sp.diag(*l.diagonal())
+    return l @ u
+

@@ -1,71 +1,108 @@
 import argparse
+import ast
 import datetime
-import requests as rq
+import operator as op
+import typing as tp
 from random import sample
+
+import requests as rq
+
+Allowed_operators: dict[tp.Type, tp.Callable] = {
+    ast.Add: op.add,
+    ast.Sub: op.sub,
+    ast.Mult: op.mul,
+    ast.Div: op.truediv,
+    ast.USub: op.neg
+}
+
+
+def stringEval(expr: str) -> float:
+    # WARNING: potentially unsafe
+    # see https://stackoverflow.com/a/9558001
+    def evaluator(node) -> float:
+        match node:
+            case ast.Constant(value) if isinstance(value, (int, float)):
+                return value
+            case ast.UnaryOp(op, operand) if type(op) in Allowed_operators:
+                return Allowed_operators[type(op)](evaluator(operand))
+            case ast.BinOp(left, op, right) if type(op) in Allowed_operators:
+                return Allowed_operators[type(op)](evaluator(left), evaluator(right))
+            case _:
+                raise TypeError(f"Unsupported operation {type(node)}")
+    return evaluator(ast.parse(expr, mode='eval').body)
+
 
 def getArgs() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-            epilog="Notes on backends: "
-            "European Central Bank (ecb) (seemingly) only has API to convert from EUR. "
-            "Non-EUR conversion is done by converting to EUR first, "
-            "and the result may be inaccuracy. "
-            "Exchange-api (https://github.com/fawazahmed0/exchange-api, formerly Currency-api) "
-            "also has exchange rates for cryptocurrencies. "
-            "Exchange Rate API (https://www.exchangerate-api.com) "
-            "is queried via their open access endpoint, "
-            "which has a 20-minute IP-based rate limit. "
-            "For supported currency code, "
-            "please check the documentation for the backends. "
-            "Props to the maintainers of these backends for providing these resources.")
+        epilog="Notes on backends: "
+        "European Central Bank (ecb) (seemingly) only has API to convert from EUR. "
+        "Non-EUR conversion is done by converting to EUR first, "
+        "and the result is expected to be inaccurate. "
+        "Exchange-api (https://github.com/fawazahmed0/exchange-api, formerly Currency-api) "
+        "also has exchange rates for cryptocurrencies. "
+        "Exchange Rate API (https://www.exchangerate-api.com) "
+        "is queried via their open access endpoint, "
+        "which has a 20-minute IP-based rate limit. "
+        "For supported currency code, "
+        "please check the documentation for the backends. "
+        "Thanks to the maintainers of these backends for providing these resources.")
     parser.add_argument(
-            'amount',
-            type=float,
-            nargs='?',
-            default=1.0,
-            help="The amount of original currency. Defaults to 1.0")
+        'amount',
+        type=str,
+        nargs='?',
+        default='1.0',
+        help="The amount of original currency. "
+        "A float number or a simple arithmetic expression. "
+        "Support for allowed arithmetic operations is limited. "
+        "Note that evaluation of such expression is ***UNSAFE***. "
+        "Defaults to 1.0")
     parser.add_argument(
-            'fromCurr',
-            type=str,
-            help="The code for the original currency")
+        'fromCurr',
+        type=str,
+        help="The code for the original currency")
     parser.add_argument(
-            'toCurr',
-            type=str,
-            help="The code for the target currency")
+        'toCurr',
+        type=str,
+        help="The code for the target currency")
     parser.add_argument(
-            '--thousand', '-t',
-            action='store_true',
-            help="Use thousand separator (3-digit, i.e. 10,000) instead of "
-            "the default myriad separator (4-digit, i.e. 1,0000)")
+        '--thousand', '-t',
+        action='store_true',
+        help="Use thousand separator (3-digit, i.e. 10,000) instead of "
+        "the default myriad separator (4-digit, i.e. 1,0000)")
     parser.add_argument(
-            '--decimal', '-d',
-           type=int,
-           default=2,
-           help="The number of decimal places to keep. "
-           "Defaults to 2")
+        '--decimal', '-d',
+        type=int,
+        default=2,
+        help="The number of decimal places to keep. "
+        "Defaults to 2")
     backendGp = parser.add_mutually_exclusive_group()
     backendGp.add_argument(
-            '--backend', '-b',
-            type=str,
-            choices=('ecb', 'curr-api', 'er-api'),
-            default='ecb',
-            help="The backend API to query. "
-            "Affects what currencies are supported. "
-            "Currently support ecb (European Central Bank), "
-            "curr-api (exchange-api, formerly currency-api), "
-            "and er-api (Exchange Rate API). "
-            "Defaults to ecb")
+        '--backend', '-b',
+        type=str,
+        choices=('ecb', 'exch-api', 'curr-api', 'er-api'),
+        default='exch-api',
+        help="The backend API to query. "
+        "Affects what currencies are supported. "
+        "Currently supports ecb (European Central Bank), "
+        "exch-api (exchange-api, formerly currency-api), "
+        "curr-api (alias for exch-api), "
+        "and er-api (Exchange Rate API). "
+        "Defaults to exch-api")
     backendGp.add_argument(
-            '--tryAll', '-a',
-            action='store_true',
-            help="Try all backends and report the first one that responses")
+        '--tryAll', '-a',
+        action='store_true',
+        help="Try all backends and report the first one that responses")
     parser.add_argument(
-            '--random', '-r',
-            action='store_true',
-            help="Try all backends in random order. "
-            "Ignored if presents without --tryAll")
+        '--random', '-r',
+        action='store_true',
+        help="Try all backends in random order. "
+        "Implies --tryAll")
     args = parser.parse_args()
-    if args.random and not args.tryAll:
-        parser.error("Cannot specify --random without --tryAll")
+    args.amount = stringEval(args.amount)
+    if args.backend == 'curr-api':
+        args.backend = 'exch-api'
+    if args.random:
+        args.tryAll = True
     return args
 
 
@@ -93,7 +130,7 @@ def ecbQuery(fromCurr: str, toCurr: str) -> dict:
         ecbAddr = f'https://data-api.ecb.europa.eu/service/data/EXR/D.{targetCurr.upper()}.EUR.SP00.A'
         reqPara = {
             'startPeriod': (
-                datetime.date.today() - datetime.timedelta(days=14)
+                    datetime.date.today() - datetime.timedelta(days=14)
                 ).isoformat(),
             'format': 'jsondata',
             'detail': 'dataonly',
@@ -115,22 +152,28 @@ def ecbQuery(fromCurr: str, toCurr: str) -> dict:
                     raise RuntimeError({'msg': "Failed parsing response",
                                         'respContent': resp.content}) from e
         elif resp.status_code == 404:
-            raise RuntimeError({'msg': f"Currency not supported: {targetCurr}"})
+            raise RuntimeError(
+                {'msg': f"Currency not supported: {targetCurr}"})
         else:
-            raise RuntimeError({'msg': f"Request returned with {resp.status_code}"})
+            raise RuntimeError(
+                {'msg': f"Request returned with {resp.status_code}"})
     todayDate = datetime.date.today().isoformat()
     exch1 = _ecbQueryBase(fromCurr) \
-            if fromCurr.upper() != 'EUR' \
-            else {'rate': 1, 'time': todayDate}
+        if fromCurr.upper() != 'EUR' \
+        else {'rate': 1, 'time': todayDate}
     exch2 = _ecbQueryBase(toCurr) \
-            if toCurr.upper() != 'EUR' \
-            else {'rate': 1, 'time': todayDate}
-    return {'rate': exch2['rate'] / exch1['rate'],
-            'time': min(exch1['time'], exch2['time'])}
+        if toCurr.upper() != 'EUR' \
+        else {'rate': 1, 'time': todayDate}
+    return {
+        'backend': 'ECB',
+        'rate': exch2['rate'] / exch1['rate'],
+        'time': min(exch1['time'], exch2['time'])
+    }
+
 
 def currApiQuery(fromCurr: str, toCurr: str) -> dict:
     # thanks exchange-api (https://github.com/fawazahmed0/exchange-api)
-    # formerly currency-api (https://github.com/fawazahmed0/currency-api) 
+    # formerly currency-api (https://github.com/fawazahmed0/currency-api)
     # for open access without needing a key
     # apiAddr = f'https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{fromCurr.lower()}/{toCurr.lower()}.min.json'
     apiAddr = f'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/{fromCurr.lower()}.min.json'
@@ -138,16 +181,22 @@ def currApiQuery(fromCurr: str, toCurr: str) -> dict:
     # fallback_apiAddr = f'https://latest.currency-api.pages.dev/v1/currencies/{fromCurr.lower()}.min.json'
     resp = rq.get(apiAddr)
     if resp.status_code == 403:
-        raise RuntimeError({'msg': f"Currency may not be supported: {fromCurr.lower()}"})
+        raise RuntimeError(
+            {'msg': f"Currency may not be supported: {fromCurr.lower()}"})
     try:
         respJs = resp.json()
-        return {'time': respJs['date'], 'rate': respJs[fromCurr.lower()][toCurr.lower()]}
+        return {
+            'backend': 'exchange-api',
+            'time': respJs['date'],
+            'rate': respJs[fromCurr.lower()][toCurr.lower()]
+        }
     except rq.exceptions.JSONDecodeError as e:
         raise RuntimeError({'msg': "Failed parsing response",
                             'respContent': resp.content}) from e
     except KeyError as e:
         raise RuntimeError({'msg': f"No record from {fromCurr.lower()} to {toCurr.lower()}"}) \
             from e
+
 
 def erApiQuery(fromCurr: str, toCurr: str) -> dict:
     # thanks https://www.exchangerate-api.com for providing open access endpoint
@@ -157,19 +206,20 @@ def erApiQuery(fromCurr: str, toCurr: str) -> dict:
     if resp.status_code == 429:
         raise RuntimeError({
             'msg': 'Rate limited by Exchange Rate API. Please wait for about 20 minutes'
-            })
+        })
     try:
         respJs = resp.json()
         if respJs['result'] != 'success':
             raise RuntimeError({
                 'msg': f"Request faild due to error: {respJs['error-type']}"
-                })
+            })
         elif toCurr.upper() not in respJs['rates']:
             raise RuntimeError({
                 'msg': f"Has not data to convert from {fromCurr} to {toCurr}"
-                })
+            })
         else:
             return {
+                'backend': 'er-api',
                 'time': str(datetime.date.fromtimestamp(respJs['time_last_update_unix'])),
                 'rate': respJs['rates'][toCurr.upper()]
             }
@@ -181,18 +231,19 @@ def erApiQuery(fromCurr: str, toCurr: str) -> dict:
 def main():
     args = getArgs()
     backendDict = {
+        'exch-api': currApiQuery,
         'ecb': ecbQuery,
-        'curr-api': currApiQuery,
         'er-api': erApiQuery,
     }
+    resDict: dict | None = None
     if args.tryAll:
         querySucceed = False
         for backend in (sample(tuple(backendDict.keys()), k=len(backendDict))
-                        if args.random else backendDict):
+                        if args.random
+                        else backendDict):
             print(f"Querying backend {backend}")
             try:
                 resDict = backendDict[backend](args.fromCurr, args.toCurr)
-                print(f"{formatAmount(resDict['rate'] * args.amount, args)} (on {resDict['time']})")
                 querySucceed = True
                 break
             except RuntimeError as e:
@@ -204,8 +255,15 @@ def main():
             raise RuntimeError("All backend failed")
     else:
         resDict = backendDict[args.backend](args.fromCurr, args.toCurr)
-        print(f"{formatAmount(resDict['rate'] * args.amount, args)} (on {resDict['time']})")
+    print(" ".join((
+        args.fromCurr,
+        formatAmount(args.amount, args),
+        "->",
+        args.toCurr,
+        formatAmount(resDict['rate'] * args.amount, args),
+        f"(on {resDict['time']}, from {resDict['backend']})"
+    )))
+
 
 if __name__ == '__main__':
     main()
-

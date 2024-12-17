@@ -39,13 +39,21 @@ def previewLatex(inputExpression):
         subprocess.run(
                 ['pdflatex', '-synctex=0', '-interaction=nonstopmode', fpPath],
                 cwd=tempDir,
-                stdout=subprocess.PIPE)
+                capture_output=True,
+                check=True,
+                text=True)
         subprocess.run(
                 ['pdftocairo', '-png', '-singlefile', fpPath + '.pdf', fpPath],
                 cwd=tempDir,
-                stdout=subprocess.PIPE)
+                capture_output=True,
+                check=True,
+                text=True)
         subprocess.run(['wezterm', 'imgcat', fp.name + '.png'])
         print('')
+    except subprocess.CalledProcessError as e:
+        print(e.args[1][0], "failed with the following output:")
+        print(e.output)
+        raise e
     finally:
         for ext in ('.aux', '.log', '.pdf', '.png', ''):
             if (p := pathlib.Path(fp.name + ext)).exists():

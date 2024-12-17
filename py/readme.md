@@ -117,9 +117,19 @@ Some python scripts I have written. May be used in other scripts.
 
 A function that renders `SageMath` expression (that can be `latex()`ed) into image and put it on console in [iTerm2 image sequence](https://iterm2.com/documentation-images.html)
 
-The template latex content is edited from TeXStudio preview latex file. Requires `amsmath`, `amssymb`, `amsfonts`, `preview`, `varwidth` packages
+Requires the [`imgcat` package](https://pypi.org/project/imgcat/).
+
+The template latex content is edited from TeXStudio preview latex file. Compiling requires `amsmath`, `amssymb`, `amsfonts`, `preview`, `varwidth` packages
 
 Should work on all terminal emulators that support the iTerm2 image protocol, but currently on Windows only work with the default `mintty` terminal. Not sure why
+
+## previewLatex_sp.py
+
+Same as `previewLatex.py` but
+* uses [wezterm `imgcat`](https://wezfurlong.org/wezterm/cli/imgcat.html) to show image instead of `imgcat` package
+* uses `sympy.latex` to `latex()` expression and does not assume to be in a `SageMath` environment
+
+If `sympy` is installed and `wezterm` is used, you may put this in ipython `startup` directory in the profile.
 
 ## pipRemovable.py
 

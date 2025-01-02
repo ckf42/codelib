@@ -41,18 +41,18 @@ setlocal EnableDelayedExpansion
      set doSimpleBeep=0
 @REM Should we do a beep with powershell? 0/1
 @REM NOTE: there will be a small delay to start powershell  
-     set doPowershellBeep=1
+     set doPowershellBeep=0
 @REM Frequency of powershell beep
      set beepFreq=550
 @REM Duration of powershell beep, in ms
      set beepDuration=850
 @REM Should we do an alert with TTS? 0/1
-     set doTTS=1
+     set doTTS=0
 @REM The sentence to be read with TTS
      set ttsSentence=network disconnected
 @REM Should we display a popup window? 0/1
 @REM NOTE: will halt until popup window is closed
-     set doCmdPopup=0
+     set doCmdPopup=1
 @REM The sentence to be displayed in popup
      set cmdPopupMsg=Network disconnected!
 @REM
@@ -77,16 +77,22 @@ if %interactiveMode% EQU 1 (
     <NUL set /P "=Waiting !currentWaitTime! second(s) for the next ping ... "
     >NUL timeout /t !currentWaitTime!
 )
-ping %checkDomain% -n 1 >NUL
-if ERRORLEVEL 1 (
-    set /A "currentFailCount=currentFailCount+1"
-    set currentWaitTime=!pingWaitTimeAfterFailed!
-    echo Ping failed !currentFailCount! / %requiredFailCount% at %time%^^!^^! 
-) else (
+
+set msg=
+for /f "usebackq skip=2 tokens=5" %%l in (`ping -n 1 %checkDomain%`) do (
+    set msg=%%l
+    goto pingParseLoopBreak
+)
+:pingParseLoopBreak
+if ["!msg:~0,4!"]==["time"] (
     set currentFailCount=0
     set currentWaitTime=!pingWaitTime!
     @REM echo Ping succeed at %time%
-    <NUL set /P "=Ping succeed at %time%!CR!"
+    <NUL set /P "=Ping succeed at %time% with !msg!!CR!"
+) else (
+    set /A "currentFailCount=currentFailCount+1"
+    set currentWaitTime=!pingWaitTimeAfterFailed!
+    echo Ping failed !currentFailCount! / %requiredFailCount% at %time%^^!^^! 
 )
 if !currentFailCount! GEQ %requiredFailCount% (
     if %doSimpleBeep% EQU 1 (

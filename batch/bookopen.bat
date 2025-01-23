@@ -1,5 +1,4 @@
 @echo off
-setlocal
 setlocal EnableDelayedExpansion
 REM get original chcp
 set origChcp=
@@ -30,7 +29,11 @@ set rcloneCmd=%rcloneBaseCmd% copy !rcloneDrive!/
 set rcloneIndexFetchCmd=!rcloneCmd!
 @REM allow unknown para as query? 0/1: F/T
 set unknownParaAsQuery=1
-@REM use preview window to show long filename? 0/1: F/T
+@REM path to fzf executable. Change this if fzf is not in %PATH%
+set fzfPath=fzf
+@REM default parameters pass to fzf
+set fzfDefaultPara=--scheme path --tiebreak chunk --color dark,fg+:underline
+@REM use fzf preview window to show long filename? 0/1: F/T
 set useFzfPreview=1
 @REM the keybind for fzf preview window. Only used for useFzfPreview=1
 set fzfPreviewKey=ctrl-e
@@ -110,24 +113,26 @@ if !inQueryStrings! geq 1 (
     if !needHelp! equ 1 (
         echo %~nx0 switches:
         echo(/?, /h, /help, -h, --help  Display this help message and exit
-        echo /r, /refresh               Reindex local files
-        echo /f, /fetch                 Fetch remote index file
-        @REM echo /R, /rf, /r/f              Equivalent to /f /r
+        echo /r, /refresh               Reindex local files and quit
+        echo /f, /fetch                 Fetch remote index file and quit
         echo /R                         Equivalent to /f /r
         echo /s, /search                Start searching after /r or /f
         echo /l, /local                 Consider local files only
         echo /-l, /-local               Consider remote files only
         echo /fzf                       The next parameter is to be passed to FZF
-        echo /drive                     The next parameter is rclone remote base override
+        echo /drive                     The next parameter is the overriding rclone remote base
         if %unknownParaAsQuery% geq 1 (
-            echo --                         Stop parsing parameters and treat everything afterward as query string
+        echo --                         Stop parsing switches and treat everything afterward as query string
         )
-        @REM echo /d, /debug                 Print all debug messages
+        @REM echo /debug                     Print all debug messages
+        echo(
+        echo If both /l and /-l are specified, only the last occurrence counts.
+        echo All /fzf options are passed to FZF.
+        echo If /drive is specified more than once, only the last one is used.
+        echo(
         goto endCleanUp
     )
     if "%~1"=="/debug" (
-        set /a "scriptDebugFlag+=1"
-    ) else if "%~1"=="/d" (
         set /a "scriptDebugFlag+=1"
     ) else if "%~1"=="/r" (
         set needToReindex=1
@@ -136,12 +141,6 @@ if !inQueryStrings! geq 1 (
     ) else if "%~1"=="/R" (
         set needToReindex=1
         set needToFetchRemoteIndex=1
-    @REM ) else if "%~1"=="/rf" (
-    @REM     set needToReindex=1
-    @REM     set needToFetchRemoteIndex=1
-    @REM ) else if "%~1"=="/r/f" (
-    @REM     set needToReindex=1
-    @REM     set needToFetchRemoteIndex=1
     ) else if "%~1"=="/f" (
         set needToFetchRemoteIndex=1
     ) else if "%~1"=="/fetch" (
@@ -180,6 +179,13 @@ if !inQueryStrings! geq 1 (
 shift /1
 goto handleParameters
 :endHandleParameters
+
+if [!rcloneDrive!]==[] (
+    echo No remote defined
+    set rcloneCmd=
+    set rcloneIndexFetchCmd=
+)
+
 if %unknownParaAsQuery% geq 1 (
     if !scriptDebugFlag! neq 0 (
         echo Cli query string:
@@ -194,6 +200,14 @@ if !scriptDebugFlag! geq 2 (
     echo echoing every command
     echo on
 )
+
+if !scriptDebugFlag! geq 2 (
+    echo localPathCount = !localPathCount!
+    echo localPath = !localPath!
+    echo rcloneDrive = !rcloneDrive!
+    echo rcloneIndexFetchCmd = !rcloneIndexFetchCmd!
+)
+
 if !needToReindex! equ 1 goto reindexPart
 if !needToFetchRemoteIndex! equ 1 goto reindexPart
 goto startfzfPart
@@ -202,6 +216,10 @@ goto startfzfPart
 for %%f in (%remoteListPath%) do echo Cached remote index timestamp %%~tf
 for %%f in (%fileListPath%) do echo Current index timestamp %%~tf
 if !needToFetchRemoteIndex! equ 1 (
+    if [!rcloneIndexFetchCmd!]==[] (
+        echo No remote to fetch index from
+        exit /b 1
+    )
     if defined remoteIndexName (
         echo Fetching remote index ...
         set rcloneFetchRemoteCmd=%rcloneIndexFetchCmd%%remoteIndexRemoteDir%%remoteIndexName% %remoteIndexCacheDir%
@@ -210,9 +228,14 @@ if !needToFetchRemoteIndex! equ 1 (
         if !errorlevel! neq 0 (
             echo error occured with exitcode !errorlevel!
             goto endCleanUp
+        ) else (
+            for %%f in (%remoteListPath%) do echo New remote index timestamp %%~tf
         )
         if not !needToReindex! equ 1 (echo Local index is not updated)
-    ) else ( echo No remote index setup )
+    ) else (
+        echo No remote index configured 
+        exit /b 1 
+    )
 )
 if !needToReindex! equ 1 (
     echo Refreshing index ...
@@ -236,34 +259,35 @@ if !needToReindex! equ 1 (
     @rem find local file in remote and remove from cached remote index
     for %%f in ("%fileListPath%") do (
         if !scriptDebugFlag! neq 0 (echo Writing local filenames in %TEMP%\%%~nxf.tmp)
-        break>%TEMP%\%%~nxf.tmp
+        break >%TEMP%\%%~nxf.local.tmp
         for /f "tokens=*" %%l in (%%~f) do (
-            >>%TEMP%\%%~nxf.tmp echo %%~nxl
+            >>%TEMP%\%%~nxf.local.tmp echo %%~nxl
         )
-        if !scriptDebugFlag! neq 0 (echo Writing filtered remote filepaths in %TEMP%\%%~nxf.tmp.tmp)
-        break>%TEMP%\%%~nxf.tmp.tmp
+        break>%TEMP%\%%~nxf.remote.tmp
         if defined remoteIndexName (
-            findstr /L /V /G:"%TEMP%\%%~nxf.tmp" %remoteListPath% >%TEMP%\%%~nxf.tmp.tmp
+            if !scriptDebugFlag! neq 0 (
+                echo Writing filtered remote filepaths in %TEMP%\%%~nxf.remote.tmp
+            )
+            @REM should we instead loop through local.tmp and elim remote path one file a time?
+            findstr /I /L /V /G:"%TEMP%\%%~nxf.local.tmp" %remoteListPath% >%TEMP%\%%~nxf.remote.tmp
         )
-        @REM type %%f >>%TEMP%\%%~nxf.tmp.tmp
-        type %TEMP%\%%~nxf.tmp.tmp >>%%f
+        type %TEMP%\%%~nxf.remote.tmp >>%%f
         if !scriptDebugFlag! neq 0 (echo Cleaning up tmp files)
-        del %TEMP%\%%~nxf.tmp %TEMP%\%%~nxf.tmp.tmp
+        del %TEMP%\%%~nxf.local.tmp %TEMP%\%%~nxf.remote.tmp
     )
 )
 if !needToStartSearch! equ 1 goto startfzfPart
 goto endCleanUp
 
 :startfzfPart
-REM san check
+@REM san check
 if not exist %fileListPath% (
     echo %fileListPath% not found
     goto endCleanUp
 )
-set fzfCmd=fzf
+set fzfCmd=%fzfPath% %fzfDefaultPara%
 if !useFzfPreview! neq 0 (
-    set fzfCmd=!fzfCmd! --preview "echo {}" --preview-window "hidden:wrap" ^
---bind "!fzfPreviewKey!:toggle-preview"
+    set fzfCmd=!fzfCmd! --preview "echo {}" --preview-window "hidden:wrap" --bind "!fzfPreviewKey!:toggle-preview"
 )
 if not [!cliQueryStr!]==[] (
     set fzfCmd=!fzfCmd! -q "!cliQueryStr!"
@@ -307,6 +331,10 @@ if not [!fzfResult!]==[] (
             goto endCleanUp
         )
     ) else (
+        if [!rcloneDrive!]==[] (
+            echo No remoted defined but nonlocal file is selected
+            exit /b 1
+        )
         echo File
         echo "!fzfResult!"
         echo is on remote
@@ -387,3 +415,4 @@ if not [!fzfResult!]==[] (
 @REM reset chcp
 chcp !origChcp! >NUL
 endlocal
+

@@ -17,7 +17,11 @@ def getArgs() -> argparse.Namespace:
     parser.add_argument(
             '--lang',
             type=str,
-            help="List only the font that support these languages, IETF tags")
+            help="List only the font that support these languages")
+    parser.add_argument(
+            '--flang',
+            type=str,
+            help="List only the font that support these languages family, IETF tags")
     parser.add_argument(
             '--style-filter',
             dest='filter',
@@ -48,7 +52,9 @@ if __name__ == '__main__':
     fcCmd = [ args.fcListPath ]
     fcFilterStr = ':'
     if args.lang is not None:
-        fcFilterStr += f':familylang={args.lang}'
+        fcFilterStr += f':lang={args.lang}'
+    if args.flang is not None:
+        fcFilterStr += f':familylang={args.flang}'
     if args.filter is not None:
         fcFilterStr += ':style=' + args.filter
     fcElementList = [ 'family' ]

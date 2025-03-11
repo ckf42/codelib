@@ -11,7 +11,7 @@ import requests as rq
 
 from personalPylib import userConfirm
 
-hashNameTuple: tuple[str, ...] = ('md5', 'sha1', 'sha256')
+defaultHashNames: tuple[str, ...] = ('md5', 'sha1', 'sha256')
 hashAlwaysCompute: frozenset[str] = frozenset(('md5',))
 
 
@@ -29,6 +29,28 @@ def getLinkContent(
 def getLinkContent(
     hashLink: str,
     asHashDigest: tp.Literal[False]) -> tuple[bytes | None, str]: ...
+
+
+def getHash(hashInput: str, parser: argparse.ArgumentParser, hName: str):
+    sigContent: str | None = None
+    try:
+        # is digest
+        int(hashInput, base=16)
+        sigContent = hashInput.lower()
+    except ValueError:
+        sigContent, report = getLinkContent(
+            hashInput.strip(' \'\"'),
+            asHashDigest=True)
+        if report == 'failed':
+            parser.error(f"Failed to get content for {hName}")
+        if report == 'file':
+            print(f"Input for {hName} looks like a file path")
+        elif report == 'url':
+            print(f"Input for {hName} looks like a URL")
+        print("Fetched content:")
+        print(sigContent)
+        print()
+        return sigContent
 
 
 def getLinkContent(
@@ -69,19 +91,24 @@ def getArgs() -> argparse.Namespace:
     hashOptionGp = parser.add_argument_group(
         "Hash Options",
         "Except MD5, only hashes specified are computed. "
-        "MD5 is always computed (for VirusTotal).")
+        "MD5 is always computed.")
     hashOptionGp.add_argument(
         '--pysum',
         action='store_true',
         help="Only use Python hashlib module to calculate hash. "
         "If not specified, will use hasher executable whenever it exists in path "
         "and use hashlib only as fallback")
-    for hName in hashNameTuple:
+    for hName in defaultHashNames:
         hashOptionGp.add_argument(
             f'--{hName}',
             type=str,
             help=f"The {hName} hash (in hexadecimal), "
             "the file path to digest file, or a URL to it")
+    hashOptionGp.add_argument(
+            '--althash',
+            type=str,
+            help="Use other hash algorithm. Will always use Python hashlib. "
+            "Format: {hashName}:{hash/path/URL}")
     gpgOptionGp = parser.add_argument_group("GPG Options")
     gpgOptionGp.add_argument(
         '--sig',
@@ -105,7 +132,7 @@ def getArgs() -> argparse.Namespace:
         parser.error("Requested path does not point to a file")
     args.file = filePath
     args._hashInShell = dict()
-    for hName in hashNameTuple:
+    for hName in defaultHashNames:
         if getattr(args, hName) is not None or hName in hashAlwaysCompute:
             isHashUtilFound: bool = False
             if not args.pysum and which(hName + 'sum') is not None:
@@ -117,27 +144,18 @@ def getArgs() -> argparse.Namespace:
             else:
                 args._hashInShell[hName] = False
         # get digest content
-        if getattr(args, hName) is not None:
-            hashInput: str = getattr(args, hName).strip()
-            sigContent: str | None = None
-            try:
-                # is digest
-                int(hashInput, base=16)
-                sigContent = hashInput.lower()
-            except ValueError:
-                sigContent, report = getLinkContent(
-                    hashInput.strip(' \'\"'),
-                    asHashDigest=True)
-                if report == 'failed':
-                    parser.error(f"Failed to get content for {hName}")
-                if report == 'file':
-                    print(f"Input for {hName} looks like a file path")
-                elif report == 'url':
-                    print(f"Input for {hName} looks like a URL")
-                print("Fetched content:")
-                print(sigContent)
-                print()
-            setattr(args, hName, sigContent)
+        if (hashUserInput := getattr(args, hName)) is not None:
+            setattr(args, hName, getHash(hashUserInput.strip(), parser, hName))
+    if args.althash is not None:
+        args.althashName, altHashUserInput = args.althash.split(':', maxsplit=1)
+        args.althashName = args.althashName.strip()
+        if args.althashName in defaultHashNames:
+            parser.error(f"Specify {args.althashName} hash with --{args.althashName}")
+        if args.althashName not in hashlib.algorithms_available:
+            parser.error(
+                    f"Requested hash {args.althashName} is not available in hashlib")
+        args._hashInShell[args.althashName] = False
+        args.althashVal = getHash(altHashUserInput, parser, args.althashName)
     if args.sig is not None:
         if which(args.gpgpath) is None:
             parser.error("gpg not found in PATH")
@@ -200,7 +218,7 @@ def hasher(
 
 def getHashRes(
         fileLoc: pathlib.Path,
-        hashesToCompute: tuple[str, ...],
+        hashesToCompute: list[str],
         hashInShellDict: dict[str, bool]) -> dict[str, str]:
     return {hName: hasher(fileLoc, hName, hashInShellDict[hName])
             for hName in hashesToCompute}
@@ -287,17 +305,27 @@ def main() -> None:
     if args.sig is not None:
         verifyGpgSig(args.file, args.sig, args._sigIsFile,
                      args.gpgpath, args.sysenc)
-    hashesToCompute: tuple[str, ...] = tuple(
+    hashesToCompute: list[str] = [
         hName
-        for hName in hashNameTuple
-        if getattr(args, hName) is not None or hName in hashAlwaysCompute)
+        for hName in defaultHashNames
+        if getattr(args, hName) is not None or hName in hashAlwaysCompute
+    ]
+    providedHashes: dict[str, str] = {
+        hName: h
+        for hName in defaultHashNames
+        if (h := getattr(args, hName)) is not None
+    }
+    if args.althash is not None:
+        hashesToCompute.append(args.althashName)
+        providedHashes[args.althashName] = args.althashVal
     hashDict: dict[str, str] = getHashRes(
         args.file,
         hashesToCompute,
         args._hashInShell)
-    for hName, hDigest in hashDict.items():
+    for hName in hashesToCompute:
+        hDigest = hashDict[hName]
         print(f"{hName} hash: {hDigest}")
-        providedHash: str | None = getattr(args, hName)
+        providedHash: str | None = providedHashes.get(hName, None)
         # providedHash is None if hName is in hashAlwaysCompute
         if providedHash is not None and not checkHashMatch(hDigest, providedHash):
             print(f"*** {hName} hash ({hDigest}) does not match "

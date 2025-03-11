@@ -88,6 +88,12 @@ def getArgs() -> argparse.Namespace:
         default='cp950',
         help="The encoding used to communicate with shell "
         "(to invoke hashsum executable and gpg)")
+    parser.add_argument(
+        '--checkcert',
+        action='store_true',
+        help="Check if the file is digitally signed. "
+        "By default, only file with .exe extension will be checked. "
+        "Specify this to check on all files")
     hashOptionGp = parser.add_argument_group(
         "Hash Options",
         "Except MD5, only hashes specified are computed. "
@@ -119,6 +125,13 @@ def getArgs() -> argparse.Namespace:
         type=str,
         default='gpg',
         help="The path to gpg executable. Defaults to the first one in PATH")
+    vtOptionGp = parser.add_argument_group("VirusTotal Options")
+    vtOptionGp.add_argument(
+        '--vtcheck',
+        action=argparse.BooleanOptionalAction,
+        help="Determine if the md5 should be sent to VirusTotal automatically. "
+        "This will open the default webbrowser. "
+        "If not provided, will ask before sending")
     scanOptionGp = parser.add_argument_group("Windows Defender Options")
     scanOptionGp.add_argument(
         '--scan',
@@ -179,7 +192,6 @@ def getArgs() -> argparse.Namespace:
 
 
 def displayFileSig(fileLoc: pathlib.Path, enc: str) -> None:
-    print(f"file size (in byte): {fileLoc.stat().st_size:,}")
     fileSigStatus: str = run(
         ['powershell', '-Command',
          '(', 'Get-AuthenticodeSignature',
@@ -188,13 +200,18 @@ def displayFileSig(fileLoc: pathlib.Path, enc: str) -> None:
         shell=True,
         text=True).stdout.strip()
     print("File signature status:", fileSigStatus)
-    if fileSigStatus != 'NotSigned':
+    if fileSigStatus not in ('NotSigned', 'UnknownError'):
+        powerShellCmd = ' '.join((
+            '(',
+                'Get-AuthenticodeSignature',
+                '-FilePath', f'"{str(fileLoc.resolve())}"',
+            ').SignerCertificate',
+            '|',
+            'Format-List'
+        ))
         print("Signature info:")
         print(run(
-            ['powershell', '-Command', '(',
-             'Get-AuthenticodeSignature',
-             '-FilePath', f'"{str(fileLoc.resolve())}"', ').SignerCertificate',
-             '|', 'Format-List'],
+            ['powershell', '-Command', powerShellCmd],
             stdout=PIPE,
             text=True,
             shell=True,
@@ -285,6 +302,7 @@ def verifyGpgSig(
     _, serrData = p.stdout, p.stderr
     if 'failed' in serrData:
         print("Error occurred. Please try again later. ")
+        print(f"\tDetailed error message: {serrData}")
         return
     print("Key received")
     # second pass
@@ -301,7 +319,9 @@ def verifyGpgSig(
 
 def main() -> None:
     args: argparse.Namespace = getArgs()
-    displayFileSig(args.file, args.sysenc)
+    print(f"file size (in byte): {args.file.stat().st_size:,}")
+    if args.checkcert or args.file.suffix == '.exe':
+        displayFileSig(args.file, args.sysenc)
     if args.sig is not None:
         verifyGpgSig(args.file, args.sig, args._sigIsFile,
                      args.gpgpath, args.sysenc)
@@ -331,9 +351,9 @@ def main() -> None:
             print(f"*** {hName} hash ({hDigest}) does not match "
                   "with the specified digest ***")
     if 'md5' in hashAlwaysCompute \
-            and userConfirm(
-                "Open VirusTotal in default browser? [Y/n]: ",
-                defaultChar='y'):
+            and (userConfirm("Open VirusTotal in default browser? [Y/n]: ", defaultChar='y')
+                 if args.vtcheck is None
+                 else args.vtcheck):
         open_new_tab(
             f"https://www.virustotal.com/gui/search/{hashDict['md5']}")
     if which('MpCmdRun.exe', path='C:/Program Files/Windows Defender') is not None \

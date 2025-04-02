@@ -134,6 +134,10 @@ Same as `previewLatex.py` but
 
 If `sympy` is installed and `wezterm` is used, you may put this in ipython `startup` directory in the profile.
 
+## previewInTerm.py
+
+Similar to `previewLatex.py` but takes a `SageMath` `Graphics` object and show the image in wezterm.
+
 ## pipRemovable.py
 
 A python script to check the dependencies of packages. Depends on `pip` and `pipdeptree >= 0.5.0` (ironically). 

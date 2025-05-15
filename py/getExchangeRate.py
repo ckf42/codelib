@@ -17,7 +17,7 @@ Allowed_operators: dict[tp.Type, tp.Callable] = {
 }
 
 
-def stringEval(expr: str) -> float:
+def stringEval(expr: str, useSuffix: bool = False) -> float:
     # WARNING: potentially unsafe
     # see https://stackoverflow.com/a/9558001
     def evaluator(node) -> float:
@@ -30,6 +30,10 @@ def stringEval(expr: str) -> float:
                 return Allowed_operators[type(op)](evaluator(left), evaluator(right))
             case _:
                 raise TypeError(f"Unsupported operation {type(node)}")
+    if useSuffix:
+        expr = expr.lower()
+        for sym, p in (('k', 3), ('m', 6), ('b', 9)):
+            expr = expr.replace(sym, f'*1e{p}')
     return evaluator(ast.parse(expr, mode='eval').body)
 
 
@@ -39,8 +43,8 @@ def getArgs() -> argparse.Namespace:
         "European Central Bank (ecb) (seemingly) only has API to convert from EUR. "
         "Non-EUR conversion is done by converting to EUR first, "
         "and the result is expected to be inaccurate. "
-        "Exchange-api (https://github.com/fawazahmed0/exchange-api, formerly Currency-api) "
-        "also has exchange rates for cryptocurrencies. "
+        "Exchange-api (https://github.com/fawazahmed0/exchange-api, "
+        "formerly Currency-api) also has exchange rates for cryptocurrencies. "
         "Exchange Rate API (https://www.exchangerate-api.com) "
         "is queried via their open access endpoint, "
         "which has a 20-minute IP-based rate limit. "
@@ -57,6 +61,14 @@ def getArgs() -> argparse.Namespace:
         "Support for allowed arithmetic operations is limited. "
         "Note that evaluation of such expression is ***UNSAFE***. "
         "Defaults to 1.0")
+    parser.add_argument(
+        '--suffix', '-s',
+        action='store_true',
+        help="Enable using suffix (`k`, `m`, `b`) as shorthand to represent "
+        "thousand, million, billion. "
+        "Note that the processing is done with string replace and so may require "
+        "additional parentheses for correct precedence."
+    )
     parser.add_argument(
         'fromCurr',
         type=str,
@@ -99,7 +111,7 @@ def getArgs() -> argparse.Namespace:
         help="Try all backends in random order. "
         "Implies --tryAll")
     args = parser.parse_args()
-    args.amount = stringEval(args.amount)
+    args.amount = stringEval(args.amount, args.suffix)
     if args.backend == 'curr-api':
         args.backend = 'exch-api'
     if args.random:
@@ -141,13 +153,16 @@ def ecbQuery(fromCurr: str, toCurr: str) -> dict:
         if resp.status_code == 200:
             try:
                 respJs = resp.json()
-                respTime = respJs['structure']['dimensions']['observation'][0]['values'][0]['id']
-                respVal = respJs['dataSets'][0]['series']['0:0:0:0:0']['observations']['0'][0]
+                respTime = respJs['structure']['dimensions']['observation']\
+                        [0]['values'][0]['id']
+                respVal = respJs['dataSets'][0]['series']['0:0:0:0:0']['observations']\
+                        ['0'][0]
                 return {'rate': respVal, 'time': respTime}
             except rq.exceptions.JSONDecodeError as e:
                 if resp.headers['Content-Length'] == '0':
                     raise RuntimeError({
-                        'msg': f"Empty response. Currency may not be supported: {targetCurr}"
+                        'msg': "Empty response. "\
+                                f"Currency may not be supported: {targetCurr}"
                     }) from e
                 else:
                     raise RuntimeError({'msg': "Failed parsing response",
@@ -195,8 +210,9 @@ def currApiQuery(fromCurr: str, toCurr: str) -> dict:
         raise RuntimeError({'msg': "Failed parsing response",
                             'respContent': resp.content}) from e
     except KeyError as e:
-        raise RuntimeError({'msg': f"No record from {fromCurr.lower()} to {toCurr.lower()}"}) \
-            from e
+        raise RuntimeError({
+                'msg': f"No record from {fromCurr.lower()} to {toCurr.lower()}"
+            }) from e
 
 
 def erApiQuery(fromCurr: str, toCurr: str) -> dict:
@@ -221,7 +237,8 @@ def erApiQuery(fromCurr: str, toCurr: str) -> dict:
         else:
             return {
                 'backend': 'er-api',
-                'time': str(datetime.date.fromtimestamp(respJs['time_last_update_unix'])),
+                'time': str(datetime.date\
+                        .fromtimestamp(respJs['time_last_update_unix'])),
                 'rate': respJs['rates'][toCurr.upper()]
             }
     except rq.exceptions.JSONDecodeError as e:
@@ -229,7 +246,7 @@ def erApiQuery(fromCurr: str, toCurr: str) -> dict:
                             'respContent': resp.Content}) from e
 
 
-def main():
+def main() -> None:
     args = getArgs()
     backendDict = {
         'exch-api': currApiQuery,
@@ -256,6 +273,7 @@ def main():
             raise RuntimeError("All backend failed")
     else:
         resDict = backendDict[args.backend](args.fromCurr, args.toCurr)
+    assert resDict is not None
     print(" ".join((
         args.fromCurr,
         formatAmount(args.amount, args),

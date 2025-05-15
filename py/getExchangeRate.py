@@ -12,7 +12,8 @@ Allowed_operators: dict[tp.Type, tp.Callable] = {
     ast.Sub: op.sub,
     ast.Mult: op.mul,
     ast.Div: op.truediv,
-    ast.USub: op.neg
+    ast.USub: op.neg,
+    ast.Pow: op.pow,
 }
 
 

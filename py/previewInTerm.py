@@ -16,6 +16,7 @@ def previewInTerm(graphicObj, suffix='.png', *args, **kwargs):
                 ['cygpath', '-w', '/tmp'],
                 capture_output=True,
                 text=True).stdout.strip()
+    pngPath = None
     try:
         fp = tempfile.NamedTemporaryFile(
                 'wt',
@@ -34,6 +35,6 @@ def previewInTerm(graphicObj, suffix='.png', *args, **kwargs):
     except Exception as e:
         print(e)
     finally:
-        if pngPath.is_file():
+        if pngPath is not None and pngPath.is_file():
             pngPath.unlink()
 

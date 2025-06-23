@@ -22,8 +22,8 @@ goto paraProcessing
 
 if [!para!]==[] exit /b
 call :normalizePath "!para!"
-if exist !para! (
-    !explorerCmd!!para!
+if exist "!para!" (
+    !explorerCmd!"!para!"
 ) else (
     echo !para! does not exist
 )
